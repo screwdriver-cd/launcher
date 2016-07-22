@@ -9,3 +9,15 @@ build:
     - script:
       name: go build
       code: go build launch.go
+
+deploy:
+  steps:
+    - script:
+        name: get version from VERSION file
+        code: export VERSION=$(cat VERSION)
+    - github-create-release:
+        token: $GITHUB_TOKEN
+        tag: $VERSION
+    - github-upload-asset:
+        token: $GITHUB_TOKEN
+        file: launch
