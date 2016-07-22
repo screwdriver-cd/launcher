@@ -17,7 +17,7 @@ deploy:
         code: export VERSION=$(cat VERSION)
     - github-create-release:
         token: $GITHUB_TOKEN
-        tag: $VERSION
+        tag: v$VERSION
     - github-upload-asset:
         token: $GITHUB_TOKEN
         file: launch
