@@ -21,3 +21,4 @@ deploy:
     - github-upload-asset:
         token: $GITHUB_TOKEN
         file: launch
+        content_type: application/octet-stream
