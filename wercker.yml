@@ -13,11 +13,17 @@ build:
 deploy:
   steps:
     - script:
-        name: get version from VERSION file
-        code: export VERSION=$(cat VERSION)
+        name: get highest version from tags
+        code: export VERSION=$(sh incrementVersion.sh)
+    - script:
+        name: add new annotated tag
+        code: git tag -a $VERSION -m "Tagging release version $VERSION"
+    - script:
+        name: push newly added tag
+        code: git push origin $VERSION    
     - github-create-release:
         token: $GITHUB_TOKEN
-        tag: v$VERSION
+        tag: $VERSION
     - github-upload-asset:
         token: $GITHUB_TOKEN
         file: launch
