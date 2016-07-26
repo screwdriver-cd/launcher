@@ -13,6 +13,9 @@ build:
 deploy:
   steps:
     - script:
+        name: update tags
+        code: git fetch --tags
+    - script:
         name: get highest version from tags
         code: export VERSION=$(sh incrementVersion.sh)
     - script:
