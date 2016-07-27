@@ -11,9 +11,13 @@ build:
       code: go build launch.go
 
 deploy:
+  steps:
     # Add our deploy key to SSH
     - add-ssh-key:
       keyname: GIT_KEY
+
+    - install-packages:
+        packages: openssh-client
 
     # Add GitHub's SSH fingerprint to SSH known_hosts
     - add-to-known_hosts:
