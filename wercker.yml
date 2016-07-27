@@ -16,6 +16,9 @@ deploy:
     - add-ssh-key:
       keyname: GIT_KEY
 
+    - install-packages:
+        packages: openssh-client
+
     # Add GitHub's SSH fingerprint to SSH known_hosts
     - add-to-known_hosts:
       hostname: github.com
