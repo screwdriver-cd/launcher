@@ -16,6 +16,9 @@ deploy:
     - add-ssh-key:
       keyname: GIT_KEY
 
+    - install-packages:
+        packages: openssh-client
+
     # Add GitHub's SSH fingerprint to SSH known_hosts
     - add-to-known_hosts:
       hostname: github.com
@@ -23,19 +26,12 @@ deploy:
       type: rsa
 
     - script:
-        name: update tags
-        code: git fetch --tags
-
-    - script:
-        name: update tags
-        code: git fetch --tags
-    - script:
         name: get highest version from tags
         code: export VERSION=$(bash incrementVersion.sh)
 
     - script:
-        name: add new annotated tag
-        code: git tag -a $VERSION -m "Tagging release version $VERSION"
+        name: add new tag
+        code: git tag $VERSION
 
     - script:
         name: push newly added tag
