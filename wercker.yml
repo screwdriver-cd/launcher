@@ -11,6 +11,7 @@ build:
       code: go build launch.go
 
 deploy:
+  steps:
     # Add our deploy key to SSH
     - add-ssh-key:
       keyname: GIT_KEY
