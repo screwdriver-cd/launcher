@@ -1,41 +1,55 @@
 package main
 
-import (
+import(
 	"fmt"
 	"os"
-	"os/exec"
 )
 
-type shellOutInterface interface {
-	run(string, ...string) ([]byte, error)
-}
+var SCRIPT_DIR string
+var GIT_ORG string
+var GIT_REPO string
+var GIT_PATH string
+var GIT_BRANCH string
+var JOB_NAME string
 
-var shellOut shellOutInterface
 
-type shellOutImpl struct{}
-
-func init() {
-	shellOut = shellOutImpl{}
-}
-
-func (s shellOutImpl) run(cmd string, args ...string) (out []byte, err error) {
-	return exec.Command(cmd, args...).CombinedOutput()
-}
-
-func runLauncher(args ...string) (out []byte, err error) {
-	cmdName := "/opt/screwdriver/launch.sh"
-	return shellOut.run(cmdName, args...)
-}
-
-func main() {
-	var out []byte
-	var err error
-
-	fmt.Println("Launching the launcher...")
-	if out, err = runLauncher(os.Args[1:]...); err != nil {
-		fmt.Fprintln(os.Stderr, "There was an error shelling out to the launcher: ", err)
+func main(){
+	//Set up arguments
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "Missing arguments: {GIT_ORG, GIT_REPO, GIT_BRANCH, JOB_NAME}")
 		os.Exit(1)
 	}
-	fmt.Println(string(out))
-	fmt.Println("Launched successfully.")
+	GIT_ORG = os.Args[1]
+	GIT_REPO = os.Args[2]
+	GIT_PATH = "github.com/" + GIT_ORG + "/" + GIT_REPO
+	GIT_BRANCH = "master"
+	if len(os.Args) >= 4 {
+		GIT_BRANCH = os.Args[3]
+	}
+	JOB_NAME = "main"
+	if len(os.Args) == 5 {
+		JOB_NAME = os.Args[4]
+	}
+
+	//Shell commands to execute in order
+	err := Clone(GIT_PATH, GIT_BRANCH)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "There was an error cloning the git repository: ", err)
+		os.Exit(1)
+	}
+
+	_, err = FetchAndMergePR(GIT_BRANCH, JOB_NAME)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "There was a fetching or merging the pull request ", err)
+		os.Exit(1)
+	}
+
+	err = ArtifactsDirSetUp()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "There was an error setting up the artifacts directory: ", err)
+		os.Exit(1)
+	}
+
+
+	//Call remaining shell commands here:
 }
