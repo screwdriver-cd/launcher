@@ -3,39 +3,59 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
+
+	"github.com/screwdriver-cd/launcher/screwdriver"
+	"github.com/urfave/cli"
 )
 
-type shellOutInterface interface {
-	run(string, ...string) ([]byte, error)
-}
+// VERSION gets set by the build script via the LDFLAGS
+var VERSION string
 
-var shellOut shellOutInterface
+func launch(api screwdriver.API, buildID string) error {
+	_, err := api.BuildFromID(buildID)
+	if err != nil {
+		return fmt.Errorf("fetching build ID %q: %v", buildID, err)
+	}
 
-type shellOutImpl struct{}
-
-func init() {
-	shellOut = shellOutImpl{}
-}
-
-func (s shellOutImpl) run(cmd string, args ...string) (out []byte, err error) {
-	return exec.Command(cmd, args...).CombinedOutput()
-}
-
-func runLauncher(args ...string) (out []byte, err error) {
-	cmdName := "/opt/screwdriver/launch.sh"
-	return shellOut.run(cmdName, args...)
+	return nil
 }
 
 func main() {
-	var out []byte
-	var err error
-
-	fmt.Println("Launching the launcher...")
-	if out, err = runLauncher(os.Args[1:]...); err != nil {
-		fmt.Fprintln(os.Stderr, "There was an error shelling out to the launcher: ", err)
-		os.Exit(1)
+	app := cli.NewApp()
+	app.Name = "launcher"
+	app.Usage = "launch Screwdriver jobs"
+	if VERSION == "" {
+		VERSION = "0.0.0"
 	}
-	fmt.Println(string(out))
-	fmt.Println("Launched successfully.")
+	app.Version = VERSION
+
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "api-url",
+			Usage: "set the API URL for Screwrdriver",
+		},
+		cli.StringFlag{
+			Name:  "tokenfile",
+			Usage: "set the JWT used for accessing Screwdriver's API",
+		},
+	}
+
+	app.Action = func(c *cli.Context) error {
+		url := c.String("api-url")
+		token := "odsjfadfg"
+		buildID := c.Args()[0]
+
+		api, err := screwdriver.New(url, token)
+		if err != nil {
+			fmt.Printf("creating Scredriver API %v: %v", buildID, err)
+		}
+
+		if err = launch(api, buildID); err != nil {
+			fmt.Printf("Error running launcher: %v", err)
+			os.Exit(1)
+		}
+		return nil
+	}
+	app.Run(os.Args)
+
 }

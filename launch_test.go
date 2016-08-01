@@ -4,39 +4,54 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
-var shellOutSetup map[string]string
+type NewAPI func(buildID string, token string) (screwdriver.API, error)
+type FakeAPI screwdriver.API
+type FakeBuild screwdriver.Build
 
-type shellOutMock struct{}
-
-func (s shellOutMock) run(cmd string, args ...string) (out []byte, err error) {
-	cmdslice := []string{cmd}
-	cmdslice = append(cmdslice, args...)
-
-	cmd = strings.Join(cmdslice, " ")
-	output := shellOutSetup[cmd]
-	if output == "" {
-		return nil, fmt.Errorf("Error: %s not mocked", cmd)
-	}
-
-	return []byte(output), nil
+type MockAPI struct {
+	buildFromID func(string) (screwdriver.Build, error)
 }
 
-func Test(t *testing.T) {
-	shellOut = shellOutMock{}
+func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
+	if f.buildFromID != nil {
+		return f.buildFromID(buildID)
+	}
+	return screwdriver.Build(FakeBuild{}), nil
+}
 
-	shellOutSetup = map[string]string{
-		"/opt/screwdriver/launch.sh abc": "abc",
+func TestBuildFromId(t *testing.T) {
+	testID := "TESTID"
+	api := MockAPI{
+		buildFromID: func(buildID string) (screwdriver.Build, error) {
+			if buildID != testID {
+				t.Errorf("buildID == %v, want %v", buildID, testID)
+			}
+			return screwdriver.Build(FakeBuild{}), nil
+		},
 	}
 
-	output, err := runLauncher("abc")
-	if string(output) != shellOutSetup["/opt/screwdriver/launch.sh abc"] {
-		errmsg := fmt.Sprintf("Expected %s, got %s", shellOutSetup["echo"], output)
-		t.Error(errmsg)
+	launch(screwdriver.API(api), testID)
+}
+
+func TestBuildFromIdError(t *testing.T) {
+	api := MockAPI{
+		buildFromID: func(buildID string) (screwdriver.Build, error) {
+			err := fmt.Errorf("testing error returns")
+			return screwdriver.Build(FakeBuild{}), err
+		},
 	}
-	if err != nil {
-		errmsg := fmt.Sprintf("Error running command: %s", err)
-		t.Error(errmsg)
+
+	err := launch(screwdriver.API(api), "shoulderror")
+	if err == nil {
+		t.Errorf("err should not be nil")
+	}
+
+	expected := `fetching build ID "shoulderror"`
+	if !strings.Contains(err.Error(), expected) {
+		t.Errorf("err == %q, want %q", err, expected)
 	}
 }
