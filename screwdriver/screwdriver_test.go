@@ -9,9 +9,12 @@ import (
 	"testing"
 )
 
-func makeFakeHTTPClient(code int, body string, validator func(req *http.Request)) *http.Client {
+func makeFakeHTTPClient(t *testing.T, code int, body string) *http.Client {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		validator(r)
+		wantToken := "faketoken"
+		wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+
+		validateHeader(t, "Authorization", wantTokenHeader)
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, body)
@@ -49,13 +52,9 @@ func TestFromBuildId(t *testing.T) {
 		t.Fatalf("Unable to Marshal JSON for test: %v", err)
 	}
 
-	wantToken := "faketoken"
-	wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+	http := makeFakeHTTPClient(t, 200, string(json))
 
-	validatorFunc := validateHeader(t, "Authorization", wantTokenHeader)
-	http := makeFakeHTTPClient(200, string(json), validatorFunc)
-
-	testAPI := api{"http://fakeurl", wantToken, http}
+	testAPI := api{"http://fakeurl", "faketoken", http}
 	build, err := testAPI.BuildFromID(want.ID)
 
 	if err != nil {
@@ -64,6 +63,27 @@ func TestFromBuildId(t *testing.T) {
 
 	if build != want {
 		t.Errorf("build == %#v, want %#v", build, want)
+	}
+}
+
+func TestBuild404(t *testing.T) {
+	want := SDError{
+		StatusCode: 404,
+		Reason:     "Not Found",
+		Message:    "Build does not exist",
+	}
+
+	json, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("Unable to Marshal JSON for test: %v", err)
+	}
+
+	http := makeFakeHTTPClient(t, 404, string(json))
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	_, err = testAPI.BuildFromID("doesntexist")
+
+	if err != want {
+		t.Fatalf("err = %v, want %v", err, want)
 	}
 }
 
@@ -77,13 +97,9 @@ func TestFromJobId(t *testing.T) {
 		t.Fatalf("Unable to Marshal JSON for test: %v", err)
 	}
 
-	wantToken := "faketoken"
-	wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+	http := makeFakeHTTPClient(t, 200, string(json))
 
-	validatorFunc := validateHeader(t, "Authorization", wantTokenHeader)
-	http := makeFakeHTTPClient(200, string(json), validatorFunc)
-
-	testAPI := api{"http://fakeurl", wantToken, http}
+	testAPI := api{"http://fakeurl", "faketoken", http}
 	job, err := testAPI.JobFromID(want.ID)
 
 	if err != nil {
@@ -92,6 +108,27 @@ func TestFromJobId(t *testing.T) {
 
 	if job != want {
 		t.Errorf("job == %#v, want %#v", job, want)
+	}
+}
+
+func TestJob404(t *testing.T) {
+	want := SDError{
+		StatusCode: 404,
+		Reason:     "Not Found",
+		Message:    "Job does not exist",
+	}
+
+	json, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("Unable to Marshal JSON for test: %v", err)
+	}
+
+	http := makeFakeHTTPClient(t, 404, string(json))
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	_, err = testAPI.JobFromID("doesntexist")
+
+	if err != want {
+		t.Fatalf("err = %v, want %v", err, want)
 	}
 }
 
@@ -105,13 +142,9 @@ func TestFromPipelineId(t *testing.T) {
 		t.Fatalf("Unable to Marshal JSON for test: %v", err)
 	}
 
-	wantToken := "faketoken"
-	wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+	http := makeFakeHTTPClient(t, 200, string(json))
 
-	validatorFunc := validateHeader(t, "Authorization", wantTokenHeader)
-	http := makeFakeHTTPClient(200, string(json), validatorFunc)
-
-	testAPI := api{"http://fakeurl", wantToken, http}
+	testAPI := api{"http://fakeurl", "faketoken", http}
 	pipeline, err := testAPI.PipelineFromID(want.ID)
 
 	if err != nil {
@@ -120,5 +153,26 @@ func TestFromPipelineId(t *testing.T) {
 
 	if pipeline != want {
 		t.Errorf("pipeline == %#v, want %#v", pipeline, want)
+	}
+}
+
+func TestPipeline404(t *testing.T) {
+	want := SDError{
+		StatusCode: 404,
+		Reason:     "Not Found",
+		Message:    "Pipeline does not exist",
+	}
+
+	json, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("Unable to Marshal JSON for test: %v", err)
+	}
+
+	http := makeFakeHTTPClient(t, 404, string(json))
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	_, err = testAPI.PipelineFromID("doesntexist")
+
+	if err != want {
+		t.Fatalf("err = %v, want %v", err, want)
 	}
 }
