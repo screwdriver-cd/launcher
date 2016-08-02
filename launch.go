@@ -17,9 +17,14 @@ func launch(api screwdriver.API, buildID string) error {
 		return fmt.Errorf("fetching build ID %q: %v", buildID, err)
 	}
 
-	_, err = api.JobFromID(b.JobID)
+	j, err := api.JobFromID(b.JobID)
 	if err != nil {
 		return fmt.Errorf("fetching Job ID %q: %v", b.JobID, err)
+	}
+
+	_, err = api.PipelineFromID(j.PipelineID)
+	if err != nil {
+		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
 	return nil

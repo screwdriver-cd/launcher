@@ -12,10 +12,12 @@ type NewAPI func(buildID string, token string) (screwdriver.API, error)
 type FakeAPI screwdriver.API
 type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
+type FakePipeline screwdriver.Pipeline
 
 type MockAPI struct {
-	buildFromID func(string) (screwdriver.Build, error)
-	jobFromID   func(string) (screwdriver.Job, error)
+	buildFromID    func(string) (screwdriver.Build, error)
+	jobFromID      func(string) (screwdriver.Job, error)
+	pipelineFromID func(string) (screwdriver.Pipeline, error)
 }
 
 func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
@@ -30,6 +32,13 @@ func (f MockAPI) JobFromID(jobID string) (screwdriver.Job, error) {
 		return f.jobFromID(jobID)
 	}
 	return screwdriver.Job(FakeJob{}), nil
+}
+
+func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error) {
+	if f.pipelineFromID != nil {
+		return f.pipelineFromID(pipelineID)
+	}
+	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
 func TestBuildFromId(t *testing.T) {
@@ -102,6 +111,56 @@ func TestJobFromIdError(t *testing.T) {
 	}
 
 	expected := fmt.Sprintf(`fetching Job ID %q`, testJobID)
+	if !strings.Contains(err.Error(), expected) {
+		t.Errorf("err == %q, want %q", err, expected)
+	}
+}
+
+func TestPipelineFromID(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testPipelineID := "PIPELINEID"
+	api := MockAPI{
+		buildFromID: func(buildID string) (screwdriver.Build, error) {
+			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
+		},
+		jobFromID: func(buildID string) (screwdriver.Job, error) {
+			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID}), nil
+		},
+		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
+			if pipelineID != testPipelineID {
+				t.Errorf("pipelineID == %v, want %v", pipelineID, testPipelineID)
+			}
+			return screwdriver.Pipeline(FakePipeline{}), nil
+		},
+	}
+
+	launch(screwdriver.API(api), testBuildID)
+}
+
+func TestPipelineFromIdError(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testPipelineID := "PIPELINEID"
+	api := MockAPI{
+		buildFromID: func(buildID string) (screwdriver.Build, error) {
+			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
+		},
+		jobFromID: func(buildID string) (screwdriver.Job, error) {
+			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID}), nil
+		},
+		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
+			err := fmt.Errorf("testing error returns")
+			return screwdriver.Pipeline(FakePipeline{}), err
+		},
+	}
+
+	err := launch(screwdriver.API(api), testBuildID)
+	if err == nil {
+		t.Errorf("err should not be nil")
+	}
+
+	expected := fmt.Sprintf(`fetching Pipeline ID %q`, testPipelineID)
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}

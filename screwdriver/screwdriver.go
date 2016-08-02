@@ -11,6 +11,7 @@ import (
 type API interface {
 	BuildFromID(buildID string) (Build, error)
 	JobFromID(jobID string) (Job, error)
+	PipelineFromID(pipelineID string) (Pipeline, error)
 }
 
 type api struct {
@@ -27,6 +28,12 @@ func New(url, token string) (API, error) {
 		&http.Client{},
 	}
 	return API(api), nil
+}
+
+// Pipeline is a Screwdriver Pipeline definition
+type Pipeline struct {
+	ID     string `json:"id"`
+	ScmURL string `json:"scmUrl"`
 }
 
 // Job is a Screwdriver Job
@@ -76,7 +83,7 @@ func (a api) BuildFromID(buildID string) (build Build, err error) {
 	return build, nil
 }
 
-// BuildFromID fetches and returns a Build object from its ID
+// JobFromID fetches and returns a Job object from its ID
 func (a api) JobFromID(jobID string) (job Job, err error) {
 	url := fmt.Sprintf("%s/jobs/%s", a.url, jobID)
 	body, err := a.get(url)
@@ -89,4 +96,19 @@ func (a api) JobFromID(jobID string) (job Job, err error) {
 		return job, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
 	return job, nil
+}
+
+// PipelineFromID fetches and returns a Pipeline object from its ID
+func (a api) PipelineFromID(jobID string) (pipeline Pipeline, err error) {
+	url := fmt.Sprintf("%s/pipelines/%s", a.url, jobID)
+	body, err := a.get(url)
+	if err != nil {
+		return pipeline, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
+	}
+
+	err = json.Unmarshal(body, &pipeline)
+	if err != nil {
+		return pipeline, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+	return pipeline, nil
 }
