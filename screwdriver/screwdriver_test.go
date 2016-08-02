@@ -66,3 +66,31 @@ func TestFromBuildId(t *testing.T) {
 		t.Errorf("build == %#v, want %#v", build, want)
 	}
 }
+
+func TestFromJobId(t *testing.T) {
+	want := Job{
+		ID:         "testId",
+		PipelineID: "testPipeline",
+	}
+	json, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("Unable to Marshal JSON for test: %v", err)
+	}
+
+	wantToken := "faketoken"
+	wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+
+	validatorFunc := validateHeader(t, "Authorization", wantTokenHeader)
+	http := makeFakeHTTPClient(200, string(json), validatorFunc)
+
+	testAPI := api{"http://fakeurl", wantToken, http}
+	job, err := testAPI.JobFromID(want.ID)
+
+	if err != nil {
+		t.Errorf("Unexpected error from JobFromID: %v", err)
+	}
+
+	if job != want {
+		t.Errorf("job == %#v, want %#v", job, want)
+	}
+}

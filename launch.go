@@ -12,9 +12,14 @@ import (
 var VERSION string
 
 func launch(api screwdriver.API, buildID string) error {
-	_, err := api.BuildFromID(buildID)
+	b, err := api.BuildFromID(buildID)
 	if err != nil {
 		return fmt.Errorf("fetching build ID %q: %v", buildID, err)
+	}
+
+	_, err = api.JobFromID(b.JobID)
+	if err != nil {
+		return fmt.Errorf("fetching Job ID %q: %v", b.JobID, err)
 	}
 
 	return nil
