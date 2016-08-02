@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
 	"github.com/urfave/cli"
@@ -10,6 +11,33 @@ import (
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
+
+type scmURL struct {
+	Host   string
+	Org    string
+	Repo   string
+	Branch string
+}
+
+func (s scmURL) String() string {
+	return fmt.Sprintf("%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
+}
+
+// e.g. "git@github.com:screwdriver-cd/launch.git#master"
+func parseScmURL(url string) (scmURL, error) {
+	r := regexp.MustCompile("(.*):(.*)/(.*)#(.*)")
+	matched := r.FindAllStringSubmatch(url, -1)
+	if matched == nil || len(matched) != 1 || len(matched[0]) != 5 {
+		return scmURL{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
+	}
+
+	return scmURL{
+		Host:   matched[0][1],
+		Org:    matched[0][2],
+		Repo:   matched[0][3],
+		Branch: matched[0][4],
+	}, nil
+}
 
 func launch(api screwdriver.API, buildID string) error {
 	b, err := api.BuildFromID(buildID)
@@ -22,11 +50,14 @@ func launch(api screwdriver.API, buildID string) error {
 		return fmt.Errorf("fetching Job ID %q: %v", b.JobID, err)
 	}
 
-	_, err = api.PipelineFromID(j.PipelineID)
+	p, err := api.PipelineFromID(j.PipelineID)
 	if err != nil {
 		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
+	// org, repo, err := parseScmURL(p.ScmURL)
+	// err := git.Checkout(p.ScmURL)
+	fmt.Println(p)
 	return nil
 }
 
@@ -67,5 +98,4 @@ func main() {
 		return nil
 	}
 	app.Run(os.Args)
-
 }

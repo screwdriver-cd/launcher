@@ -165,3 +165,37 @@ func TestPipelineFromIdError(t *testing.T) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
 }
+
+func TestParseScmURL(t *testing.T) {
+	wantHost := "git@github.com"
+	wantOrg := "screwdriver-cd"
+	wantRepo := "launcher.git"
+	wantBranch := "master"
+
+	scmURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	parsedURL, err := parseScmURL(scmURL)
+	host, org, repo, branch := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch
+	if err != nil {
+		t.Errorf("Unexpected error parsing SCM URL %q: %v", scmURL, err)
+	}
+
+	if host != wantHost {
+		t.Errorf("host = %q, want %q", host, wantHost)
+	}
+
+	if org != wantOrg {
+		t.Errorf("org = %q, want %q", org, wantOrg)
+	}
+
+	if repo != wantRepo {
+		t.Errorf("repo = %q, want %q", repo, wantRepo)
+	}
+
+	if branch != wantBranch {
+		t.Errorf("branch = %q, want %q", branch, wantBranch)
+	}
+
+	if parsedURL.String() != scmURL {
+		t.Errorf("parsedURL.String() == %q, want %q", parsedURL.String(), scmURL)
+	}
+}
