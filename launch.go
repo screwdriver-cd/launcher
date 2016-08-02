@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
@@ -18,6 +19,9 @@ type scmURL struct {
 	Repo   string
 	Branch string
 }
+
+var mkdirAll = os.MkdirAll
+var stat = os.Stat
 
 func (s scmURL) String() string {
 	return fmt.Sprintf("%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -39,6 +43,19 @@ func parseScmURL(url string) (scmURL, error) {
 	}, nil
 }
 
+func createWorkspace(org string, repo string) (workspace string, err error) {
+	workspace = path.Join("/opt/screwdriver/workspace/src", org, repo)
+	_, err = stat(workspace)
+	if err == nil {
+		return "", fmt.Errorf("Cannot create workspace %q, path already exists.", workspace)
+	}
+	err = mkdirAll(workspace, 0777)
+	if err != nil {
+		return "", fmt.Errorf("Creating workspace: %v", err)
+	}
+	return workspace, err
+}
+
 func launch(api screwdriver.API, buildID string) error {
 	b, err := api.BuildFromID(buildID)
 	if err != nil {
@@ -55,7 +72,8 @@ func launch(api screwdriver.API, buildID string) error {
 		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
-	// org, repo, err := parseScmURL(p.ScmURL)
+	// scm err := parseScmURL(p.ScmURL)
+	// workspace err = createWorkspace(scm.Org, scm.Repo)
 	// err := git.Checkout(p.ScmURL)
 	fmt.Println(p)
 	return nil

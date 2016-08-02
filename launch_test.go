@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -39,6 +40,11 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 		return f.pipelineFromID(pipelineID)
 	}
 	return screwdriver.Pipeline(FakePipeline{}), nil
+}
+
+func TestMain(m *testing.M) {
+	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
+	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
 }
 
 func TestBuildFromId(t *testing.T) {
@@ -197,5 +203,20 @@ func TestParseScmURL(t *testing.T) {
 
 	if parsedURL.String() != scmURL {
 		t.Errorf("parsedURL.String() == %q, want %q", parsedURL.String(), scmURL)
+	}
+}
+
+func TestCreateWorkspace(t *testing.T) {
+	testOrg := "screwdriver-cd"
+	testRepo := "launcher.git"
+	wantWorkspace := "/opt/screwdriver/workspace/src/screwdriver-cd/launcher.git"
+
+	workspace, err := createWorkspace(testOrg, testRepo)
+	if err != nil {
+		t.Errorf("Unexpected error creating workspace: %v", err)
+	}
+
+	if workspace != wantWorkspace {
+		t.Errorf("workspace = %q, want %q", workspace, wantWorkspace)
 	}
 }
