@@ -13,7 +13,7 @@ import (
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
 
-type scmURL struct {
+type scmPath struct {
 	Host   string
 	Org    string
 	Repo   string
@@ -23,19 +23,19 @@ type scmURL struct {
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
 
-func (s scmURL) String() string {
+func (s scmPath) String() string {
 	return fmt.Sprintf("%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
 }
 
 // e.g. "git@github.com:screwdriver-cd/launch.git#master"
-func parseScmURL(url string) (scmURL, error) {
+func parseScmURL(url string) (scmPath, error) {
 	r := regexp.MustCompile("(.*):(.*)/(.*)#(.*)")
 	matched := r.FindAllStringSubmatch(url, -1)
 	if matched == nil || len(matched) != 1 || len(matched[0]) != 5 {
-		return scmURL{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
+		return scmPath{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
 	}
 
-	return scmURL{
+	return scmPath{
 		Host:   matched[0][1],
 		Org:    matched[0][2],
 		Repo:   matched[0][3],
@@ -43,17 +43,47 @@ func parseScmURL(url string) (scmURL, error) {
 	}, nil
 }
 
-func createWorkspace(org string, repo string) (workspace string, err error) {
-	workspace = path.Join("/opt/screwdriver/workspace/src", org, repo)
-	_, err = stat(workspace)
-	if err == nil {
-		return "", fmt.Errorf("Cannot create workspace %q, path already exists.", workspace)
+// A Workspace is a description of the paths available to a Screwdriver build
+type Workspace struct {
+	Root      string
+	Src       string
+	Artifacts string
+}
+
+// createWorkspace makes a Scrwedriver workspace from path components
+// e.g. ["screwdriver-cd" "screwdriver"] creates
+//     /sd/workspace/src/screwdriver-cd/screwdriver
+//     /sd/workspace/artifacts
+func createWorkspace(srcPaths ...string) (Workspace, error) {
+	root := "/sd/workspace"
+	srcPaths = append([]string{"src"}, srcPaths...)
+	src := path.Join(srcPaths...)
+
+	src = path.Join(root, src)
+	artifacts := path.Join(root, "artifacts")
+
+	paths := []string{
+		src,
+		artifacts,
 	}
-	err = mkdirAll(workspace, 0777)
-	if err != nil {
-		return "", fmt.Errorf("Creating workspace: %v", err)
+	for _, p := range paths {
+		_, err := stat(p)
+		if err == nil {
+			msg := "Cannot create workspace path %q, path already exists."
+			return Workspace{}, fmt.Errorf(msg, p)
+		}
+		err = mkdirAll(p, 0777)
+		if err != nil {
+			return Workspace{}, fmt.Errorf("Cannot create workspace path %q: %v", p, err)
+		}
 	}
-	return workspace, err
+
+	w := Workspace{
+		Root:      root,
+		Src:       src,
+		Artifacts: artifacts,
+	}
+	return w, nil
 }
 
 func launch(api screwdriver.API, buildID string) error {
@@ -72,10 +102,12 @@ func launch(api screwdriver.API, buildID string) error {
 		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
-	// scm err := parseScmURL(p.ScmURL)
-	// workspace err = createWorkspace(scm.Org, scm.Repo)
-	// err := git.Checkout(p.ScmURL)
-	fmt.Println(p)
+	scm, err := parseScmURL(p.ScmURL)
+	_, err = createWorkspace(scm.Org, scm.Repo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -110,7 +142,7 @@ func main() {
 		}
 
 		if err = launch(api, buildID); err != nil {
-			fmt.Printf("Error running launcher: %v", err)
+			fmt.Printf("Error running launcher: %v\n", err)
 			os.Exit(1)
 		}
 		return nil

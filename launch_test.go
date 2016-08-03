@@ -9,11 +9,33 @@ import (
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
-type NewAPI func(buildID string, token string) (screwdriver.API, error)
-type FakeAPI screwdriver.API
 type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
+
+func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string) MockAPI {
+	return MockAPI{
+		buildFromID: func(buildID string) (screwdriver.Build, error) {
+			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
+		},
+		jobFromID: func(jobID string) (screwdriver.Job, error) {
+			if jobID != testJobID {
+				t.Errorf("jobID == %s, want %s", jobID, testJobID)
+				// Panic to get the stacktrace
+				panic(true)
+			}
+			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID}), nil
+		},
+		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
+			if pipelineID != testPipelineID {
+				t.Errorf("pipelineID == %s, want %s", pipelineID, testPipelineID)
+				// Panic to get the stacktrace
+				panic(true)
+			}
+			return screwdriver.Pipeline(FakePipeline{}), nil
+		},
+	}
+}
 
 type MockAPI struct {
 	buildFromID    func(string) (screwdriver.Build, error)
@@ -45,20 +67,15 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
+	os.Exit(m.Run())
 }
 
-func TestBuildFromId(t *testing.T) {
-	testID := "TESTID"
-	api := MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
-			if buildID != testID {
-				t.Errorf("buildID == %v, want %v", buildID, testID)
-			}
-			return screwdriver.Build(FakeBuild{}), nil
-		},
-	}
-
-	launch(screwdriver.API(api), testID)
+func TestBuildJobPipelineFromID(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testPipelineID := "PIPELINEID"
+	api := mockAPI(t, testBuildID, testJobID, testPipelineID)
+	launch(screwdriver.API(api), testBuildID)
 }
 
 func TestBuildFromIdError(t *testing.T) {
@@ -80,35 +97,13 @@ func TestBuildFromIdError(t *testing.T) {
 	}
 }
 
-func TestJobFromID(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	api := MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
-		},
-		jobFromID: func(jobID string) (screwdriver.Job, error) {
-			if jobID != testJobID {
-				t.Errorf("jobID == %v, want %v", jobID, testJobID)
-			}
-			return screwdriver.Job(FakeJob{}), nil
-		},
-	}
-
-	launch(screwdriver.API(api), testBuildID)
-}
-
 func TestJobFromIdError(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
-	api := MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
-		},
-		jobFromID: func(jobID string) (screwdriver.Job, error) {
-			err := fmt.Errorf("testing error returns")
-			return screwdriver.Job(FakeJob{}), err
-		},
+	api := mockAPI(t, testBuildID, testJobID, "")
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		err := fmt.Errorf("testing error returns")
+		return screwdriver.Job(FakeJob{}), err
 	}
 
 	err := launch(screwdriver.API(api), testBuildID)
@@ -122,48 +117,19 @@ func TestJobFromIdError(t *testing.T) {
 	}
 }
 
-func TestPipelineFromID(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testPipelineID := "PIPELINEID"
-	api := MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
-		},
-		jobFromID: func(buildID string) (screwdriver.Job, error) {
-			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID}), nil
-		},
-		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
-			if pipelineID != testPipelineID {
-				t.Errorf("pipelineID == %v, want %v", pipelineID, testPipelineID)
-			}
-			return screwdriver.Pipeline(FakePipeline{}), nil
-		},
-	}
-
-	launch(screwdriver.API(api), testBuildID)
-}
-
 func TestPipelineFromIdError(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
-	api := MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
-		},
-		jobFromID: func(buildID string) (screwdriver.Job, error) {
-			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID}), nil
-		},
-		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
-			err := fmt.Errorf("testing error returns")
-			return screwdriver.Pipeline(FakePipeline{}), err
-		},
+	api := mockAPI(t, testBuildID, testJobID, testPipelineID)
+	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		err := fmt.Errorf("testing error returns")
+		return screwdriver.Pipeline(FakePipeline{}), err
 	}
 
 	err := launch(screwdriver.API(api), testBuildID)
 	if err == nil {
-		t.Errorf("err should not be nil")
+		t.Fatalf("err should not be nil")
 	}
 
 	expected := fmt.Sprintf(`fetching Pipeline ID %q`, testPipelineID)
@@ -207,16 +173,41 @@ func TestParseScmURL(t *testing.T) {
 }
 
 func TestCreateWorkspace(t *testing.T) {
-	testOrg := "screwdriver-cd"
-	testRepo := "launcher.git"
-	wantWorkspace := "/opt/screwdriver/workspace/src/screwdriver-cd/launcher.git"
+	oldMkdir := mkdirAll
+	defer func() { mkdirAll = oldMkdir }()
 
-	workspace, err := createWorkspace(testOrg, testRepo)
+	madeDirs := map[string]os.FileMode{}
+	mkdirAll = func(path string, perm os.FileMode) (err error) {
+		madeDirs[path] = perm
+		return nil
+	}
+
+	workspace, err := createWorkspace("screwdriver-cd", "launcher.git")
+
 	if err != nil {
 		t.Errorf("Unexpected error creating workspace: %v", err)
 	}
 
+	wantWorkspace := Workspace{
+		Root:      "/sd/workspace",
+		Src:       "/sd/workspace/src/screwdriver-cd/launcher.git",
+		Artifacts: "/sd/workspace/artifacts",
+	}
 	if workspace != wantWorkspace {
 		t.Errorf("workspace = %q, want %q", workspace, wantWorkspace)
+	}
+
+	wantDirs := map[string]os.FileMode{
+		"/sd/workspace/src/screwdriver-cd/launcher.git": 0777,
+		"/sd/workspace/artifacts":                       0777,
+	}
+	for d, p := range wantDirs {
+		if _, ok := madeDirs[d]; !ok {
+			t.Errorf("Directory %s not created. Made: %v", d, madeDirs)
+		} else {
+			if perm := madeDirs[d]; perm != p {
+				t.Errorf("Directory %s permissions %v, want %v", d, perm, p)
+			}
+		}
 	}
 }
