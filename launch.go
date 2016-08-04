@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 
+	"github.com/screwdriver-cd/launcher/git"
 	"github.com/screwdriver-cd/launcher/screwdriver"
 	"github.com/urfave/cli"
 )
@@ -22,6 +23,7 @@ type scmPath struct {
 
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
+var gitClone = git.Clone
 
 func (s scmPath) String() string {
 	return fmt.Sprintf("%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -103,11 +105,15 @@ func launch(api screwdriver.API, buildID string) error {
 	}
 
 	scm, err := parseScmURL(p.ScmURL)
-	_, err = createWorkspace(scm.Org, scm.Repo)
+	workspace, err := createWorkspace(scm.Org, scm.Repo)
 	if err != nil {
 		return err
 	}
 
+	err = gitClone(p.ScmURL, workspace.Src)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

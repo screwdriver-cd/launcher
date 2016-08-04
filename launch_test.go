@@ -211,3 +211,20 @@ func TestCreateWorkspace(t *testing.T) {
 		}
 	}
 }
+
+func TestClone(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher#master"
+	api := mockAPI(t, testBuildID, testJobID, "")
+	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+	}
+	gitClone = func(repo, dest string) error {
+		if repo != testSCMURL {
+			t.Errorf("Git clone was called with repo %q, want %q", repo, testSCMURL)
+		}
+		return nil
+	}
+	launch(screwdriver.API(api), testBuildID)
+}
