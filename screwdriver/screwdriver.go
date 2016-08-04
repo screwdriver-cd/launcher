@@ -14,6 +14,17 @@ type API interface {
 	PipelineFromID(pipelineID string) (Pipeline, error)
 }
 
+// SDError is an error response from the Screwdriver API
+type SDError struct {
+	StatusCode int    `json:"statusCode"`
+	Reason     string `json:"error"`
+	Message    string `json:"message"`
+}
+
+func (e SDError) Error() string {
+	return fmt.Sprintf("%d %s: %s", e.StatusCode, e.Reason, e.Message)
+}
+
 type api struct {
 	url    string
 	token  string
@@ -60,11 +71,22 @@ func (a api) get(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Reading response from Screwdriver: %v", err)
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
 	}
+
+	if response.StatusCode/100 != 2 {
+		var err SDError
+		parserr := json.Unmarshal(body, &err)
+		if parserr != nil {
+			return nil, fmt.Errorf("Unparseable error response from Screwdriver: %v", parserr)
+		}
+		return nil, err
+	}
+
 	return body, nil
 }
 
@@ -73,7 +95,7 @@ func (a api) BuildFromID(buildID string) (build Build, err error) {
 	url := fmt.Sprintf("%s/builds/%s", a.url, buildID)
 	body, err := a.get(url)
 	if err != nil {
-		return build, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
+		return build, err
 	}
 
 	err = json.Unmarshal(body, &build)
@@ -88,7 +110,7 @@ func (a api) JobFromID(jobID string) (job Job, err error) {
 	url := fmt.Sprintf("%s/jobs/%s", a.url, jobID)
 	body, err := a.get(url)
 	if err != nil {
-		return job, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
+		return job, err
 	}
 
 	err = json.Unmarshal(body, &job)
@@ -103,7 +125,7 @@ func (a api) PipelineFromID(jobID string) (pipeline Pipeline, err error) {
 	url := fmt.Sprintf("%s/pipelines/%s", a.url, jobID)
 	body, err := a.get(url)
 	if err != nil {
-		return pipeline, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
+		return pipeline, err
 	}
 
 	err = json.Unmarshal(body, &pipeline)
