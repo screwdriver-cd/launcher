@@ -5,13 +5,17 @@ build:
     - wercker/setup-go-workspace:
       package-dir: github.com/screwdriver-cd/launcher
 
-    - script:
-      name: go get
-      code: |
-        cd $WERCKER_SOURCE_DIR
-        go get -t ./...
+    # - script:
+    #   name: go get
+    #   code: |
+    #     cd $WERCKER_SOURCE_DIR
+    #     go get -t ./...
 
     - wercker/golint
+
+    - script: 
+      name: ls
+      code: ls
 
     - script:
       name: go test
@@ -54,5 +58,5 @@ deploy:
 
     - github-upload-asset:
         token: $GITHUB_TOKEN
-        file: launch
+        file: launcher
         content_type: application/octet-stream
