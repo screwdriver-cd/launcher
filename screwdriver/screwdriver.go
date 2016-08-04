@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 // API is a Screwdriver API endpoint
@@ -26,9 +27,9 @@ func (e SDError) Error() string {
 }
 
 type api struct {
-	url    string
-	token  string
-	client *http.Client
+	baseURL string
+	token   string
+	client  *http.Client
 }
 
 // New returns a new API object
@@ -59,8 +60,13 @@ type Build struct {
 	JobID string `json:"jobId"`
 }
 
-func (a api) get(url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func (a api) makeURL(path string) (*url.URL, error) {
+	fullpath := fmt.Sprintf("%s/%s", a.baseURL, path)
+	return url.Parse(fullpath)
+}
+
+func (a api) get(url *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("Generating request to Screwdriver: %v", err)
 	}
@@ -92,8 +98,9 @@ func (a api) get(url string) ([]byte, error) {
 
 // BuildFromID fetches and returns a Build object from its ID
 func (a api) BuildFromID(buildID string) (build Build, err error) {
-	url := fmt.Sprintf("%s/builds/%s", a.url, buildID)
-	body, err := a.get(url)
+	u, err := a.makeURL(fmt.Sprintf("builds/%s", buildID))
+	fmt.Println(u)
+	body, err := a.get(u)
 	if err != nil {
 		return build, err
 	}
@@ -107,8 +114,12 @@ func (a api) BuildFromID(buildID string) (build Build, err error) {
 
 // JobFromID fetches and returns a Job object from its ID
 func (a api) JobFromID(jobID string) (job Job, err error) {
-	url := fmt.Sprintf("%s/jobs/%s", a.url, jobID)
-	body, err := a.get(url)
+	u, err := a.makeURL(fmt.Sprintf("jobs/%s", jobID))
+	if err != nil {
+		return job, fmt.Errorf("generating Screwdriver url for Job %v: %v", jobID, err)
+	}
+
+	body, err := a.get(u)
 	if err != nil {
 		return job, err
 	}
@@ -121,9 +132,13 @@ func (a api) JobFromID(jobID string) (job Job, err error) {
 }
 
 // PipelineFromID fetches and returns a Pipeline object from its ID
-func (a api) PipelineFromID(jobID string) (pipeline Pipeline, err error) {
-	url := fmt.Sprintf("%s/pipelines/%s", a.url, jobID)
-	body, err := a.get(url)
+func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
+	u, err := a.makeURL(fmt.Sprintf("pipelines/%s", pipelineID))
+	if err != nil {
+		return pipeline, err
+	}
+
+	body, err := a.get(u)
 	if err != nil {
 		return pipeline, err
 	}
