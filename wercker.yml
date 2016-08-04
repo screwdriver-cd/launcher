@@ -1,7 +1,18 @@
-box: google/golang
+box: golang
 
 build:
   steps:
+    - wercker/setup-go-workspace:
+      package-dir: github.com/screwdriver-cd/launcher
+
+    - script:
+      name: go get
+      code: |
+        cd $WERCKER_SOURCE_DIR
+        go get -t ./...
+
+    - wercker/golint
+
     - script:
       name: go test
       code: go test ./...
