@@ -244,12 +244,12 @@ func TestHttpsString(t *testing.T) {
 		Branch: "master",
 	}
 
-	wantHttpsString := "https://github.com/screwdriver-cd/launcher.git#master"
+	wantHTTPSString := "https://github.com/screwdriver-cd/launcher.git#master"
 
 	httpsString := testScmPath.httpsString()
 
-	if httpsString != wantHttpsString {
-		t.Errorf("httpsString == %q, want %q", httpsString, wantHttpsString)
+	if httpsString != wantHTTPSString {
+		t.Errorf("httpsString == %q, want %q", httpsString, wantHTTPSString)
 	}
 }
 
@@ -257,6 +257,42 @@ func TestSetUserNameAndEmail(t *testing.T) {
 	testBuildID := "BUILDID"
 	testRoot := "/sd/workspace"
 	api := mockAPI(t, testBuildID, "", "")
+
+	launch(screwdriver.API(api), testBuildID, testRoot)
+}
+
+func TestPRNumber(t *testing.T) {
+	testJobName := "PR-1"
+	wantPrNumber := "1"
+
+	prNumber := prNumber(testJobName)
+	if prNumber != wantPrNumber {
+		t.Errorf("prNumber == %q, want %q", prNumber, wantPrNumber)
+	}
+}
+
+func TestMergePR(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher#master"
+	testPrNumber := "1"
+	testRoot := "/sd/workspace"
+	api := mockAPI(t, testBuildID, testJobID, "")
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
+	}
+	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+	}
+	gitClone = func(repo, dest string) error {
+		return nil
+	}
+	gitMergePR = func(prNumber, branch string) error {
+		if prNumber != testPrNumber {
+			t.Errorf("prNumber == %q, want %q", prNumber, testPrNumber)
+		}
+		return nil
+	}
 
 	launch(screwdriver.API(api), testBuildID, testRoot)
 }

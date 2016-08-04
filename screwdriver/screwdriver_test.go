@@ -91,6 +91,7 @@ func TestFromJobId(t *testing.T) {
 	want := Job{
 		ID:         "testId",
 		PipelineID: "testPipeline",
+		Name:       "testName",
 	}
 	json, err := json.Marshal(want)
 	if err != nil {

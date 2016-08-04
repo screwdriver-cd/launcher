@@ -69,6 +69,10 @@ func TestHelperProcess(*testing.T) {
 			return
 		case "config":
 			return
+		case "fetch":
+			return
+		case "merge":
+			return
 		}
 	}
 	os.Exit(255)
@@ -94,5 +98,61 @@ func TestSetConfig(t *testing.T) {
 	err := SetConfig(testSetting, testUserName)
 	if err != nil {
 		t.Errorf("Unexpected error from git config: %v", err)
+	}
+}
+
+func TestFetchPR(t *testing.T) {
+	testPrNumber := "111"
+	testBranch := "branch"
+	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
+		want := []string{
+			"fetch", "origin", "pull/" + testPrNumber + "/head:" + testBranch,
+		}
+		if len(args) != len(want) {
+			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
+		}
+		for i, arg := range args {
+			if arg != want[i] {
+				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+			}
+		}
+	})
+
+	err := FetchPR(testPrNumber, testBranch)
+	if err != nil {
+		t.Errorf("Unexpected error from git fetch %v", err)
+	}
+}
+
+func TestMerge(t *testing.T) {
+	testBranch := "branch"
+	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
+		want := []string{
+			"merge", "--no-edit", testBranch,
+		}
+		if len(args) != len(want) {
+			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
+		}
+		for i, arg := range args {
+			if arg != want[i] {
+				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+			}
+		}
+	})
+
+	err := Merge(testBranch)
+	if err != nil {
+		t.Errorf("Unexpected error from git merge %v", err)
+	}
+}
+
+func TestMergePR(t *testing.T) {
+	testPrNumber := "111"
+	testBranch := "branch"
+	execCommand = getFakeExecCommand(func(cmd string, args ...string) {})
+
+	err := MergePR(testPrNumber, testBranch)
+	if err != nil {
+		t.Errorf("Unexpected error from mergePR %v", err)
 	}
 }

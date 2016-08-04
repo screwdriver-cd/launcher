@@ -26,6 +26,7 @@ var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var gitClone = git.Clone
 var gitSetConfig = git.SetConfig
+var gitMergePR = git.MergePR
 
 func (s scmPath) String() string {
 	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -37,7 +38,7 @@ func (s scmPath) httpsString() string {
 
 // e.g. "git@github.com:screwdriver-cd/launch.git#master"
 func parseScmURL(url string) (scmPath, error) {
-	r := regexp.MustCompile("git@(.*):(.*)/(.*)#(.*)")
+	r := regexp.MustCompile("^git@(.*):(.*)/(.*)#(.*)$")
 	matched := r.FindAllStringSubmatch(url, -1)
 	if matched == nil || len(matched) != 1 || len(matched[0]) != 5 {
 		return scmPath{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
@@ -93,6 +94,17 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	return w, nil
 }
 
+// prNumber checks to see if the job name is a pull request and returns its number
+func prNumber(jobName string) string {
+	r := regexp.MustCompile("^PR-([0-9]+)$")
+	matched := r.FindAllStringSubmatch(jobName, -1)
+	if matched == nil || len(matched) != 1 || len(matched[0]) != 2 {
+		return ""
+	}
+
+	return matched[0][1]
+}
+
 func launch(api screwdriver.API, buildID string, rootDir string) error {
 	log.Printf("Fetching Build %v", buildID)
 	b, err := api.BuildFromID(buildID)
@@ -134,6 +146,15 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return err
 	}
 
+	pr := prNumber(j.Name)
+	if pr != "" {
+		err = gitMergePR(pr, "_pr")
+		if err != nil {
+			return err
+		}
+		j.Name = "main"
+	}
+
 	return nil
 }
 
@@ -159,6 +180,7 @@ func launchAction(c *cli.Context) error {
 		log.Fatalf("Error running launcher: %v\n", err)
 		os.Exit(1)
 	}
+
 	return nil
 }
 
