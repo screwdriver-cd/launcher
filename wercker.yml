@@ -19,7 +19,7 @@ build:
 
     - script:
       name: go build
-      code: go build launch.go
+      code: go build -a -o launch
 
 deploy:
   steps:
