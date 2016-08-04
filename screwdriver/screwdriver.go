@@ -10,6 +10,7 @@ import (
 // API is a Screwdriver API endpoint
 type API interface {
 	BuildFromID(buildID string) (Build, error)
+	JobFromID(jobID string) (Job, error)
 }
 
 type api struct {
@@ -26,6 +27,12 @@ func New(url, token string) (API, error) {
 		&http.Client{},
 	}
 	return API(api), nil
+}
+
+// Job is a Screwdriver Job
+type Job struct {
+	ID         string `json:"id"`
+	PipelineID string `json:"pipelineId"`
 }
 
 // Build is a Screwdriver Build
@@ -67,4 +74,19 @@ func (a api) BuildFromID(buildID string) (build Build, err error) {
 		return build, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
 	return build, nil
+}
+
+// BuildFromID fetches and returns a Build object from its ID
+func (a api) JobFromID(jobID string) (job Job, err error) {
+	url := fmt.Sprintf("%s/jobs/%s", a.url, jobID)
+	body, err := a.get(url)
+	if err != nil {
+		return job, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
+	}
+
+	err = json.Unmarshal(body, &job)
+	if err != nil {
+		return job, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+	return job, nil
 }
