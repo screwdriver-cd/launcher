@@ -74,8 +74,9 @@ func TestBuildJobPipelineFromID(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
+	testRoot := "/sd/workspace"
 	api := mockAPI(t, testBuildID, testJobID, testPipelineID)
-	launch(screwdriver.API(api), testBuildID)
+	launch(screwdriver.API(api), testBuildID, testRoot)
 }
 
 func TestBuildFromIdError(t *testing.T) {
@@ -86,7 +87,7 @@ func TestBuildFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), "shoulderror")
+	err := launch(screwdriver.API(api), "shoulderror", "/sd/workspace")
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -100,13 +101,14 @@ func TestBuildFromIdError(t *testing.T) {
 func TestJobFromIdError(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
+	testRoot := "/sd/workspace"
 	api := mockAPI(t, testBuildID, testJobID, "")
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Job(FakeJob{}), err
 	}
 
-	err := launch(screwdriver.API(api), testBuildID)
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -121,13 +123,14 @@ func TestPipelineFromIdError(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
+	testRoot := "/sd/workspace"
 	api := mockAPI(t, testBuildID, testJobID, testPipelineID)
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Pipeline(FakePipeline{}), err
 	}
 
-	err := launch(screwdriver.API(api), testBuildID)
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
 	if err == nil {
 		t.Fatalf("err should not be nil")
 	}
@@ -181,15 +184,16 @@ func TestCreateWorkspace(t *testing.T) {
 		madeDirs[path] = perm
 		return nil
 	}
+	testRoot := "/sd/workspace"
 
-	workspace, err := createWorkspace("screwdriver-cd", "launcher.git")
+	workspace, err := createWorkspace(testRoot, "screwdriver-cd", "launcher.git")
 
 	if err != nil {
 		t.Errorf("Unexpected error creating workspace: %v", err)
 	}
 
 	wantWorkspace := Workspace{
-		Root:      "/sd/workspace",
+		Root:      testRoot,
 		Src:       "/sd/workspace/src/screwdriver-cd/launcher.git",
 		Artifacts: "/sd/workspace/artifacts",
 	}
@@ -216,6 +220,7 @@ func TestClone(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testSCMURL := "git@github.com:screwdriver-cd/launcher#master"
+	testRoot := "/sd/workspace"
 	api := mockAPI(t, testBuildID, testJobID, "")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
@@ -226,5 +231,5 @@ func TestClone(t *testing.T) {
 		}
 		return nil
 	}
-	launch(screwdriver.API(api), testBuildID)
+	launch(screwdriver.API(api), testBuildID, testRoot)
 }

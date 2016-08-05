@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"regexp"
@@ -56,13 +57,12 @@ type Workspace struct {
 // e.g. ["screwdriver-cd" "screwdriver"] creates
 //     /sd/workspace/src/screwdriver-cd/screwdriver
 //     /sd/workspace/artifacts
-func createWorkspace(srcPaths ...string) (Workspace, error) {
-	root := "/sd/workspace"
+func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	srcPaths = append([]string{"src"}, srcPaths...)
 	src := path.Join(srcPaths...)
 
-	src = path.Join(root, src)
-	artifacts := path.Join(root, "artifacts")
+	src = path.Join(rootDir, src)
+	artifacts := path.Join(rootDir, "artifacts")
 
 	paths := []string{
 		src,
@@ -81,38 +81,67 @@ func createWorkspace(srcPaths ...string) (Workspace, error) {
 	}
 
 	w := Workspace{
-		Root:      root,
+		Root:      rootDir,
 		Src:       src,
 		Artifacts: artifacts,
 	}
 	return w, nil
 }
 
-func launch(api screwdriver.API, buildID string) error {
+func launch(api screwdriver.API, buildID string, rootDir string) error {
+	log.Printf("Fetching Build %v", buildID)
 	b, err := api.BuildFromID(buildID)
 	if err != nil {
 		return fmt.Errorf("fetching build ID %q: %v", buildID, err)
 	}
 
+	log.Printf("Fetching Job %v", b.JobID)
 	j, err := api.JobFromID(b.JobID)
 	if err != nil {
 		return fmt.Errorf("fetching Job ID %q: %v", b.JobID, err)
 	}
 
+	log.Printf("Fetching Pipeline %v", j.PipelineID)
 	p, err := api.PipelineFromID(j.PipelineID)
 	if err != nil {
 		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
 	scm, err := parseScmURL(p.ScmURL)
-	workspace, err := createWorkspace(scm.Org, scm.Repo)
+	log.Printf("Creating Workspace in %v", rootDir)
+	w, err := createWorkspace(rootDir, scm.Org, scm.Repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating workspace: %v", err)
 	}
 
-	err = gitClone(p.ScmURL, workspace.Src)
+	err = gitClone(p.ScmURL, w.Src)
 	if err != nil {
-		return err
+		return fmt.Errorf("cloning from git: %v", err)
+	}
+	return nil
+}
+
+// Executes the command based on arguments from the CLI
+func launchAction(c *cli.Context) error {
+	url := c.String("api-uri")
+	token := c.String("token")
+	workspace := c.String("workspace")
+	buildID := c.Args().Get(0)
+
+	if buildID == "" {
+		return cli.ShowAppHelp(c)
+	}
+
+	log.Printf("Starting Build %v\n", buildID)
+
+	api, err := screwdriver.New(url, token)
+	if err != nil {
+		log.Fatalf("Error creating Screwdriver API %v: %v", buildID, err)
+	}
+
+	if err = launch(api, buildID, workspace); err != nil {
+		log.Fatalf("Error running launcher: %v\n", err)
+		os.Exit(1)
 	}
 	return nil
 }
@@ -120,7 +149,10 @@ func launch(api screwdriver.API, buildID string) error {
 func main() {
 	app := cli.NewApp()
 	app.Name = "launcher"
-	app.Usage = "launch Screwdriver jobs"
+	app.Usage = "launch a Screwdriver build"
+	app.UsageText = "launch [options] build-id"
+	app.Copyright = "(c) 2016 Yahoo Inc."
+
 	if VERSION == "" {
 		VERSION = "0.0.0"
 	}
@@ -128,30 +160,22 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "api-url",
-			Usage: "set the API URL for Screwrdriver",
+			Name:  "api-uri",
+			Usage: "API URL for Screwdriver",
+			Value: "http://localhost:8080",
 		},
 		cli.StringFlag{
-			Name:  "tokenfile",
-			Usage: "set the JWT used for accessing Screwdriver's API",
+			Name:   "token",
+			Usage:  "JWT used for accessing Screwdriver's API",
+			EnvVar: "SD_TOKEN",
+		},
+		cli.StringFlag{
+			Name:  "workspace",
+			Usage: "Location for checking out and running code",
+			Value: "/sd/workspace",
 		},
 	}
 
-	app.Action = func(c *cli.Context) error {
-		url := c.String("api-url")
-		token := "odsjfadfg"
-		buildID := c.Args()[0]
-
-		api, err := screwdriver.New(url, token)
-		if err != nil {
-			fmt.Printf("creating Scredriver API %v: %v", buildID, err)
-		}
-
-		if err = launch(api, buildID); err != nil {
-			fmt.Printf("Error running launcher: %v\n", err)
-			os.Exit(1)
-		}
-		return nil
-	}
+	app.Action = launchAction
 	app.Run(os.Args)
 }
