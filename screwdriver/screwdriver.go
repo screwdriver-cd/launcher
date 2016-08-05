@@ -1,8 +1,10 @@
 package screwdriver
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -42,10 +44,28 @@ func New(url, token string) (API, error) {
 	return API(api), nil
 }
 
+// Validator is a Screwdriver Validator payload.
+type Validator struct {
+	Yaml string `json:"yaml"`
+}
+
 // Pipeline is a Screwdriver Pipeline definition
 type Pipeline struct {
 	ID     string `json:"id"`
 	ScmURL string `json:"scmUrl"`
+}
+
+// PipelineDef contains the step definitions and jobs for a Pipeline
+type PipelineDef struct {
+	Jobs     map[string][]JobDef `json:"jobs"`
+	Workflow []string            `json:"workflow"`
+}
+
+// JobDef contains the step and environment definitions of a single Job
+type JobDef struct {
+	Image       string            `json:"image"`
+	Steps       map[string]string `json:"steps"`
+	Environment map[string]string `json:"environment"`
 }
 
 // Job is a Screwdriver Job
@@ -66,35 +86,58 @@ func (a api) makeURL(path string) (*url.URL, error) {
 	return url.Parse(fullpath)
 }
 
-func (a api) get(url *url.URL) ([]byte, error) {
-	req, err := http.NewRequest("GET", url.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("Generating request to Screwdriver: %v", err)
-	}
-	token := fmt.Sprintf("Bearer %s", a.token)
-	req.Header.Set("Authorization", token)
+func tokenHeader(token string) string {
+	return fmt.Sprintf("Bearer %s", token)
+}
 
-	response, err := a.client.Do(req)
+func handleResponse(res *http.Response) ([]byte, error) {
+	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Reading response from Screwdriver: %v", err)
-	}
-	defer response.Body.Close()
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
+		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
 	}
 
-	if response.StatusCode/100 != 2 {
+	if res.StatusCode/100 != 2 {
 		var err SDError
 		parserr := json.Unmarshal(body, &err)
 		if parserr != nil {
-			return nil, fmt.Errorf("Unparseable error response from Screwdriver: %v", parserr)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parserr)
 		}
 		return nil, err
 	}
-
 	return body, nil
+}
+
+func (a api) get(url *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("generating request to Screwdriver: %v", err)
+	}
+	req.Header.Set("Authorization", tokenHeader(a.token))
+
+	res, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("reading response from Screwdriver: %v", err)
+	}
+	defer res.Body.Close()
+
+	return handleResponse(res)
+}
+
+func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
+	req, err := http.NewRequest("POST", url.String(), payload)
+	if err != nil {
+		return nil, fmt.Errorf("generating request to Screwdriver: %v", err)
+	}
+	req.Header.Set("Content-Type", bodyType)
+	req.Header.Set("Authorization", tokenHeader(a.token))
+
+	res, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("posting to Screwdriver endpoint %v: %v", url, err)
+	}
+	defer res.Body.Close()
+
+	return handleResponse(res)
 }
 
 // BuildFromID fetches and returns a Build object from its ID
@@ -148,4 +191,35 @@ func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
 		return pipeline, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
 	return pipeline, nil
+}
+
+func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
+	u, err := a.makeURL("/validator")
+	if err != nil {
+		return PipelineDef{}, err
+	}
+
+	y, err := ioutil.ReadAll(yaml)
+	if err != nil {
+		return PipelineDef{}, fmt.Errorf("reading Screwdriver YAML: %v", err)
+	}
+
+	v := Validator{string(y)}
+	payload, err := json.Marshal(v)
+	if err != nil {
+		return PipelineDef{}, fmt.Errorf("marshaling JSON for Validator: %v", err)
+	}
+
+	res, err := a.post(u, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return PipelineDef{}, fmt.Errorf("posting to Validator: %v", err)
+	}
+
+	var pipelineDef PipelineDef
+	err = json.Unmarshal(res, &pipelineDef)
+	if err != nil {
+		return PipelineDef{}, fmt.Errorf("parsing JSON response from the Validator: %v", err)
+	}
+
+	return pipelineDef, nil
 }
