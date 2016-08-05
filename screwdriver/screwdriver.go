@@ -72,6 +72,7 @@ type JobDef struct {
 type Job struct {
 	ID         string `json:"id"`
 	PipelineID string `json:"pipelineId"`
+	Name       string `json:"name"`
 }
 
 // Build is a Screwdriver Build
