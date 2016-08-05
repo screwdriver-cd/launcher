@@ -27,9 +27,10 @@ func TestClone(t *testing.T) {
 	wantRepo := "git@github.com:screwdriver-cd/launcher"
 	scmURL := "git@github.com:screwdriver-cd/launcher#master"
 	wantDest := "testdest"
+	wantBranch := "master"
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		want := []string{
-			"clone", wantRepo, wantDest,
+			"clone", "--quiet", "--progress", "--branch", wantBranch, wantRepo, wantDest,
 		}
 		if len(args) != len(want) {
 			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)

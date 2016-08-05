@@ -61,7 +61,8 @@ type Build struct {
 }
 
 func (a api) makeURL(path string) (*url.URL, error) {
-	fullpath := fmt.Sprintf("%s/%s", a.baseURL, path)
+	version := "v3"
+	fullpath := fmt.Sprintf("%s/%s/%s", a.baseURL, version, path)
 	return url.Parse(fullpath)
 }
 
@@ -99,7 +100,6 @@ func (a api) get(url *url.URL) ([]byte, error) {
 // BuildFromID fetches and returns a Build object from its ID
 func (a api) BuildFromID(buildID string) (build Build, err error) {
 	u, err := a.makeURL(fmt.Sprintf("builds/%s", buildID))
-	fmt.Println(u)
 	body, err := a.get(u)
 	if err != nil {
 		return build, err
