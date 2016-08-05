@@ -111,12 +111,12 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 	log.Printf("Creating Workspace in %v", rootDir)
 	w, err := createWorkspace(rootDir, scm.Org, scm.Repo)
 	if err != nil {
-		return fmt.Errorf("creating workspace: %v", err)
+		return err
 	}
 
 	err = gitClone(p.ScmURL, w.Src)
 	if err != nil {
-		return fmt.Errorf("cloning from git: %v", err)
+		return err
 	}
 	return nil
 }
@@ -161,7 +161,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "api-uri",
-			Usage: "API URL for Screwdriver",
+			Usage: "API URI for Screwdriver",
 			Value: "http://localhost:8080",
 		},
 		cli.StringFlag{

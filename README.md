@@ -5,6 +5,18 @@
 
 ## Usage
 
+```bash
+$ go get github.com/screwdriver-cd/launcher
+$ launch --api-uri http://localhost:8080/v3 cba94a05f8aa063f4b8cfb62cbc355e0c5f02698
+```
+
+## Testing
+
+```bash
+$ go get github.com/screwdriver-cd/launcher
+$ go test -cover github.com/screwdriver-cd/launcher/...
+```
+
 ## License
 
 Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
