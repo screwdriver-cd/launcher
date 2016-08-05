@@ -1,11 +1,13 @@
 package screwdriver
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 )
 
@@ -174,5 +176,62 @@ func TestPipeline404(t *testing.T) {
 
 	if err != want {
 		t.Fatalf("err = %v, want %v", err, want)
+	}
+}
+
+func TestPipelineFromYaml(t *testing.T) {
+	json := `{
+	  "jobs": {
+	    "main": [
+	      {
+	        "image": "node:4",
+	        "steps": {
+	          "install": "npm install"
+	        },
+	        "environment": {
+	          "ARRAY": "[\"a\",\"b\"]",
+	          "BOOL": "true",
+	          "OBJECT": "{\"a\":\"cat\",\"b\":\"dog\"}",
+	          "NUMBER": "3",
+	          "DECIMAL": "3.1415927",
+	          "STRING": "test"
+	        }
+	      }
+	    ]
+	  },
+	  "workflow": []
+	}`
+
+	mainJob := JobDef{
+		Image: "node:4",
+		Steps: map[string]string{
+			"install": "npm install",
+		},
+		Environment: map[string]string{
+			"ARRAY":   `["a","b"]`,
+			"BOOL":    "true",
+			"OBJECT":  `{"a":"cat","b":"dog"}`,
+			"NUMBER":  "3",
+			"DECIMAL": "3.1415927",
+			"STRING":  "test",
+		},
+	}
+
+	wantJobs := map[string][]JobDef{
+		"main": []JobDef{
+			mainJob,
+		},
+	}
+
+	yaml := bytes.NewBufferString("")
+	http := makeFakeHTTPClient(t, 200, json)
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	p, err := testAPI.PipelineDefFromYaml(yaml)
+	if err != nil {
+		t.Errorf("Unexpected error from PipelineDefFromYaml: %v", err)
+	}
+
+	if !reflect.DeepEqual(p.Jobs, wantJobs) {
+		t.Errorf("PipelineDef.Jobs = %+v, \n want %+v", p.Jobs, wantJobs)
 	}
 }
