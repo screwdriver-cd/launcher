@@ -23,8 +23,9 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func TestCheckout(t *testing.T) {
-	wantRepo := "testrepo"
+func TestClone(t *testing.T) {
+	wantRepo := "git@github.com:screwdriver-cd/launcher"
+	scmURL := "git@github.com:screwdriver-cd/launcher#master"
 	wantDest := "testdest"
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		want := []string{
@@ -40,7 +41,7 @@ func TestCheckout(t *testing.T) {
 		}
 	})
 
-	err := Clone(wantRepo, wantDest)
+	err := Clone(scmURL, wantDest)
 	if err != nil {
 		t.Errorf("Unexpected error from git clone: %v", err)
 	}
