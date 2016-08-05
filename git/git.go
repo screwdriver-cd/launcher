@@ -35,3 +35,21 @@ func Clone(scmURL, destination string) error {
 	}
 	return nil
 }
+
+//SetConfig sets up git configuration
+func SetConfig(setting, name string) error {
+	cmd := execCommand("git", "config", setting, name)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Start()
+	if err != nil {
+		return fmt.Errorf("starting git config command: %v", err)
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		return fmt.Errorf("setting git config: %v", err)
+	}
+	return nil
+}

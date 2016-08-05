@@ -67,7 +67,32 @@ func TestHelperProcess(*testing.T) {
 		switch args[1] {
 		case "clone":
 			return
+		case "config":
+			return
 		}
 	}
 	os.Exit(255)
+}
+
+func TestSetConfig(t *testing.T) {
+	testUserName := "sd-buildbot"
+	testSetting := "user.name"
+	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
+		want := []string{
+			"config", "user.name", testUserName,
+		}
+		if len(args) != len(want) {
+			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
+		}
+		for i, arg := range args {
+			if arg != want[i] {
+				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+			}
+		}
+	})
+
+	err := SetConfig(testSetting, testUserName)
+	if err != nil {
+		t.Errorf("Unexpected error from git config: %v", err)
+	}
 }

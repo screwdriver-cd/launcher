@@ -67,6 +67,7 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
+	gitSetConfig = func(setting, name string) error { return nil }
 	os.Exit(m.Run())
 }
 
@@ -142,7 +143,7 @@ func TestPipelineFromIdError(t *testing.T) {
 }
 
 func TestParseScmURL(t *testing.T) {
-	wantHost := "git@github.com"
+	wantHost := "github.com"
 	wantOrg := "screwdriver-cd"
 	wantRepo := "launcher.git"
 	wantBranch := "master"
@@ -219,17 +220,43 @@ func TestCreateWorkspace(t *testing.T) {
 func TestClone(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher#master"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	testHttps := "https://github.com/screwdriver-cd/launcher.git#master"
 	testRoot := "/sd/workspace"
 	api := mockAPI(t, testBuildID, testJobID, "")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
 	gitClone = func(repo, dest string) error {
-		if repo != testSCMURL {
-			t.Errorf("Git clone was called with repo %q, want %q", repo, testSCMURL)
+		if repo != testHttps {
+			t.Errorf("Git clone was called with repo %q, want %q", repo, testHttps)
 		}
 		return nil
 	}
+	launch(screwdriver.API(api), testBuildID, testRoot)
+}
+
+func TestHttpsString(t *testing.T) {
+	testScmPath := scmPath{
+		Host:   "github.com",
+		Org:    "screwdriver-cd",
+		Repo:   "launcher.git",
+		Branch: "master",
+	}
+
+	wantHttpsString := "https://github.com/screwdriver-cd/launcher.git#master"
+
+	httpsString := testScmPath.httpsString()
+
+	if httpsString != wantHttpsString {
+		t.Errorf("httpsString == %q, want %q", httpsString, wantHttpsString)
+	}
+}
+
+func TestSetUserNameAndEmail(t *testing.T) {
+	testBuildID := "BUILDID"
+	testRoot := "/sd/workspace"
+	api := mockAPI(t, testBuildID, "", "")
+
 	launch(screwdriver.API(api), testBuildID, testRoot)
 }
