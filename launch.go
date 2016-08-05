@@ -25,14 +25,19 @@ type scmPath struct {
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var gitClone = git.Clone
+var gitSetConfig = git.SetConfig
 
 func (s scmPath) String() string {
-	return fmt.Sprintf("%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
+	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
+}
+
+func (s scmPath) httpsString() string {
+	return fmt.Sprintf("https://%s/%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
 }
 
 // e.g. "git@github.com:screwdriver-cd/launch.git#master"
 func parseScmURL(url string) (scmPath, error) {
-	r := regexp.MustCompile("(.*):(.*)/(.*)#(.*)")
+	r := regexp.MustCompile("git@(.*):(.*)/(.*)#(.*)")
 	matched := r.FindAllStringSubmatch(url, -1)
 	if matched == nil || len(matched) != 1 || len(matched[0]) != 5 {
 		return scmPath{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
@@ -114,10 +119,21 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return err
 	}
 
-	err = gitClone(p.ScmURL, w.Src)
+	err = gitClone(scm.httpsString(), w.Src)
 	if err != nil {
 		return err
 	}
+
+	err = gitSetConfig("user.name", "sd-buildbot")
+	if err != nil {
+		return err
+	}
+
+	err = gitSetConfig("user.email", "dev-null@screwdriver.cd")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
