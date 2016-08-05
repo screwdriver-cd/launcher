@@ -24,9 +24,7 @@ type scmPath struct {
 
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
-var gitClone = git.Clone
-var gitSetConfig = git.SetConfig
-var gitMergePR = git.MergePR
+var gitSetup = git.Setup
 
 func (s scmPath) String() string {
 	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -39,16 +37,16 @@ func (s scmPath) httpsString() string {
 // e.g. "git@github.com:screwdriver-cd/launch.git#master"
 func parseScmURL(url string) (scmPath, error) {
 	r := regexp.MustCompile("^git@(.*):(.*)/(.*)#(.*)$")
-	matched := r.FindAllStringSubmatch(url, -1)
-	if matched == nil || len(matched) != 1 || len(matched[0]) != 5 {
+	matched := r.FindStringSubmatch(url)
+	if matched == nil || len(matched) != 5 {
 		return scmPath{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
 	}
 
 	return scmPath{
-		Host:   matched[0][1],
-		Org:    matched[0][2],
-		Repo:   matched[0][3],
-		Branch: matched[0][4],
+		Host:   matched[1],
+		Org:    matched[2],
+		Repo:   matched[3],
+		Branch: matched[4],
 	}, nil
 }
 
@@ -97,12 +95,12 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 // prNumber checks to see if the job name is a pull request and returns its number
 func prNumber(jobName string) string {
 	r := regexp.MustCompile("^PR-([0-9]+)$")
-	matched := r.FindAllStringSubmatch(jobName, -1)
-	if matched == nil || len(matched) != 1 || len(matched[0]) != 2 {
+	matched := r.FindStringSubmatch(jobName)
+	if matched == nil || len(matched) != 2 {
 		return ""
 	}
 
-	return matched[0][1]
+	return matched[1]
 }
 
 func launch(api screwdriver.API, buildID string, rootDir string) error {
@@ -131,28 +129,14 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return err
 	}
 
-	err = gitClone(scm.httpsString(), w.Src)
-	if err != nil {
-		return err
-	}
-
-	err = gitSetConfig("user.name", "sd-buildbot")
-	if err != nil {
-		return err
-	}
-
-	err = gitSetConfig("user.email", "dev-null@screwdriver.cd")
-	if err != nil {
-		return err
-	}
-
 	pr := prNumber(j.Name)
 	if pr != "" {
-		err = gitMergePR(pr, "_pr")
-		if err != nil {
-			return err
-		}
 		j.Name = "main"
+	}
+
+	err = gitSetup(scm.httpsString(), w.Src, pr)
+	if err != nil {
+		return err
 	}
 
 	return nil

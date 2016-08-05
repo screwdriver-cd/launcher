@@ -9,6 +9,11 @@ import (
 )
 
 var execCommand = exec.Command
+var clone = Clone
+var setConfig = SetConfig
+var mergePR = MergePR
+var fetchPR = FetchPR
+var merge = Merge
 
 // command executes the git command
 func command(arguments ...string) error {
@@ -58,13 +63,40 @@ func Merge(branch string) error {
 
 // MergePR calls FetchPR and Merge
 func MergePR(prNumber string, branch string) error {
-	err := FetchPR(prNumber, branch)
+	err := fetchPR(prNumber, branch)
 	if err != nil {
-		return fmt.Errorf("fetching PR: %v", err)
+		return fmt.Errorf("fetching pr: %v", err)
 	}
-	err = Merge(branch)
+	err = merge(branch)
 	if err != nil {
-		return fmt.Errorf("merging PR: %v", err)
+		return fmt.Errorf("merging pr: %v", err)
 	}
+	return nil
+}
+
+// Setup clones a repository, sets the local config, and merges a PR if necessary
+func Setup(scmURL, destination, pr string) error {
+	err := clone(scmURL, destination)
+	if err != nil {
+		return fmt.Errorf("cloning repository: %v", err)
+	}
+
+	err = setConfig("user.name", "sd-buildbot")
+	if err != nil {
+		return fmt.Errorf("setting username: %v", err)
+	}
+
+	err = setConfig("user.email", "dev-null@screwdriver.cd")
+	if err != nil {
+		return fmt.Errorf("setting email: %v", err)
+	}
+
+	if pr != "" {
+		err = mergePR(pr, "_pr")
+		if err != nil {
+			return fmt.Errorf("merging pr: %v", err)
+		}
+	}
+
 	return nil
 }

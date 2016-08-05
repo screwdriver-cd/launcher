@@ -67,7 +67,7 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
-	gitSetConfig = func(setting, name string) error { return nil }
+	gitSetup = func(scmUrl, destination, pr string) error { return nil }
 	os.Exit(m.Run())
 }
 
@@ -217,25 +217,6 @@ func TestCreateWorkspace(t *testing.T) {
 	}
 }
 
-func TestClone(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
-	testHttps := "https://github.com/screwdriver-cd/launcher.git#master"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, "")
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
-	}
-	gitClone = func(repo, dest string) error {
-		if repo != testHttps {
-			t.Errorf("Git clone was called with repo %q, want %q", repo, testHttps)
-		}
-		return nil
-	}
-	launch(screwdriver.API(api), testBuildID, testRoot)
-}
-
 func TestHttpsString(t *testing.T) {
 	testScmPath := scmPath{
 		Host:   "github.com",
@@ -253,14 +234,6 @@ func TestHttpsString(t *testing.T) {
 	}
 }
 
-func TestSetUserNameAndEmail(t *testing.T) {
-	testBuildID := "BUILDID"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, "", "")
-
-	launch(screwdriver.API(api), testBuildID, testRoot)
-}
-
 func TestPRNumber(t *testing.T) {
 	testJobName := "PR-1"
 	wantPrNumber := "1"
@@ -271,12 +244,41 @@ func TestPRNumber(t *testing.T) {
 	}
 }
 
-func TestMergePR(t *testing.T) {
+func TestNonPR(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher#master"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	testHTTPS := "https://github.com/screwdriver-cd/launcher.git#master"
+	testRoot := "/sd/workspace"
+	testPrNumber := ""
+	testWorkspace := "/sd/workspace/src/screwdriver-cd/launcher.git"
+	api := mockAPI(t, testBuildID, testJobID, "")
+	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+	}
+	gitSetup = func(scmUrl, destination, pr string) error {
+		if scmUrl != testHTTPS {
+			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testHTTPS)
+		}
+		if destination != testWorkspace {
+			t.Errorf("Git clone was called with destination %q, want %q", destination, testWorkspace)
+		}
+		if pr != testPrNumber {
+			t.Errorf("Git clone was called with pr %q, want %q", pr, testPrNumber)
+		}
+		return nil
+	}
+	launch(screwdriver.API(api), testBuildID, testRoot)
+}
+
+func TestPR(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	testHTTPS := "https://github.com/screwdriver-cd/launcher.git#master"
 	testPrNumber := "1"
 	testRoot := "/sd/workspace"
+	testWorkspace := "/sd/workspace/src/screwdriver-cd/launcher.git"
 	api := mockAPI(t, testBuildID, testJobID, "")
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
@@ -284,12 +286,15 @@ func TestMergePR(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
-	gitClone = func(repo, dest string) error {
-		return nil
-	}
-	gitMergePR = func(prNumber, branch string) error {
-		if prNumber != testPrNumber {
-			t.Errorf("prNumber == %q, want %q", prNumber, testPrNumber)
+	gitSetup = func(scmUrl, destination, pr string) error {
+		if scmUrl != testHTTPS {
+			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testHTTPS)
+		}
+		if destination != testWorkspace {
+			t.Errorf("Git clone was called with destination %q, want %q", destination, testWorkspace)
+		}
+		if pr != testPrNumber {
+			t.Errorf("Git clone was called with pr %q, want %q", pr, testPrNumber)
 		}
 		return nil
 	}
