@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -12,6 +14,7 @@ import (
 type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
+type FakePipelineDef screwdriver.PipelineDef
 
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus string) MockAPI {
 	return MockAPI{
@@ -42,14 +45,18 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus st
 			}
 			return nil
 		},
+		pipelineDefFromYaml: func(yaml io.Reader) (screwdriver.PipelineDef, error) {
+			return screwdriver.PipelineDef(FakePipelineDef{}), nil
+		},
 	}
 }
 
 type MockAPI struct {
-	buildFromID       func(string) (screwdriver.Build, error)
-	jobFromID         func(string) (screwdriver.Job, error)
-	pipelineFromID    func(string) (screwdriver.Pipeline, error)
-	updateBuildStatus func(string) error
+	buildFromID         func(string) (screwdriver.Build, error)
+	jobFromID           func(string) (screwdriver.Job, error)
+	pipelineFromID      func(string) (screwdriver.Pipeline, error)
+	updateBuildStatus   func(string) error
+	pipelineDefFromYaml func(io.Reader) (screwdriver.PipelineDef, error)
 }
 
 func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
@@ -78,6 +85,13 @@ func (f MockAPI) UpdateBuildStatus(status string) error {
 		return f.updateBuildStatus(status)
 	}
 	return nil
+}
+
+func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, error) {
+	if f.pipelineDefFromYaml != nil {
+		return f.pipelineDefFromYaml(yaml)
+	}
+	return screwdriver.PipelineDef(FakePipelineDef{}), nil
 }
 
 func TestMain(m *testing.M) {
@@ -399,4 +413,51 @@ func TestUpdateBuildStatusError(t *testing.T) {
 	if err.Error() != "updating build status: Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
+}
+
+func TestPipelineDefFromYaml(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testRoot := "/sd/workspace"
+	mainJob := screwdriver.JobDef{
+		Image: "node:4",
+		Steps: map[string]string{
+			"install": "npm install",
+		},
+		Environment: map[string]string{
+			"NUMBER": "3",
+		},
+	}
+	wantJobs := map[string][]screwdriver.JobDef{
+		"main": []screwdriver.JobDef{
+			mainJob,
+		},
+	}
+
+	open = func(f string) (*os.File, error) {
+		if f != "/sd/workspace/src/screwdriver.yaml" {
+			t.Errorf("File name not correct: %q", f)
+		}
+
+		return os.Open("data/screwdriver.yaml")
+	}
+
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "main"}), nil
+	}
+	api.pipelineDefFromYaml = func(yaml io.Reader) (screwdriver.PipelineDef, error) {
+		return screwdriver.PipelineDef(FakePipelineDef{
+			Jobs: wantJobs,
+		}), nil
+	}
+
+	executorRun = func(jobDef []screwdriver.JobDef) error {
+		if !reflect.DeepEqual(jobDef, wantJobs["main"]) {
+			t.Errorf("Executor run jobDef = %+v, \n want %+v", jobDef, wantJobs["main"])
+		}
+		return nil
+	}
+	launch(screwdriver.API(api), testBuildID, testRoot)
 }

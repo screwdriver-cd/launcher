@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
 	"regexp"
 
+	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/git"
 	"github.com/screwdriver-cd/launcher/screwdriver"
 	"github.com/urfave/cli"
@@ -25,6 +27,8 @@ type scmPath struct {
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var gitSetup = git.Setup
+var open = os.Open
+var executorRun = executor.Run
 
 func (s scmPath) String() string {
 	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -141,6 +145,25 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 	}
 
 	err = gitSetup(scm.httpsString(), w.Src, pr)
+	if err != nil {
+		return err
+	}
+
+	var yaml io.ReadCloser
+
+	yaml, err = open(path.Join(w.Src, "screwdriver.yaml"))
+	if err != nil {
+		return fmt.Errorf("opening screwdriver.yaml: %v", err)
+	}
+
+	defer yaml.Close()
+
+	pipelineDef, err := api.PipelineDefFromYaml(yaml)
+	if err != nil {
+		return err
+	}
+
+	err = executorRun(pipelineDef.Jobs[j.Name])
 	if err != nil {
 		return err
 	}

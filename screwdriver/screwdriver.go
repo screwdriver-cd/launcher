@@ -16,6 +16,7 @@ type API interface {
 	JobFromID(jobID string) (Job, error)
 	PipelineFromID(pipelineID string) (Pipeline, error)
 	UpdateBuildStatus(status string) error
+	PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error)
 }
 
 // SDError is an error response from the Screwdriver API
