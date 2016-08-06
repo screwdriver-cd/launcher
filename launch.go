@@ -104,6 +104,12 @@ func prNumber(jobName string) string {
 }
 
 func launch(api screwdriver.API, buildID string, rootDir string) error {
+	log.Print("Update Build Status to RUNNING")
+	err := api.UpdateBuildStatus("RUNNING")
+	if err != nil {
+		return fmt.Errorf("updating build status: %v", err)
+	}
+
 	log.Printf("Fetching Build %v", buildID)
 	b, err := api.BuildFromID(buildID)
 	if err != nil {

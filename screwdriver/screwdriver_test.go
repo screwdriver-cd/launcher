@@ -236,3 +236,12 @@ func TestPipelineFromYaml(t *testing.T) {
 		t.Errorf("PipelineDef.Jobs = %+v, \n want %+v", p.Jobs, wantJobs)
 	}
 }
+
+func TestUpdateBuildStatus(t *testing.T) {
+	http := makeFakeHTTPClient(t, 200, "{}")
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	err := testAPI.UpdateBuildStatus("SUCCESS")
+	if err != nil {
+		t.Errorf("Unexpected error from UpdateBuildStatus: %v", err)
+	}
+}

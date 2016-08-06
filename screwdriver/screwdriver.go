@@ -15,6 +15,7 @@ type API interface {
 	BuildFromID(buildID string) (Build, error)
 	JobFromID(jobID string) (Job, error)
 	PipelineFromID(pipelineID string) (Pipeline, error)
+	UpdateBuildStatus(status string) error
 }
 
 // SDError is an error response from the Screwdriver API
@@ -42,6 +43,11 @@ func New(url, token string) (API, error) {
 		&http.Client{},
 	}
 	return API(api), nil
+}
+
+// BuildStatus is a Screwdriver Build Status payload
+type BuildStatus struct {
+	Status string `json:"status"`
 }
 
 // Validator is a Screwdriver Validator payload.
@@ -195,7 +201,7 @@ func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
 }
 
 func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
-	u, err := a.makeURL("/validator")
+	u, err := a.makeURL("validator")
 	if err != nil {
 		return PipelineDef{}, err
 	}
@@ -223,4 +229,26 @@ func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
 	}
 
 	return pipelineDef, nil
+}
+
+func (a api) UpdateBuildStatus(status string) error {
+	u, err := a.makeURL("webhooks/build")
+	if err != nil {
+		return fmt.Errorf("creating url: %v", err)
+	}
+
+	bs := BuildStatus{
+		Status: status,
+	}
+	payload, err := json.Marshal(bs)
+	if err != nil {
+		return fmt.Errorf("marshaling JSON for Build Status: %v", err)
+	}
+
+	_, err = a.post(u, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("posting to Build Status: %v", err)
+	}
+
+	return nil
 }
