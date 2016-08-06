@@ -13,7 +13,7 @@ type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 
-func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string) MockAPI {
+func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus string) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID string) (screwdriver.Build, error) {
 			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
@@ -34,13 +34,22 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string) MockAP
 			}
 			return screwdriver.Pipeline(FakePipeline{}), nil
 		},
+		updateBuildStatus: func(status string) error {
+			if status != testStatus {
+				t.Errorf("status == %s, want %s", status, testStatus)
+				// Panic to get the stacktrace
+				panic(true)
+			}
+			return nil
+		},
 	}
 }
 
 type MockAPI struct {
-	buildFromID    func(string) (screwdriver.Build, error)
-	jobFromID      func(string) (screwdriver.Job, error)
-	pipelineFromID func(string) (screwdriver.Pipeline, error)
+	buildFromID       func(string) (screwdriver.Build, error)
+	jobFromID         func(string) (screwdriver.Job, error)
+	pipelineFromID    func(string) (screwdriver.Pipeline, error)
+	updateBuildStatus func(string) error
 }
 
 func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
@@ -64,6 +73,13 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
+func (f MockAPI) UpdateBuildStatus(status string) error {
+	if f.updateBuildStatus != nil {
+		return f.updateBuildStatus(status)
+	}
+	return nil
+}
+
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
@@ -76,7 +92,7 @@ func TestBuildJobPipelineFromID(t *testing.T) {
 	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
 	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, testPipelineID)
+	api := mockAPI(t, testBuildID, testJobID, testPipelineID, "RUNNING")
 	launch(screwdriver.API(api), testBuildID, testRoot)
 }
 
@@ -103,7 +119,7 @@ func TestJobFromIdError(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, "")
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Job(FakeJob{}), err
@@ -125,7 +141,7 @@ func TestPipelineFromIdError(t *testing.T) {
 	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
 	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, testPipelineID)
+	api := mockAPI(t, testBuildID, testJobID, testPipelineID, "RUNNING")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Pipeline(FakePipeline{}), err
@@ -252,7 +268,7 @@ func TestNonPR(t *testing.T) {
 	testRoot := "/sd/workspace"
 	testPrNumber := ""
 	testWorkspace := "/sd/workspace/src/screwdriver-cd/launcher.git"
-	api := mockAPI(t, testBuildID, testJobID, "")
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
@@ -279,7 +295,7 @@ func TestPR(t *testing.T) {
 	testPrNumber := "1"
 	testRoot := "/sd/workspace"
 	testWorkspace := "/sd/workspace/src/screwdriver-cd/launcher.git"
-	api := mockAPI(t, testBuildID, testJobID, "")
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
 	}
