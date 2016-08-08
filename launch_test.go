@@ -317,3 +317,86 @@ func TestPR(t *testing.T) {
 
 	launch(screwdriver.API(api), testBuildID, testRoot)
 }
+
+func TestGitSetupError(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	testRoot := "/sd/workspace"
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
+	}
+	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+	}
+	gitSetup = func(scmUrl, destination, pr string) error {
+		return fmt.Errorf("Spooky error")
+	}
+
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
+
+	if err.Error() != "Spooky error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestCreateWorkspaceError(t *testing.T) {
+	oldMkdir := mkdirAll
+	defer func() { mkdirAll = oldMkdir }()
+
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	testRoot := "/sd/workspace"
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+	}
+	mkdirAll = func(path string, perm os.FileMode) (err error) {
+		return fmt.Errorf("Spooky error")
+	}
+
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
+
+	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher.git\": Spooky error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestCreateWorkspaceBadStat(t *testing.T) {
+	oldStat := stat
+	defer func() { stat = oldStat }()
+
+	stat = func(path string) (info os.FileInfo, err error) {
+		return nil, nil
+	}
+	testRoot := "/sd/workspace"
+
+	wantWorkspace := Workspace{}
+
+	workspace, err := createWorkspace(testRoot, "screwdriver-cd", "launcher.git")
+
+	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher.git\", path already exists." {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+
+	if workspace != wantWorkspace {
+		t.Errorf("Workspace == %q, want %q", workspace, wantWorkspace)
+	}
+}
+
+func TestUpdateBuildStatusError(t *testing.T) {
+	testBuildID := "BUILDID"
+	testRoot := "/sd/workspace"
+	api := mockAPI(t, testBuildID, "", "", "RUNNING")
+	api.updateBuildStatus = func(status string) error {
+		return fmt.Errorf("Spooky error")
+	}
+
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
+
+	if err.Error() != "updating build status: Spooky error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
