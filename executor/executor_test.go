@@ -42,8 +42,8 @@ func TestHelperProcess(*testing.T) {
 		}
 	}
 
-	if len(args) == 3 {
-		switch args[2] {
+	if len(args) == 4 {
+		switch args[3] {
 		case "make":
 			os.Exit(0)
 		case "npm install":
@@ -80,16 +80,20 @@ func TestRunSingle(t *testing.T) {
 				t.Errorf("Run() ran %v, want 'sh'", cmd)
 			}
 
-			if len(args) != 2 {
-				t.Errorf("Expected 2 arguments to exec, got %d: %v", len(args), args)
+			if len(args) != 3 {
+				t.Errorf("Expected 3 arguments to exec, got %d: %v", len(args), args)
 			}
 
-			if args[0] != "-c" {
-				t.Errorf("Expected sh -c to be called, got sh %v", args[0])
+			if args[0] != "-e" {
+				t.Errorf("Expected sh [-e -c] to be called, got sh %v", args)
 			}
 
-			if args[1] != test.command {
-				t.Errorf("sh -c %v called, want sh -c %v", args[1], test.command)
+			if args[1] != "-c" {
+				t.Errorf("Expected sh [-e -c] to be called, got sh %v", args)
+			}
+
+			if args[2] != test.command {
+				t.Errorf("sh -e -c %v called, want sh -e -c %v", args[1], test.command)
 			}
 		})
 
@@ -125,7 +129,7 @@ func TestRunMulti(t *testing.T) {
 
 	called := []string{}
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		called = append(called, args[1:]...)
+		called = append(called, args[2:]...)
 	})
 	err := Run(testCmds)
 
@@ -143,6 +147,31 @@ func TestRunMulti(t *testing.T) {
 		}
 		if called[i] != test.command {
 			t.Errorf("Exec called with %v, want %v", called[i], test.command)
+		}
+	}
+}
+
+func TestUnmocked(t *testing.T) {
+	execCommand = exec.Command
+	var tests = []struct {
+		command string
+		err     error
+	}{
+		{"ls", nil},
+		{"doesntexist", fmt.Errorf("exit 127")},
+		{"ls && ls", nil},
+		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("exit 5")},
+	}
+
+	for _, test := range tests {
+		err := Run([]screwdriver.CommandDef{
+			screwdriver.CommandDef{
+				Cmd: test.command,
+			},
+		})
+
+		if !reflect.DeepEqual(err, test.err) {
+			t.Errorf("Unexpected error: %v", err)
 		}
 	}
 }
