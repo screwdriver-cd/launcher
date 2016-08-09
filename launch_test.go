@@ -419,10 +419,14 @@ func TestPipelineDefFromYaml(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testRoot := "/sd/workspace"
+
 	mainJob := screwdriver.JobDef{
 		Image: "node:4",
-		Steps: map[string]string{
-			"install": "npm install",
+		Commands: []screwdriver.CommandDef{
+			screwdriver.CommandDef{
+				Name: "install",
+				Cmd:  "npm install",
+			},
 		},
 		Environment: map[string]string{
 			"NUMBER": "3",

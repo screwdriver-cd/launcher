@@ -182,31 +182,37 @@ func TestPipeline404(t *testing.T) {
 
 func TestPipelineFromYaml(t *testing.T) {
 	json := `{
-	  "jobs": {
-	    "main": [
-	      {
-	        "image": "node:4",
-	        "steps": {
-	          "install": "npm install"
-	        },
-	        "environment": {
-	          "ARRAY": "[\"a\",\"b\"]",
-	          "BOOL": "true",
-	          "OBJECT": "{\"a\":\"cat\",\"b\":\"dog\"}",
-	          "NUMBER": "3",
-	          "DECIMAL": "3.1415927",
-	          "STRING": "test"
-	        }
-	      }
-	    ]
-	  },
-	  "workflow": []
-	}`
+    "jobs": {
+      "main": [
+        {
+          "image": "node:4",
+          "commands": [
+            {
+              "name": "install",
+              "command": "npm install"
+            }
+          ],
+          "environment": {
+            "ARRAY": "[\"a\",\"b\"]",
+            "BOOL": "true",
+            "OBJECT": "{\"a\":\"cat\",\"b\":\"dog\"}",
+            "NUMBER": "3",
+            "DECIMAL": "3.1415927",
+            "STRING": "test"
+          }
+        }
+      ]
+    },
+    "workflow": []
+  }`
 
 	mainJob := JobDef{
 		Image: "node:4",
-		Steps: map[string]string{
-			"install": "npm install",
+		Commands: []CommandDef{
+			CommandDef{
+				Name: "install",
+				Cmd:  "npm install",
+			},
 		},
 		Environment: map[string]string{
 			"ARRAY":   `["a","b"]`,

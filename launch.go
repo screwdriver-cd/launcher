@@ -103,7 +103,7 @@ func prNumber(jobName string) string {
 	if matched == nil || len(matched) != 2 {
 		return ""
 	}
-
+	log.Println("Build is a PR: ", matched[1])
 	return matched[1]
 }
 
