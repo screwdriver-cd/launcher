@@ -361,6 +361,7 @@ func TestPR(t *testing.T) {
 func TestGitSetupError(t *testing.T) {
 	oldGitSetup := gitSetup
 	defer func() { gitSetup = oldGitSetup }()
+
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
@@ -702,5 +703,93 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 
 	if !exitCalled {
 		t.Errorf("Explicit exit not called")
+	}
+}
+
+func TestPipelineDefFromYamlError(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testRoot := "/sd/workspace"
+
+	defer func() { open = os.Open }()
+	open = func(f string) (*os.File, error) {
+		if f != "/sd/workspace/src/screwdriver.yaml" {
+			t.Errorf("File name not correct: %q", f)
+		}
+
+		return os.Open("data/screwdriver.yaml")
+	}
+
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "main"}), nil
+	}
+	api.pipelineDefFromYaml = func(yaml io.Reader) (screwdriver.PipelineDef, error) {
+		return screwdriver.PipelineDef(FakePipelineDef{}), fmt.Errorf("Spooky Error")
+	}
+
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
+
+	if err.Error() != "Spooky Error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestExecutorRunError(t *testing.T) {
+	testBuildID := "BUILDID"
+	testJobID := "JOBID"
+	testRoot := "/sd/workspace"
+	mainJob := screwdriver.JobDef{
+		Image: "node:4",
+		Commands: []screwdriver.CommandDef{
+			screwdriver.CommandDef{
+				Name: "install",
+				Cmd:  "npm install",
+			},
+		},
+		Environment: map[string]string{
+			"NUMBER": "3",
+		},
+	}
+	wantJobs := map[string][]screwdriver.JobDef{
+		"main": []screwdriver.JobDef{
+			mainJob,
+		},
+	}
+
+	defer func() { writeFile = ioutil.WriteFile }()
+	writeFile = func(d string, b []byte, p os.FileMode) error { return nil }
+
+	defer func() { open = os.Open }()
+	open = func(f string) (*os.File, error) {
+		if f != "/sd/workspace/src/screwdriver.yaml" {
+			t.Errorf("File name not correct: %q", f)
+		}
+
+		return os.Open("data/screwdriver.yaml")
+	}
+
+	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "main"}), nil
+	}
+	api.pipelineDefFromYaml = func(yaml io.Reader) (screwdriver.PipelineDef, error) {
+		return screwdriver.PipelineDef(FakePipelineDef{
+			Jobs: wantJobs,
+		}), nil
+	}
+
+	oldExecutorRun := executorRun
+	defer func() { executorRun = oldExecutorRun }()
+	executorRun = func(jobDef []screwdriver.CommandDef) error {
+		return fmt.Errorf("Spooky Error")
+	}
+
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
+
+	if err.Error() != "Spooky Error" {
+		t.Errorf("Error is wrong, got %v", err)
 	}
 }

@@ -413,3 +413,40 @@ func TestSetupBadMerge(t *testing.T) {
 		t.Errorf("Error is wrong, got %v", err)
 	}
 }
+
+func TestCommandBadStart(t *testing.T) {
+	oldStartCmd := startCmd
+	defer func() { startCmd = oldStartCmd }()
+
+	startCmd = func(c *exec.Cmd) error {
+		return fmt.Errorf("Spooky error")
+	}
+
+	err := command("random", "arguments")
+
+	if err.Error() != "starting git command: Spooky error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestCommandBadWait(t *testing.T) {
+	oldStartCmd := startCmd
+	defer func() { startCmd = oldStartCmd }()
+
+	oldWaitCmd := waitCmd
+	defer func() { waitCmd = oldWaitCmd }()
+
+	startCmd = func(c *exec.Cmd) error {
+		return nil
+	}
+
+	waitCmd = func(c *exec.Cmd) error {
+		return fmt.Errorf("Spooky error")
+	}
+
+	err := command("random", "arguments")
+
+	if err.Error() != "running git command: Spooky error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
