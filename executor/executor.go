@@ -14,7 +14,7 @@ var execCommand = exec.Command
 // Run executes a slice of CommandDefs
 func Run(cmds []screwdriver.CommandDef) error {
 	for _, cmd := range cmds {
-		shargs := []string{"-c"}
+		shargs := []string{"-e", "-c"}
 		shargs = append(shargs, cmd.Cmd)
 		c := execCommand("sh", shargs...)
 		c.Stdout = os.Stdout
