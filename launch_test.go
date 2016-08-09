@@ -27,7 +27,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus st
 				// Panic to get the stacktrace
 				panic(true)
 			}
-			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID}), nil
+			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID, Name: "main"}), nil
 		},
 		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
 			if pipelineID != testPipelineID {
@@ -44,9 +44,6 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus st
 				panic(true)
 			}
 			return nil
-		},
-		pipelineDefFromYaml: func(yaml io.Reader) (screwdriver.PipelineDef, error) {
-			return screwdriver.PipelineDef(FakePipelineDef{}), nil
 		},
 	}
 }
@@ -87,17 +84,41 @@ func (f MockAPI) UpdateBuildStatus(status string) error {
 	return nil
 }
 
+func fakePipelineDef() screwdriver.PipelineDef {
+	jobDef := screwdriver.JobDef{
+		Commands: []screwdriver.CommandDef{
+			screwdriver.CommandDef{
+				Name: "testcmd",
+				Cmd:  "cmd",
+			},
+		},
+	}
+	def := FakePipelineDef{
+		Jobs: map[string][]screwdriver.JobDef{
+			"main": []screwdriver.JobDef{
+				jobDef,
+			},
+		},
+	}
+
+	return screwdriver.PipelineDef(def)
+}
+
 func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, error) {
 	if f.pipelineDefFromYaml != nil {
 		return f.pipelineDefFromYaml(yaml)
 	}
-	return screwdriver.PipelineDef(FakePipelineDef{}), nil
+	return screwdriver.PipelineDef(fakePipelineDef()), nil
 }
 
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
 	gitSetup = func(scmUrl, destination, pr string) error { return nil }
+	open = func(f string) (*os.File, error) {
+		return os.Open("data/screwdriver.yaml")
+	}
+	executorRun = func([]screwdriver.CommandDef) error { return nil }
 	os.Exit(m.Run())
 }
 
@@ -438,6 +459,8 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		},
 	}
 
+	oldOpen := open
+	defer func() { open = oldOpen }()
 	open = func(f string) (*os.File, error) {
 		if f != "/sd/workspace/src/screwdriver.yaml" {
 			t.Errorf("File name not correct: %q", f)
@@ -457,9 +480,9 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		}), nil
 	}
 
-	executorRun = func(jobDef []screwdriver.JobDef) error {
-		if !reflect.DeepEqual(jobDef, wantJobs["main"]) {
-			t.Errorf("Executor run jobDef = %+v, \n want %+v", jobDef, wantJobs["main"])
+	executorRun = func(cmdDefs []screwdriver.CommandDef) error {
+		if !reflect.DeepEqual(cmdDefs, wantJobs["main"][0].Commands) {
+			t.Errorf("Executor run jobDef = %+v, \n want %+v", cmdDefs, wantJobs["main"])
 		}
 		return nil
 	}
