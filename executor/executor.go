@@ -5,6 +5,6 @@ import (
 )
 
 // Run will be used to execute steps
-func Run(jobDef []screwdriver.JobDef) error {
+func Run(jobDefs []screwdriver.JobDef) error {
 	return nil
 }

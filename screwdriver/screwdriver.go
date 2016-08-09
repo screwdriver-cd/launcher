@@ -46,7 +46,7 @@ func New(url, token string) (API, error) {
 	return API(api), nil
 }
 
-// BuildStatus is a Screwdriver Build Status payload
+// BuildStatus is a Screwdriver Build Status payload.
 type BuildStatus struct {
 	Status string `json:"status"`
 }
@@ -56,30 +56,36 @@ type Validator struct {
 	Yaml string `json:"yaml"`
 }
 
-// Pipeline is a Screwdriver Pipeline definition
+// Pipeline is a Screwdriver Pipeline definition.
 type Pipeline struct {
 	ID     string `json:"id"`
 	ScmURL string `json:"scmUrl"`
 }
 
-// PipelineDef contains the step definitions and jobs for a Pipeline
+// PipelineDef contains the step definitions and jobs for a Pipeline.
 type PipelineDef struct {
 	Jobs     map[string][]JobDef `json:"jobs"`
 	Workflow []string            `json:"workflow"`
 }
 
-// JobDef contains the step and environment definitions of a single Job
+// JobDef contains the step and environment definitions of a single Job.
 type JobDef struct {
 	Image       string            `json:"image"`
-	Steps       map[string]string `json:"steps"`
+	Commands    []CommandDef      `json:"commands"`
 	Environment map[string]string `json:"environment"`
 }
 
-// Job is a Screwdriver Job
+// Job is a Screwdriver Job.
 type Job struct {
 	ID         string `json:"id"`
 	PipelineID string `json:"pipelineId"`
 	Name       string `json:"name"`
+}
+
+// CommandDef is the definition of a single executable command.
+type CommandDef struct {
+	Name string `json:"name"`
+	Cmd  string `json:"command"`
 }
 
 // Build is a Screwdriver Build
