@@ -163,7 +163,18 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return err
 	}
 
-	err = executorRun(pipelineDef.Jobs[j.Name])
+	jobs := pipelineDef.Jobs[j.Name]
+	if len(jobs) == 0 {
+		log.Fatalf("ERROR: Launcher currently only supports 1 matrix job. 0 jobs are configured for %q\n", j.Name)
+	}
+
+	if len(jobs) != 1 {
+		log.Printf("WARNING: Launcher currently only supports 1 matrix job. %d jobs are configured for %q\n", len(jobs), j.Name)
+	}
+
+	// TODO: Select the specific child build by looking at the decimal value of the build number
+	currentJob := pipelineDef.Jobs[j.Name][0]
+	err = executorRun(currentJob.Commands)
 	if err != nil {
 		return err
 	}
