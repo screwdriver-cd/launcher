@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
 	"strings"
 	"testing"
@@ -354,6 +357,8 @@ func TestPR(t *testing.T) {
 }
 
 func TestGitSetupError(t *testing.T) {
+	oldGitSetup := gitSetup
+	defer func() { gitSetup = oldGitSetup }()
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
@@ -459,6 +464,9 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		},
 	}
 
+	defer func() { writeFile = ioutil.WriteFile }()
+	writeFile = func(d string, b []byte, p os.FileMode) error { return nil }
+
 	oldOpen := open
 	defer func() { open = oldOpen }()
 	open = func(f string) (*os.File, error) {
@@ -486,5 +494,96 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		}
 		return nil
 	}
-	launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), testBuildID, testRoot)
+
+	if err != nil {
+		t.Errorf("Launch returned error: %v", err)
+	}
+}
+
+func TestWriteCommandArtifact(t *testing.T) {
+	sdCommand := []screwdriver.CommandDef{
+		screwdriver.CommandDef{
+			Name: "install",
+			Cmd:  "npm install",
+		},
+	}
+	var sdCommandUnmarshal []screwdriver.CommandDef
+	fName := "steps.json"
+
+	tmp, err := ioutil.TempDir("", "ArtifactDir")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	err = writeArtifact(tmp, fName, sdCommand)
+	if err != nil {
+		t.Errorf("Expected error to be nil: %v", err)
+	}
+
+	filePath := path.Join(tmp, fName)
+
+	if _, err = os.Stat(filePath); err != nil {
+		t.Fatalf("file not found: %s", err)
+	}
+
+	fileContents, err := ioutil.ReadFile(filePath)
+
+	if err != nil {
+		t.Fatalf("reading file error: %v", err)
+	}
+
+	err = json.Unmarshal(fileContents, &sdCommandUnmarshal)
+
+	if err != nil {
+		t.Fatalf("unmarshalling file contents: %v", err)
+	}
+
+	if !reflect.DeepEqual(sdCommand, sdCommandUnmarshal) {
+		t.Fatalf("Did not write file correctly. Wanted %v. Got %v", sdCommand, sdCommandUnmarshal)
+	}
+}
+
+func TestWriteEnvironmentArtifact(t *testing.T) {
+	sdEnv := map[string]string{
+		"NUMBER":  "3",
+		"NUMBER1": "4",
+		"BOOL":    "false",
+	}
+	var sdEnvUnmarshal map[string]string
+	fName := "environment.json"
+
+	tmp, err := ioutil.TempDir("", "ArtifactDir")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	err = writeArtifact(tmp, fName, sdEnv)
+	if err != nil {
+		t.Fatalf("Expected error to be nil: %v", err)
+	}
+
+	filePath := path.Join(tmp, fName)
+
+	if _, err = os.Stat(filePath); err != nil {
+		t.Fatalf("file not found: %s", err)
+	}
+
+	fileContents, err := ioutil.ReadFile(filePath)
+
+	if err != nil {
+		t.Fatalf("reading file error: %v", err)
+	}
+
+	err = json.Unmarshal(fileContents, &sdEnvUnmarshal)
+
+	if err != nil {
+		t.Fatalf("unmarshalling file contents: %v", err)
+	}
+
+	if !reflect.DeepEqual(sdEnv, sdEnvUnmarshal) {
+		t.Fatalf("Did not write file correctly. Wanted %v. Got %v", sdEnv, sdEnvUnmarshal)
+	}
 }

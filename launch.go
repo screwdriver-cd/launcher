@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/git"
@@ -29,6 +32,7 @@ var stat = os.Stat
 var gitSetup = git.Setup
 var open = os.Open
 var executorRun = executor.Run
+var writeFile = ioutil.WriteFile
 
 func (s scmPath) String() string {
 	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -94,6 +98,21 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 		Artifacts: artifacts,
 	}
 	return w, nil
+}
+
+func writeArtifact(aDir string, fName string, artifact interface{}) error {
+	data, err := json.MarshalIndent(artifact, "", strings.Repeat(" ", 4))
+	if err != nil {
+		return fmt.Errorf("marshaling artifact: %v ", err)
+	}
+
+	pathToCreate := path.Join(aDir, fName)
+	err = writeFile(pathToCreate, data, 0644)
+	if err != nil {
+		return fmt.Errorf("creating file %q : %v", pathToCreate, err)
+	}
+
+	return nil
 }
 
 // prNumber checks to see if the job name is a pull request and returns its number
@@ -174,6 +193,17 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 
 	// TODO: Select the specific child build by looking at the decimal value of the build number
 	currentJob := pipelineDef.Jobs[j.Name][0]
+
+	err = writeArtifact(w.Artifacts, "steps.json", currentJob.Commands)
+	if err != nil {
+		return fmt.Errorf("creating steps.json artifact: %v", err)
+	}
+
+	err = writeArtifact(w.Artifacts, "environment.json", currentJob.Environment)
+	if err != nil {
+		return fmt.Errorf("creating environment.json artifact: %v", err)
+	}
+
 	err = executorRun(currentJob.Commands)
 	if err != nil {
 		return err
