@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -246,8 +247,29 @@ func TestPipelineFromYaml(t *testing.T) {
 func TestUpdateBuildStatus(t *testing.T) {
 	http := makeFakeHTTPClient(t, 200, "{}")
 	testAPI := api{"http://fakeurl", "faketoken", http}
-	err := testAPI.UpdateBuildStatus("SUCCESS")
-	if err != nil {
+	statuses := []BuildStatus{
+		Success,
+		Failure,
+		Aborted,
+		Running,
+	}
+
+	for _, status := range statuses {
+		err := testAPI.UpdateBuildStatus(status)
+		if err != nil {
+			t.Errorf("Unexpected error from UpdateBuildStatus(%s): %v", status, err)
+		}
+	}
+}
+
+func TestBadUpdateBuildStatus(t *testing.T) {
+	http := makeFakeHTTPClient(t, 200, "{}")
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	err := testAPI.UpdateBuildStatus("NOTASTATUS")
+	if err == nil {
+		t.Fatalf("Expected an error from UpdateBuildStatus. Got none.")
+	}
+	if !strings.Contains(err.Error(), "invalid build status: NOTASTATUS") {
 		t.Errorf("Unexpected error from UpdateBuildStatus: %v", err)
 	}
 }

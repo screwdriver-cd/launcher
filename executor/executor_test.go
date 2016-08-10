@@ -62,7 +62,7 @@ func TestRunSingle(t *testing.T) {
 	}{
 		{"make", nil},
 		{"npm install", nil},
-		{"failer", fmt.Errorf("exit 7")},
+		{"failer", ErrStatus{7}},
 	}
 
 	for _, test := range tests {
@@ -137,7 +137,7 @@ func TestRunMulti(t *testing.T) {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
 	}
 
-	if !reflect.DeepEqual(err, fmt.Errorf("exit 7")) {
+	if !reflect.DeepEqual(err, ErrStatus{7}) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -158,9 +158,9 @@ func TestUnmocked(t *testing.T) {
 		err     error
 	}{
 		{"ls", nil},
-		{"doesntexist", fmt.Errorf("exit 127")},
+		{"doesntexist", ErrStatus{127}},
 		{"ls && ls", nil},
-		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("exit 5")},
+		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", ErrStatus{5}},
 	}
 
 	for _, test := range tests {
@@ -171,7 +171,14 @@ func TestUnmocked(t *testing.T) {
 		})
 
 		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("Unexpected error: %v, want %v", err, test.err)
 		}
+	}
+}
+
+func TestErrStatus(t *testing.T) {
+	errText := ErrStatus{5}.Error()
+	if errText != "exit 5" {
+		t.Errorf("ErrStatus{5}.Error() == %q, want %q", errText, "exit 5")
 	}
 }
