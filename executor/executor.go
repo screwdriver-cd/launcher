@@ -11,6 +11,15 @@ import (
 
 var execCommand = exec.Command
 
+// ErrStatus is an error that holds an exit status code
+type ErrStatus struct {
+	Status int
+}
+
+func (e ErrStatus) Error() string {
+	return fmt.Sprintf("exit %d", e.Status)
+}
+
 // Run executes a slice of CommandDefs
 func Run(cmds []screwdriver.CommandDef) error {
 	for _, cmd := range cmds {
@@ -27,7 +36,7 @@ func Run(cmds []screwdriver.CommandDef) error {
 		if err := c.Wait(); err != nil {
 			if exitError, ok := err.(*exec.ExitError); ok {
 				waitStatus := exitError.Sys().(syscall.WaitStatus)
-				return fmt.Errorf("exit %d", waitStatus.ExitStatus())
+				return ErrStatus{waitStatus.ExitStatus()}
 			}
 			return fmt.Errorf("running command %q: %v", cmd.Cmd, err)
 		}

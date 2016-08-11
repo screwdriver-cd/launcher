@@ -10,12 +10,27 @@ import (
 	"net/url"
 )
 
+// BuildStatus is the status of a Screwdriver build
+type BuildStatus string
+
+// These are the set of valid statuses that a build can be set to
+const (
+	Running BuildStatus = "RUNNING"
+	Success             = "SUCCESS"
+	Failure             = "FAILURE"
+	Aborted             = "ABORTED"
+)
+
+func (b BuildStatus) String() string {
+	return string(b)
+}
+
 // API is a Screwdriver API endpoint
 type API interface {
 	BuildFromID(buildID string) (Build, error)
 	JobFromID(jobID string) (Job, error)
 	PipelineFromID(pipelineID string) (Pipeline, error)
-	UpdateBuildStatus(status string) error
+	UpdateBuildStatus(status BuildStatus) error
 	PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error)
 }
 
@@ -46,8 +61,8 @@ func New(url, token string) (API, error) {
 	return API(api), nil
 }
 
-// BuildStatus is a Screwdriver Build Status payload.
-type BuildStatus struct {
+// BuildStatusPayload is a Screwdriver Build Status payload.
+type BuildStatusPayload struct {
 	Status string `json:"status"`
 }
 
@@ -238,14 +253,23 @@ func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
 	return pipelineDef, nil
 }
 
-func (a api) UpdateBuildStatus(status string) error {
+func (a api) UpdateBuildStatus(status BuildStatus) error {
+	switch status {
+	case Running:
+	case Success:
+	case Failure:
+	case Aborted:
+	default:
+		return fmt.Errorf("invalid build status: %s", status)
+	}
+
 	u, err := a.makeURL("webhooks/build")
 	if err != nil {
 		return fmt.Errorf("creating url: %v", err)
 	}
 
-	bs := BuildStatus{
-		Status: status,
+	bs := BuildStatusPayload{
+		Status: status.String(),
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {

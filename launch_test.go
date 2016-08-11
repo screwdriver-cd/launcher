@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
@@ -19,7 +20,7 @@ type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 type FakePipelineDef screwdriver.PipelineDef
 
-func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus string) MockAPI {
+func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID string) (screwdriver.Build, error) {
 			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
@@ -40,7 +41,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID, testStatus st
 			}
 			return screwdriver.Pipeline(FakePipeline{}), nil
 		},
-		updateBuildStatus: func(status string) error {
+		updateBuildStatus: func(status screwdriver.BuildStatus) error {
 			if status != testStatus {
 				t.Errorf("status == %s, want %s", status, testStatus)
 				// Panic to get the stacktrace
@@ -55,7 +56,7 @@ type MockAPI struct {
 	buildFromID         func(string) (screwdriver.Build, error)
 	jobFromID           func(string) (screwdriver.Job, error)
 	pipelineFromID      func(string) (screwdriver.Pipeline, error)
-	updateBuildStatus   func(string) error
+	updateBuildStatus   func(screwdriver.BuildStatus) error
 	pipelineDefFromYaml func(io.Reader) (screwdriver.PipelineDef, error)
 }
 
@@ -80,7 +81,7 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status string) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus) error {
 	if f.updateBuildStatus != nil {
 		return f.updateBuildStatus(status)
 	}
@@ -122,6 +123,7 @@ func TestMain(m *testing.M) {
 		return os.Open("data/screwdriver.yaml")
 	}
 	executorRun = func([]screwdriver.CommandDef) error { return nil }
+	cleanExit = func() {}
 	os.Exit(m.Run())
 }
 
@@ -429,15 +431,16 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 func TestUpdateBuildStatusError(t *testing.T) {
 	testBuildID := "BUILDID"
 	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, "", "", "RUNNING")
-	api.updateBuildStatus = func(status string) error {
+	api := mockAPI(t, testBuildID, "", "", screwdriver.Running)
+	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
 		return fmt.Errorf("Spooky error")
 	}
 
 	err := launch(screwdriver.API(api), testBuildID, testRoot)
 
-	if err.Error() != "updating build status: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
+	want := "updating build status to RUNNING: Spooky error"
+	if err.Error() != want {
+		t.Errorf("Error is wrong. got %v, want %v", err, want)
 	}
 }
 
@@ -477,7 +480,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		return os.Open("data/screwdriver.yaml")
 	}
 
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, testBuildID, testJobID, "", screwdriver.Running)
 
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "main"}), nil
@@ -498,6 +501,72 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("Launch returned error: %v", err)
+	}
+}
+
+func TestUpdateBuildStatusSuccess(t *testing.T) {
+	wantStatuses := []screwdriver.BuildStatus{
+		screwdriver.Running,
+		screwdriver.Success,
+	}
+
+	var gotStatuses []screwdriver.BuildStatus
+	api := mockAPI(t, "testBuildID", "testJobID", "testPipelineID", "")
+	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+		gotStatuses = append(gotStatuses, status)
+		return nil
+	}
+
+	oldMkdirAll := mkdirAll
+	defer func() { mkdirAll = oldMkdirAll }()
+	mkdirAll = os.MkdirAll
+	tmp, err := ioutil.TempDir("", "ArtifactDir")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	err = launchAction(screwdriver.API(api), "testBuildID", tmp)
+	if err != nil {
+		t.Errorf("Unexpected error from launch: %v", err)
+	}
+
+	if !reflect.DeepEqual(gotStatuses, wantStatuses) {
+		t.Errorf("Set statuses %q, want %q", gotStatuses, wantStatuses)
+	}
+}
+
+func TestUpdateBuildNonZeroFailure(t *testing.T) {
+	wantStatuses := []screwdriver.BuildStatus{
+		screwdriver.Running,
+		screwdriver.Failure,
+	}
+
+	var gotStatuses []screwdriver.BuildStatus
+	api := mockAPI(t, "testBuildID", "testJobID", "testPipelineID", "")
+	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+		gotStatuses = append(gotStatuses, status)
+		return nil
+	}
+
+	oldMkdirAll := mkdirAll
+	defer func() { mkdirAll = oldMkdirAll }()
+	mkdirAll = os.MkdirAll
+	tmp, err := ioutil.TempDir("", "ArtifactDir")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	executorRun = func([]screwdriver.CommandDef) error { return executor.ErrStatus{Status: 1} }
+
+	err = launchAction(screwdriver.API(api), "testBuildID", tmp)
+	if err != nil {
+		t.Errorf("Unexpected error from launch: %v", err)
+	}
+
+	if !reflect.DeepEqual(gotStatuses, wantStatuses) {
+		t.Errorf("Set statuses %q, want %q", gotStatuses, wantStatuses)
 	}
 }
 
@@ -585,5 +654,53 @@ func TestWriteEnvironmentArtifact(t *testing.T) {
 
 	if !reflect.DeepEqual(sdEnv, sdEnvUnmarshal) {
 		t.Fatalf("Did not write file correctly. Wanted %v. Got %v", sdEnv, sdEnvUnmarshal)
+	}
+}
+
+func TestRecoverPanic(t *testing.T) {
+	api := mockAPI(t, "testBuildID", "", "", screwdriver.Running)
+
+	updCalled := false
+	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+		updCalled = true
+		fmt.Printf("Status set: %v\n", status)
+		if status != screwdriver.Failure {
+			t.Errorf("Status set to %v, want %v", status, screwdriver.Failure)
+		}
+		return nil
+	}
+
+	exitCalled := false
+	cleanExit = func() {
+		exitCalled = true
+	}
+
+	func() {
+		defer recoverPanic(api)
+		panic("OH NOES!")
+	}()
+
+	if !updCalled {
+		t.Errorf("Build status not updated to FAILURE")
+	}
+
+	if !exitCalled {
+		t.Errorf("Explicit exit not called")
+	}
+}
+
+func TestRecoverPanicNoAPI(t *testing.T) {
+	exitCalled := false
+	cleanExit = func() {
+		exitCalled = true
+	}
+
+	func() {
+		defer recoverPanic(nil)
+		panic("OH NOES!")
+	}()
+
+	if !exitCalled {
+		t.Errorf("Explicit exit not called")
 	}
 }

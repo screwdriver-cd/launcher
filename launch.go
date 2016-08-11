@@ -8,8 +8,11 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/git"
@@ -20,19 +23,35 @@ import (
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
 
-type scmPath struct {
-	Host   string
-	Org    string
-	Repo   string
-	Branch string
-}
-
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var gitSetup = git.Setup
 var open = os.Open
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
+
+var cleanExit = func() {
+	os.Exit(0)
+}
+
+// exit sets the build status and exits successfully
+func exit(status screwdriver.BuildStatus, api screwdriver.API) {
+	if api != nil {
+		log.Printf("Setting build status to %s", status)
+		if err := api.UpdateBuildStatus(status); err != nil {
+			log.Printf("Failed updating the build status: %v", err)
+		}
+	}
+
+	cleanExit()
+}
+
+type scmPath struct {
+	Host   string
+	Org    string
+	Repo   string
+	Branch string
+}
 
 func (s scmPath) String() string {
 	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
@@ -127,10 +146,10 @@ func prNumber(jobName string) string {
 }
 
 func launch(api screwdriver.API, buildID string, rootDir string) error {
-	log.Print("Update Build Status to RUNNING")
-	err := api.UpdateBuildStatus("RUNNING")
+	log.Print("Setting Build Status to RUNNING")
+	err := api.UpdateBuildStatus(screwdriver.Running)
 	if err != nil {
-		return fmt.Errorf("updating build status: %v", err)
+		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
 
 	log.Printf("Fetching Build %v", buildID)
@@ -184,7 +203,8 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 
 	jobs := pipelineDef.Jobs[j.Name]
 	if len(jobs) == 0 {
-		log.Fatalf("ERROR: Launcher currently only supports 1 matrix job. 0 jobs are configured for %q\n", j.Name)
+		log.Printf("ERROR: Launcher currently only supports 1 matrix job. 0 jobs are configured for %q\n", j.Name)
+		exit(screwdriver.Failure, api)
 	}
 
 	if len(jobs) != 1 {
@@ -213,32 +233,54 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(c *cli.Context) error {
-	url := c.String("api-uri")
-	token := c.String("token")
-	workspace := c.String("workspace")
-	buildID := c.Args().Get(0)
-
-	if buildID == "" {
-		return cli.ShowAppHelp(c)
-	}
-
+func launchAction(api screwdriver.API, buildID string, rootDir string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	api, err := screwdriver.New(url, token)
-	if err != nil {
-		log.Fatalf("Error creating Screwdriver API %v: %v", buildID, err)
+	if err := launch(api, buildID, rootDir); err != nil {
+		if _, ok := err.(executor.ErrStatus); ok {
+			log.Printf("Failure due to non-zero exit code: %v\n", err)
+		} else {
+			log.Printf("Error running launcher: %v\n", err)
+		}
+
+		exit(screwdriver.Failure, api)
+		return nil
 	}
 
-	if err = launch(api, buildID, workspace); err != nil {
-		log.Fatalf("Error running launcher: %v\n", err)
-		os.Exit(1)
-	}
-
+	exit(screwdriver.Success, api)
 	return nil
 }
 
+func recoverPanic(api screwdriver.API) {
+	if p := recover(); p != nil {
+		filename := fmt.Sprintf("launcher-stacktrace-%s", time.Now().Format(time.RFC3339))
+		tracefile := filepath.Join(os.TempDir(), filename)
+
+		log.Printf("ERROR: Internal Screwdriver error. Please file a bug about this: %v", p)
+		log.Printf("ERROR: Writing StackTrace to %s", tracefile)
+		err := ioutil.WriteFile(tracefile, debug.Stack(), 0600)
+		if err != nil {
+			log.Printf("ERROR: Unable to write stacktrace to file: %v", err)
+		}
+
+		exit(screwdriver.Failure, api)
+	}
+}
+
+// finalRecover makes one last attempt to recover from a panic.
+// This should only happen if the previous recovery caused a panic.
+func finalRecover() {
+	if p := recover(); p != nil {
+		fmt.Fprintln(os.Stderr, "ERROR: Something terrible has happened. Please file a ticket with this info:")
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n%v\n", p, debug.Stack())
+	}
+	cleanExit()
+}
+
 func main() {
+	defer finalRecover()
+	defer recoverPanic(nil)
+
 	app := cli.NewApp()
 	app.Name = "launcher"
 	app.Usage = "launch a Screwdriver build"
@@ -268,6 +310,30 @@ func main() {
 		},
 	}
 
-	app.Action = launchAction
+	app.Action = func(c *cli.Context) error {
+		url := c.String("api-uri")
+		token := c.String("token")
+		workspace := c.String("workspace")
+		buildID := c.Args().Get(0)
+
+		if buildID == "" {
+			return cli.ShowAppHelp(c)
+		}
+
+		api, err := screwdriver.New(url, token)
+		if err != nil {
+			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
+			exit(screwdriver.Failure, nil)
+		}
+
+		defer recoverPanic(api)
+
+		launchAction(api, buildID, workspace)
+
+		// This should never happen...
+		log.Println("Unexpected return in launcher. Failing the build.")
+		exit(screwdriver.Failure, api)
+		return nil
+	}
 	app.Run(os.Args)
 }
