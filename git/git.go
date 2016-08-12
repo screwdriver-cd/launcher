@@ -81,6 +81,15 @@ func Setup(scmURL, destination, pr string) error {
 		return fmt.Errorf("cloning repository: %v", err)
 	}
 
+	oldDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		os.Chdir(oldDir)
+	}()
+	os.Chdir(destination)
+
 	err = setConfig("user.name", "sd-buildbot")
 	if err != nil {
 		return fmt.Errorf("setting username: %v", err)
