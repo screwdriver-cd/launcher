@@ -49,6 +49,7 @@ func TestFromBuildId(t *testing.T) {
 	want := Build{
 		ID:    "testId",
 		JobID: "testJob",
+		SHA:   "testSHA",
 	}
 	json, err := json.Marshal(want)
 	if err != nil {

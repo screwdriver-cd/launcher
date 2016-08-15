@@ -107,6 +107,7 @@ type CommandDef struct {
 type Build struct {
 	ID    string `json:"id"`
 	JobID string `json:"jobId"`
+	SHA   string `json:"sha"`
 }
 
 func (a api) makeURL(path string) (*url.URL, error) {

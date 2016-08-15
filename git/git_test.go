@@ -87,6 +87,8 @@ func TestHelperProcess(*testing.T) {
 			return
 		case "merge":
 			return
+		case "reset":
+			return
 		}
 	}
 	os.Exit(255)
@@ -233,6 +235,7 @@ func TestSetupNonPR(t *testing.T) {
 	testPrNumber := ""
 	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
 	testDestination := "/tmp"
+	testSHA := "abc123"
 
 	clone = func(scmUrl, destination string) error {
 		if scmUrl != testScmURL {
@@ -261,7 +264,7 @@ func TestSetupNonPR(t *testing.T) {
 		t.Errorf("Should not get here")
 		return nil
 	}
-	err := Setup(testScmURL, testDestination, testPrNumber)
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err != nil {
 		t.Errorf("Unexpected error from setup %v", err)
@@ -272,6 +275,7 @@ func TestSetupPR(t *testing.T) {
 	testPrNumber := "111"
 	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
 	testDestination := "/tmp"
+	testSHA := "abc123"
 
 	clone = func(scmUrl, destination string) error {
 		if scmUrl != testScmURL {
@@ -305,7 +309,15 @@ func TestSetupPR(t *testing.T) {
 		}
 		return nil
 	}
-	err := Setup(testScmURL, testDestination, testPrNumber)
+
+	reset = func(sha string) error {
+		if sha != testSHA {
+			t.Errorf("Reset was called with SHA %q, want %q", sha, testSHA)
+		}
+		return nil
+	}
+
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err != nil {
 		t.Errorf("Unexpected error from setup %v", err)
@@ -316,6 +328,7 @@ func TestSetupBadClone(t *testing.T) {
 	testPrNumber := "111"
 	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
 	testDestination := "/tmp"
+	testSHA := "abc123"
 
 	clone = func(scmUrl, destination string) error {
 		return fmt.Errorf("Spooky error")
@@ -326,7 +339,11 @@ func TestSetupBadClone(t *testing.T) {
 	mergePR = func(pr, branch string) error {
 		return fmt.Errorf("Should not get here")
 	}
-	err := Setup(testScmURL, testDestination, testPrNumber)
+	reset = func(sha string) error {
+		return fmt.Errorf("Should not get here")
+	}
+
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err == nil {
 		t.Errorf("Missing error from setup")
@@ -340,6 +357,7 @@ func TestSetupBadConfigName(t *testing.T) {
 	testPrNumber := "111"
 	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
 	testDestination := "/tmp"
+	testSHA := "abc123"
 
 	clone = func(scmUrl, destination string) error {
 		return nil
@@ -353,7 +371,10 @@ func TestSetupBadConfigName(t *testing.T) {
 	mergePR = func(pr, branch string) error {
 		return fmt.Errorf("Should not get here")
 	}
-	err := Setup(testScmURL, testDestination, testPrNumber)
+	reset = func(sha string) error {
+		return nil
+	}
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err == nil {
 		t.Errorf("Missing error from setup")
@@ -367,6 +388,7 @@ func TestSetupBadConfigEmail(t *testing.T) {
 	testPrNumber := "111"
 	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
 	testDestination := "/tmp"
+	testSHA := "abc123"
 
 	clone = func(scmUrl, destination string) error {
 		return nil
@@ -380,7 +402,11 @@ func TestSetupBadConfigEmail(t *testing.T) {
 	mergePR = func(pr, branch string) error {
 		return fmt.Errorf("Should not get here")
 	}
-	err := Setup(testScmURL, testDestination, testPrNumber)
+	reset = func(sha string) error {
+		return nil
+	}
+
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err == nil {
 		t.Errorf("Missing error from setup")
@@ -394,6 +420,7 @@ func TestSetupBadMerge(t *testing.T) {
 	testPrNumber := "111"
 	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
 	testDestination := "/tmp"
+	testSHA := "abc123"
 
 	clone = func(scmUrl, destination string) error {
 		return nil
@@ -404,12 +431,67 @@ func TestSetupBadMerge(t *testing.T) {
 	mergePR = func(pr, branch string) error {
 		return fmt.Errorf("Spooky error")
 	}
-	err := Setup(testScmURL, testDestination, testPrNumber)
+	reset = func(sha string) error {
+		return nil
+	}
+
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err == nil {
 		t.Errorf("Missing error from setup")
 	}
 	if err.Error() != "merging pr: Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestSetupBadReset(t *testing.T) {
+	testPrNumber := "111"
+	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
+	testDestination := "/tmp"
+	testSHA := "abc123"
+
+	clone = func(scmUrl, destination string) error {
+		return nil
+	}
+	setConfig = func(setting, value string) error {
+		return fmt.Errorf("Should not get here")
+	}
+	mergePR = func(pr, branch string) error {
+		return fmt.Errorf("Should not get here")
+	}
+	reset = func(sha string) error {
+		return fmt.Errorf("Spooky error")
+	}
+
+	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
+
+	if err == nil {
+		t.Errorf("Missing error from setup")
+	}
+	if err.Error() != "resetting HEAD: Spooky error" {
+		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestReset(t *testing.T) {
+	testSHA := "abc123"
+	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
+		want := []string{
+			"reset", "--hard", testSHA,
+		}
+		if len(args) != len(want) {
+			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
+		}
+		for i, arg := range args {
+			if arg != want[i] {
+				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+			}
+		}
+	})
+
+	err := Reset(testSHA)
+	if err != nil {
+		t.Errorf("Unexpected error from git reset %v", err)
 	}
 }
