@@ -14,6 +14,8 @@ var setConfig = SetConfig
 var mergePR = MergePR
 var fetchPR = FetchPR
 var merge = Merge
+var startCmd = start
+var waitCmd = wait
 
 // command executes the git command
 func command(arguments ...string) error {
@@ -21,16 +23,24 @@ func command(arguments ...string) error {
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Start()
+	err := startCmd(cmd)
 	if err != nil {
 		return fmt.Errorf("starting git command: %v", err)
 	}
 
-	err = cmd.Wait()
+	err = waitCmd(cmd)
 	if err != nil {
 		return fmt.Errorf("running git command: %v", err)
 	}
 	return nil
+}
+
+func start(c *exec.Cmd) error {
+	return c.Start()
+}
+
+func wait(c *exec.Cmd) error {
+	return c.Wait()
 }
 
 // Clone clones a git repo into a destination directory

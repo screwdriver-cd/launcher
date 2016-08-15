@@ -25,6 +25,15 @@ func (b BuildStatus) String() string {
 	return string(b)
 }
 
+var readAll = ioutil.ReadAll
+var unmarshal = jsonUnmarshal
+var httpClientDo = do
+var httpNewRequest = http.NewRequest
+var jsonMarshal = json.Marshal
+var jsonUnmarshal = json.Unmarshal
+var makeURL = URLMake
+var apiPost = postWithAPI
+
 // API is a Screwdriver API endpoint
 type API interface {
 	BuildFromID(buildID string) (Build, error)
@@ -109,10 +118,18 @@ type Build struct {
 	JobID string `json:"jobId"`
 }
 
+func URLMake(a *api, path string) (*url.URL, error) {
+	return a.makeURL(path)
+}
+
 func (a api) makeURL(path string) (*url.URL, error) {
 	version := "v3"
 	fullpath := fmt.Sprintf("%s/%s/%s", a.baseURL, version, path)
 	return url.Parse(fullpath)
+}
+
+func do(client *http.Client, req *http.Request) (resp *http.Response, err error) {
+	return client.Do(req)
 }
 
 func tokenHeader(token string) string {
@@ -120,14 +137,14 @@ func tokenHeader(token string) string {
 }
 
 func handleResponse(res *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := readAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
 	}
 
 	if res.StatusCode/100 != 2 {
 		var err SDError
-		parserr := json.Unmarshal(body, &err)
+		parserr := unmarshal(body, &err)
 		if parserr != nil {
 			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parserr)
 		}
@@ -137,13 +154,13 @@ func handleResponse(res *http.Response) ([]byte, error) {
 }
 
 func (a api) get(url *url.URL) ([]byte, error) {
-	req, err := http.NewRequest("GET", url.String(), nil)
+	req, err := httpNewRequest("GET", url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("generating request to Screwdriver: %v", err)
 	}
 	req.Header.Set("Authorization", tokenHeader(a.token))
 
-	res, err := a.client.Do(req)
+	res, err := httpClientDo(a.client, req)
 	if err != nil {
 		return nil, fmt.Errorf("reading response from Screwdriver: %v", err)
 	}
@@ -153,14 +170,14 @@ func (a api) get(url *url.URL) ([]byte, error) {
 }
 
 func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
-	req, err := http.NewRequest("POST", url.String(), payload)
+	req, err := httpNewRequest("POST", url.String(), payload)
 	if err != nil {
 		return nil, fmt.Errorf("generating request to Screwdriver: %v", err)
 	}
 	req.Header.Set("Content-Type", bodyType)
 	req.Header.Set("Authorization", tokenHeader(a.token))
 
-	res, err := a.client.Do(req)
+	res, err := httpClientDo(a.client, req)
 	if err != nil {
 		return nil, fmt.Errorf("posting to Screwdriver endpoint %v: %v", url, err)
 	}
@@ -169,15 +186,22 @@ func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, err
 	return handleResponse(res)
 }
 
+func postWithAPI(a *api, url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
+	return a.post(url, bodyType, payload)
+}
+
 // BuildFromID fetches and returns a Build object from its ID
 func (a api) BuildFromID(buildID string) (build Build, err error) {
-	u, err := a.makeURL(fmt.Sprintf("builds/%s", buildID))
+	u, err := makeURL(&a, fmt.Sprintf("builds/%s", buildID))
+	if err != nil {
+		return build, fmt.Errorf("generating Screwdriver url for Build %v: %v", buildID, err)
+	}
 	body, err := a.get(u)
 	if err != nil {
 		return build, err
 	}
 
-	err = json.Unmarshal(body, &build)
+	err = jsonUnmarshal(body, &build)
 	if err != nil {
 		return build, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
@@ -186,7 +210,7 @@ func (a api) BuildFromID(buildID string) (build Build, err error) {
 
 // JobFromID fetches and returns a Job object from its ID
 func (a api) JobFromID(jobID string) (job Job, err error) {
-	u, err := a.makeURL(fmt.Sprintf("jobs/%s", jobID))
+	u, err := makeURL(&a, fmt.Sprintf("jobs/%s", jobID))
 	if err != nil {
 		return job, fmt.Errorf("generating Screwdriver url for Job %v: %v", jobID, err)
 	}
@@ -196,7 +220,7 @@ func (a api) JobFromID(jobID string) (job Job, err error) {
 		return job, err
 	}
 
-	err = json.Unmarshal(body, &job)
+	err = jsonUnmarshal(body, &job)
 	if err != nil {
 		return job, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
@@ -205,9 +229,9 @@ func (a api) JobFromID(jobID string) (job Job, err error) {
 
 // PipelineFromID fetches and returns a Pipeline object from its ID
 func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
-	u, err := a.makeURL(fmt.Sprintf("pipelines/%s", pipelineID))
+	u, err := makeURL(&a, fmt.Sprintf("pipelines/%s", pipelineID))
 	if err != nil {
-		return pipeline, err
+		return pipeline, fmt.Errorf("generating Screwdriver url for Pipeline %v: %v", pipelineID, err)
 	}
 
 	body, err := a.get(u)
@@ -215,37 +239,38 @@ func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
 		return pipeline, err
 	}
 
-	err = json.Unmarshal(body, &pipeline)
+	err = jsonUnmarshal(body, &pipeline)
 	if err != nil {
 		return pipeline, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
 	return pipeline, nil
 }
 
+// PipelineDefFromYaml returns a PipelineDef object from a valid Yaml
 func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
-	u, err := a.makeURL("validator")
+	u, err := makeURL(&a, "validator")
 	if err != nil {
-		return PipelineDef{}, err
+		return PipelineDef{}, fmt.Errorf("generating Screwdriver url for Validator: %v", err)
 	}
 
-	y, err := ioutil.ReadAll(yaml)
+	y, err := readAll(yaml)
 	if err != nil {
 		return PipelineDef{}, fmt.Errorf("reading Screwdriver YAML: %v", err)
 	}
 
 	v := Validator{string(y)}
-	payload, err := json.Marshal(v)
+	payload, err := jsonMarshal(v)
 	if err != nil {
 		return PipelineDef{}, fmt.Errorf("marshaling JSON for Validator: %v", err)
 	}
 
-	res, err := a.post(u, "application/json", bytes.NewReader(payload))
+	res, err := apiPost(&a, u, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return PipelineDef{}, fmt.Errorf("posting to Validator: %v", err)
 	}
 
 	var pipelineDef PipelineDef
-	err = json.Unmarshal(res, &pipelineDef)
+	err = jsonUnmarshal(res, &pipelineDef)
 	if err != nil {
 		return PipelineDef{}, fmt.Errorf("parsing JSON response from the Validator: %v", err)
 	}
@@ -263,20 +288,21 @@ func (a api) UpdateBuildStatus(status BuildStatus) error {
 		return fmt.Errorf("invalid build status: %s", status)
 	}
 
-	u, err := a.makeURL("webhooks/build")
+	fmt.Println("REACHED")
+	u, err := makeURL(&a, "webhooks/build")
 	if err != nil {
-		return fmt.Errorf("creating url: %v", err)
+		return fmt.Errorf("generating Screwdriver url for Build Status: %v", err)
 	}
 
 	bs := BuildStatusPayload{
 		Status: status.String(),
 	}
-	payload, err := json.Marshal(bs)
+	payload, err := jsonMarshal(bs)
 	if err != nil {
 		return fmt.Errorf("marshaling JSON for Build Status: %v", err)
 	}
 
-	_, err = a.post(u, "application/json", bytes.NewReader(payload))
+	_, err = apiPost(&a, u, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("posting to Build Status: %v", err)
 	}
