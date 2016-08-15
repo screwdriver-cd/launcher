@@ -67,7 +67,7 @@ func TestRunSingle(t *testing.T) {
 
 	for _, test := range tests {
 		testCmds := []screwdriver.CommandDef{
-			screwdriver.CommandDef{
+			{
 				Name: "test",
 				Cmd:  test.command,
 			},
@@ -165,7 +165,7 @@ func TestUnmocked(t *testing.T) {
 
 	for _, test := range tests {
 		err := Run([]screwdriver.CommandDef{
-			screwdriver.CommandDef{
+			{
 				Cmd: test.command,
 			},
 		})

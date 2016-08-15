@@ -91,7 +91,7 @@ func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus) error {
 func fakePipelineDef() screwdriver.PipelineDef {
 	jobDef := screwdriver.JobDef{
 		Commands: []screwdriver.CommandDef{
-			screwdriver.CommandDef{
+			{
 				Name: "testcmd",
 				Cmd:  "cmd",
 			},
@@ -99,7 +99,7 @@ func fakePipelineDef() screwdriver.PipelineDef {
 	}
 	def := FakePipelineDef{
 		Jobs: map[string][]screwdriver.JobDef{
-			"main": []screwdriver.JobDef{
+			"main": {
 				jobDef,
 			},
 		},
@@ -452,7 +452,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 	mainJob := screwdriver.JobDef{
 		Image: "node:4",
 		Commands: []screwdriver.CommandDef{
-			screwdriver.CommandDef{
+			{
 				Name: "install",
 				Cmd:  "npm install",
 			},
@@ -462,7 +462,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		},
 	}
 	wantJobs := map[string][]screwdriver.JobDef{
-		"main": []screwdriver.JobDef{
+		"main": {
 			mainJob,
 		},
 	}
@@ -572,7 +572,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 func TestWriteCommandArtifact(t *testing.T) {
 	sdCommand := []screwdriver.CommandDef{
-		screwdriver.CommandDef{
+		{
 			Name: "install",
 			Cmd:  "npm install",
 		},

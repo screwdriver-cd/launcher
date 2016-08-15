@@ -210,7 +210,7 @@ func TestPipelineFromYaml(t *testing.T) {
 	mainJob := JobDef{
 		Image: "node:4",
 		Commands: []CommandDef{
-			CommandDef{
+			{
 				Name: "install",
 				Cmd:  "npm install",
 			},
@@ -226,7 +226,7 @@ func TestPipelineFromYaml(t *testing.T) {
 	}
 
 	wantJobs := map[string][]JobDef{
-		"main": []JobDef{
+		"main": {
 			mainJob,
 		},
 	}
