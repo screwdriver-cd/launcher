@@ -122,7 +122,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func([]screwdriver.CommandDef) error { return nil }
+	executorRun = func(io.Writer, screwdriver.JobDef) error { return nil }
 	cleanExit = func() {}
 	os.Exit(m.Run())
 }
@@ -506,9 +506,14 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		}), nil
 	}
 
-	executorRun = func(cmdDefs []screwdriver.CommandDef) error {
+	executorRun = func(out io.Writer, jobDef screwdriver.JobDef) error {
+		cmdDefs := jobDef.Commands
+		env := jobDef.Environment
 		if !reflect.DeepEqual(cmdDefs, wantJobs["main"][0].Commands) {
 			t.Errorf("Executor run jobDef = %+v, \n want %+v", cmdDefs, wantJobs["main"])
+		}
+		if !reflect.DeepEqual(env, wantJobs["main"][0].Environment) {
+			t.Errorf("Executor run env = %+v, \n want %+v", env, wantJobs["main"][0].Environment)
 		}
 		return nil
 	}
@@ -573,7 +578,9 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	executorRun = func([]screwdriver.CommandDef) error { return executor.ErrStatus{Status: 1} }
+	executorRun = func(io.Writer, screwdriver.JobDef) error {
+		return executor.ErrStatus{Status: 1}
+	}
 
 	err = launchAction(screwdriver.API(api), "testBuildID", tmp)
 	if err != nil {
