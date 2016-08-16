@@ -317,6 +317,9 @@ func TestNonPR(t *testing.T) {
 		fmt.Println("yes")
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
+
+	oldSetup := gitSetup
+	defer func() { gitSetup = oldSetup }()
 	gitSetup = func(scmUrl, destination, pr string, sha string) error {
 		if scmUrl != testHTTPS {
 			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testHTTPS)
@@ -354,6 +357,9 @@ func TestPR(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
+
+	oldGitSetup := gitSetup
+	defer func() { gitSetup = oldGitSetup }()
 	gitSetup = func(scmUrl, destination, pr string, sha string) error {
 		if scmUrl != testHTTPS {
 			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testHTTPS)
@@ -506,6 +512,8 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		}), nil
 	}
 
+	oldRun := executorRun
+	defer func() { executorRun = oldRun }()
 	executorRun = func(out io.Writer, jobDef screwdriver.JobDef) error {
 		cmdDefs := jobDef.Commands
 		env := jobDef.Environment

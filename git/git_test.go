@@ -29,6 +29,9 @@ func TestClone(t *testing.T) {
 	scmURL := "git@github.com:screwdriver-cd/launcher#master"
 	wantDest := "testdest"
 	wantBranch := "master"
+
+	oldExec := execCommand
+	defer func() { execCommand = oldExec }()
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		want := []string{
 			"clone", "--quiet", "--progress", "--branch", wantBranch, wantRepo, wantDest,
@@ -97,6 +100,9 @@ func TestHelperProcess(*testing.T) {
 func TestSetConfig(t *testing.T) {
 	testUserName := "sd-buildbot"
 	testSetting := "user.name"
+
+	oldExec := execCommand
+	defer func() { execCommand = oldExec }()
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		want := []string{
 			"config", "user.name", testUserName,
@@ -120,6 +126,9 @@ func TestSetConfig(t *testing.T) {
 func TestFetchPR(t *testing.T) {
 	testPrNumber := "111"
 	testBranch := "branch"
+
+	oldExec := execCommand
+	defer func() { execCommand = oldExec }()
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		want := []string{
 			"fetch", "origin", "pull/" + testPrNumber + "/head:" + testBranch,
@@ -142,6 +151,9 @@ func TestFetchPR(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	testBranch := "branch"
+	oldExec := execCommand
+	defer func() { execCommand = oldExec }()
+
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		want := []string{
 			"merge", "--no-edit", testBranch,
@@ -264,6 +276,7 @@ func TestSetupNonPR(t *testing.T) {
 		t.Errorf("Should not get here")
 		return nil
 	}
+	reset = func(string) error { return nil }
 	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
 	if err != nil {
@@ -300,6 +313,9 @@ func TestSetupPR(t *testing.T) {
 		}
 		return nil
 	}
+
+	oldMerge := mergePR
+	defer func() { mergePR = oldMerge }()
 	mergePR = func(pr, branch string) error {
 		if pr != testPrNumber {
 			t.Errorf("PR was sent with %q, want %q", pr, testPrNumber)
