@@ -224,7 +224,7 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
 
-	err = executorRun(currentJob.Commands)
+	err = executorRun(os.Stdout, currentJob)
 	if err != nil {
 		return err
 	}

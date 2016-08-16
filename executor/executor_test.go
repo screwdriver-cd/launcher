@@ -1,10 +1,13 @@
 package executor
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
@@ -97,7 +100,12 @@ func TestRunSingle(t *testing.T) {
 			}
 		})
 
-		err := Run(testCmds)
+		testJob := screwdriver.JobDef{
+			Commands:    testCmds,
+			Environment: map[string]string{},
+		}
+		err := Run(nil, testJob)
+
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
 		}
@@ -119,6 +127,11 @@ func TestRunMulti(t *testing.T) {
 		{"neverexecuted", nil},
 	}
 
+	testEnv := map[string]string{
+		"foo": "bar",
+		"baz": "bah",
+	}
+
 	testCmds := []screwdriver.CommandDef{}
 	for _, test := range tests {
 		testCmds = append(testCmds, screwdriver.CommandDef{
@@ -131,7 +144,12 @@ func TestRunMulti(t *testing.T) {
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		called = append(called, args[2:]...)
 	})
-	err := Run(testCmds)
+
+	testJob := screwdriver.JobDef{
+		Commands:    testCmds,
+		Environment: testEnv,
+	}
+	err := Run(nil, testJob)
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
@@ -163,15 +181,61 @@ func TestUnmocked(t *testing.T) {
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", ErrStatus{5}},
 	}
 
+	var testEnv map[string]string
 	for _, test := range tests {
-		err := Run([]screwdriver.CommandDef{
-			{
-				Cmd: test.command,
+		cmd := screwdriver.CommandDef{
+			Cmd: test.command,
+		}
+		testJob := screwdriver.JobDef{
+			Commands: []screwdriver.CommandDef{
+				cmd,
 			},
-		})
+			Environment: testEnv,
+		}
+		err := Run(nil, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error: %v, want %v", err, test.err)
+		}
+	}
+}
+
+func TestEnv(t *testing.T) {
+	want := map[string]string{
+		"var1": "foo",
+		"var2": "bar",
+		"VAR3": "baz",
+	}
+
+	cmds := []screwdriver.CommandDef{
+		{
+			Cmd: "env",
+		},
+	}
+
+	job := screwdriver.JobDef{
+		Commands:    cmds,
+		Environment: want,
+	}
+
+	execCommand = exec.Command
+	output := new(bytes.Buffer)
+	err := Run(output, job)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	found := map[string]string{}
+	scanner := bufio.NewScanner(output)
+	for scanner.Scan() {
+		line := scanner.Text()
+		split := strings.Split(line, "=")
+		found[split[0]] = split[1]
+	}
+
+	for k, v := range want {
+		if found[k] != v {
+			t.Errorf("%v=%v, want %v", k, v, want[k])
 		}
 	}
 }
