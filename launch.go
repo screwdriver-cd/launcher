@@ -182,7 +182,7 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		j.Name = "main"
 	}
 
-	err = gitSetup(scm.httpsString(), w.Src, pr)
+	err = gitSetup(scm.httpsString(), w.Src, pr, b.SHA)
 	if err != nil {
 		return err
 	}

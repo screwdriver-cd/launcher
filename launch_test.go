@@ -118,7 +118,7 @@ func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, e
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
-	gitSetup = func(scmUrl, destination, pr string) error { return nil }
+	gitSetup = func(scmUrl, destination, pr string, sha string) error { return nil }
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
@@ -308,11 +308,16 @@ func TestNonPR(t *testing.T) {
 	testRoot := "/sd/workspace"
 	testPrNumber := ""
 	testWorkspace := "/sd/workspace/src/screwdriver-cd/launcher.git"
+	testSHA := "abc123"
 	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+		fmt.Println("yes")
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
-	gitSetup = func(scmUrl, destination, pr string) error {
+	gitSetup = func(scmUrl, destination, pr string, sha string) error {
 		if scmUrl != testHTTPS {
 			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testHTTPS)
 		}
@@ -321,6 +326,9 @@ func TestNonPR(t *testing.T) {
 		}
 		if pr != testPrNumber {
 			t.Errorf("Git clone was called with pr %q, want %q", pr, testPrNumber)
+		}
+		if sha != testSHA {
+			t.Errorf("Git clone was called with sha %q, want %q", sha, testSHA)
 		}
 		return nil
 	}
@@ -335,14 +343,18 @@ func TestPR(t *testing.T) {
 	testPrNumber := "1"
 	testRoot := "/sd/workspace"
 	testWorkspace := "/sd/workspace/src/screwdriver-cd/launcher.git"
+	testSHA := "abc123"
 	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+	}
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
-	gitSetup = func(scmUrl, destination, pr string) error {
+	gitSetup = func(scmUrl, destination, pr string, sha string) error {
 		if scmUrl != testHTTPS {
 			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testHTTPS)
 		}
@@ -351,6 +363,9 @@ func TestPR(t *testing.T) {
 		}
 		if pr != testPrNumber {
 			t.Errorf("Git clone was called with pr %q, want %q", pr, testPrNumber)
+		}
+		if sha != testSHA {
+			t.Errorf("Git clone was called with sha %q, want %q", sha, testSHA)
 		}
 		return nil
 	}
@@ -372,7 +387,7 @@ func TestGitSetupError(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
 	}
-	gitSetup = func(scmUrl, destination, pr string) error {
+	gitSetup = func(scmUrl, destination, pr string, sha string) error {
 		return fmt.Errorf("Spooky error")
 	}
 

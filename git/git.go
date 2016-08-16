@@ -14,6 +14,7 @@ var setConfig = SetConfig
 var mergePR = MergePR
 var fetchPR = FetchPR
 var merge = Merge
+var reset = Reset
 
 // command executes the git command
 func command(arguments ...string) error {
@@ -74,11 +75,21 @@ func MergePR(prNumber string, branch string) error {
 	return nil
 }
 
+//Reset resets the git HEAD to the specified commit
+func Reset(sha string) error {
+	return command("reset", "--hard", sha)
+}
+
 // Setup clones a repository, sets the local config, and merges a PR if necessary
-func Setup(scmURL, destination, pr string) error {
+func Setup(scmURL, destination, pr, sha string) error {
 	err := clone(scmURL, destination)
 	if err != nil {
 		return fmt.Errorf("cloning repository: %v", err)
+	}
+
+	err = reset(sha)
+	if err != nil {
+		return fmt.Errorf("resetting HEAD: %v", err)
 	}
 
 	// TODO: Handle CWD better
