@@ -1,15 +1,18 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"testing"
 )
 
 type execFunc func(command string, args ...string) *exec.Cmd
+type validatorFunc func(string, ...string)
 
-func getFakeExecCommand(validator func(string, ...string)) execFunc {
+func getFakeExecCommand(validator validatorFunc) execFunc {
 	return func(command string, args ...string) *exec.Cmd {
 		validator(command, args...)
 		return fakeExecCommand(command, args...)
@@ -24,47 +27,6 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func TestClone(t *testing.T) {
-	wantRepo := "git@github.com:screwdriver-cd/launcher"
-	scmURL := "git@github.com:screwdriver-cd/launcher#master"
-	wantDest := "testdest"
-	wantBranch := "master"
-
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		want := []string{
-			"clone", "--quiet", "--progress", "--branch", wantBranch, wantRepo, wantDest,
-		}
-		if len(args) != len(want) {
-			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
-		}
-		for i, arg := range args {
-			if arg != want[i] {
-				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
-			}
-		}
-	})
-
-	err := Clone(scmURL, wantDest)
-	if err != nil {
-		t.Errorf("Unexpected error from git clone: %v", err)
-	}
-}
-
-func TestCloneBadBranch(t *testing.T) {
-	scmURL := "git@github.com:screwdriver-cd/launcher"
-	wantDest := "testdest"
-
-	err := Clone(scmURL, wantDest)
-	if err == nil {
-		t.Errorf("Missing error from git clone")
-	}
-	if err.Error() != "expected #branchname in SCM URL: "+scmURL {
-		t.Errorf("Error did not match %v", err)
-	}
-}
-
 func TestHelperProcess(*testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
@@ -72,7 +34,7 @@ func TestHelperProcess(*testing.T) {
 	defer os.Exit(0)
 
 	args := os.Args[:]
-	for i, val := range os.Args { // Should become something lke ["git", "clone"]
+	for i, val := range os.Args { // Should become something like ["git", "clone"]
 		args = os.Args[i:]
 		if val == "--" {
 			args = args[1:]
@@ -90,424 +52,171 @@ func TestHelperProcess(*testing.T) {
 			return
 		case "merge":
 			return
-		case "reset":
-			return
 		}
 	}
 	os.Exit(255)
 }
 
-func TestSetConfig(t *testing.T) {
-	testUserName := "sd-buildbot"
-	testSetting := "user.name"
-
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		want := []string{
-			"config", "user.name", testUserName,
-		}
-		if len(args) != len(want) {
-			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
-		}
-		for i, arg := range args {
-			if arg != want[i] {
-				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
-			}
-		}
-	})
-
-	err := SetConfig(testSetting, testUserName)
-	if err != nil {
-		t.Errorf("Unexpected error from git config: %v", err)
+func TestGetPath(t *testing.T) {
+	testRepo := repo{
+		ScmURL: "test.com",
+		Path:   "test/path",
+		Branch: "testBranch",
 	}
-}
 
-func TestFetchPR(t *testing.T) {
-	testPrNumber := "111"
-	testBranch := "branch"
+	wantPath := "test/path"
 
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		want := []string{
-			"fetch", "origin", "pull/" + testPrNumber + "/head:" + testBranch,
-		}
-		if len(args) != len(want) {
-			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
-		}
-		for i, arg := range args {
-			if arg != want[i] {
-				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
-			}
-		}
-	})
-
-	err := FetchPR(testPrNumber, testBranch)
-	if err != nil {
-		t.Errorf("Unexpected error from git fetch %v", err)
-	}
-}
-
-func TestMerge(t *testing.T) {
-	testBranch := "branch"
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-
-	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		want := []string{
-			"merge", "--no-edit", testBranch,
-		}
-		if len(args) != len(want) {
-			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
-		}
-		for i, arg := range args {
-			if arg != want[i] {
-				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
-			}
-		}
-	})
-
-	err := Merge(testBranch)
-	if err != nil {
-		t.Errorf("Unexpected error from git merge %v", err)
+	if path := testRepo.GetPath(); path != wantPath {
+		t.Errorf("path = %q, want %q", path, wantPath)
 	}
 }
 
 func TestMergePR(t *testing.T) {
-	testPrNumber := "111"
-	testBranch := "branch"
+	oldExecCommand := execCommand
+	defer func() { execCommand = oldExecCommand }()
 
-	fetchPR = func(prNumber, branch string) error {
-		if prNumber != testPrNumber {
-			t.Errorf("Fetch was called with prNumber %q, want %q", prNumber, testPrNumber)
-		}
-		if branch != testBranch {
-			t.Errorf("Fetch was called with branch %q, want %q", branch, testBranch)
-		}
-		return nil
-	}
-	merge = func(branch string) error {
-		if branch != testBranch {
-			t.Errorf("Merge was called with branch %q, want %q", branch, testBranch)
-		}
-		return nil
-	}
-
-	err := MergePR(testPrNumber, testBranch)
+	currDir, err := os.Getwd()
 	if err != nil {
-		t.Errorf("Unexpected error from mergePR %v", err)
-	}
-}
-
-func TestMergePRBadFetch(t *testing.T) {
-	testPrNumber := "111"
-	testBranch := "branch"
-
-	fetchPR = func(prNumber, branch string) error {
-		return fmt.Errorf("Spooky error")
+		t.Errorf("getting working directory: %v", err)
 	}
 
-	err := MergePR(testPrNumber, testBranch)
-	if err == nil {
-		t.Errorf("Missing error from mergePR")
+	tests := []struct {
+		r   repo
+		pr  string
+		sha string
+		err error
+	}{
+		{
+			r: repo{
+				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
+				Path:   currDir,
+				Branch: "master",
+			},
+			pr:  "1",
+			sha: "abc123",
+			err: nil,
+		},
+		{
+			r: repo{
+				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
+				Path:   "bad path",
+				Branch: "master",
+			},
+			pr:  "1",
+			sha: "abc123",
+			err: errors.New("fetching pr: starting git command: " +
+				"chdir bad path: no such file or directory"),
+		},
 	}
-	if err.Error() != "fetching pr: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
 
-func TestMergePRBadMerge(t *testing.T) {
-	testPrNumber := "111"
-	testBranch := "branch"
-
-	fetchPR = func(prNumber, branch string) error {
-		if prNumber != testPrNumber {
-			t.Errorf("Fetch was called with prNumber %q, want %q", prNumber, testPrNumber)
-		}
-		if branch != testBranch {
-			t.Errorf("Fetch was called with branch %q, want %q", branch, testBranch)
-		}
-		return nil
-	}
-	merge = func(branch string) error {
-		return fmt.Errorf("Spooky error")
-	}
-
-	err := MergePR(testPrNumber, testBranch)
-	if err == nil {
-		t.Errorf("Missing error from mergePR")
-	}
-	if err.Error() != "merging pr: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestSetupNonPR(t *testing.T) {
-	testPrNumber := ""
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		if scmUrl != testScmURL {
-			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testScmURL)
-		}
-		if destination != testDestination {
-			t.Errorf("Git clone was called with destination %q, want %q", destination, testDestination)
-		}
-		return nil
-	}
-	setConfig = func(setting, value string) error {
-		if setting == "user.name" {
-			if value != "sd-buildbot" {
-				t.Errorf("Username was set with %q, want %q", value, "sd-buildbot")
+	for _, test := range tests {
+		validator := func(command string, args ...string) {
+			if command != "git" {
+				t.Errorf("command = %q, want <git>", command)
 			}
-		} else if setting == "user.email" {
-			if value != "dev-null@screwdriver.cd" {
-				t.Errorf("Email was set with %q, want %q", value, "dev-null@screwdriver.cd")
+			if len(args) < 2 {
+				t.Errorf("no arguments")
 			}
-		} else {
-			t.Errorf("Config was called with %q and %q", setting, value)
-		}
-		return nil
-	}
-	mergePR = func(pr, branch string) error {
-		t.Errorf("Should not get here")
-		return nil
-	}
-	reset = func(string) error { return nil }
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
 
+			var wantArgs []string
+
+			switch args[0] {
+			case "fetch":
+				wantArgs = []string{"origin", "pull/" + test.pr + "/head:pr"}
+			case "merge":
+				wantArgs = []string{"--no-edit", test.sha}
+			default:
+				t.Errorf("incorrect git command: %v", args[0])
+			}
+			if !reflect.DeepEqual(args[1:], wantArgs) {
+				fmt.Println(wantArgs)
+				fmt.Println(args[1:])
+				t.Errorf("incorrect arguments for %v", args[0])
+			}
+		}
+		execCommand = getFakeExecCommand(validator)
+
+		err := test.r.MergePR(test.pr, test.sha)
+
+		if !reflect.DeepEqual(err, test.err) {
+			t.Errorf("Error = %v, want %v", err, test.err)
+		}
+	}
+}
+
+func TestCheckout(t *testing.T) {
+	oldExecCommand := execCommand
+	defer func() { execCommand = oldExecCommand }()
+
+	currDir, err := os.Getwd()
 	if err != nil {
-		t.Errorf("Unexpected error from setup %v", err)
+		t.Errorf("getting working directory: %v", err)
 	}
-}
 
-func TestSetupPR(t *testing.T) {
-	testPrNumber := "111"
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		if scmUrl != testScmURL {
-			t.Errorf("Git clone was called with scmUrl %q, want %q", scmUrl, testScmURL)
-		}
-		if destination != testDestination {
-			t.Errorf("Git clone was called with destination %q, want %q", destination, testDestination)
-		}
-		return nil
+	tests := []struct {
+		r   repo
+		sha string
+		err error
+	}{
+		{
+			r: repo{
+				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
+				Path:   currDir,
+				Branch: "master",
+			},
+			sha: "abc123",
+			err: nil,
+		},
+		{
+			r: repo{
+				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
+				Path:   "bad path",
+				Branch: "master",
+			},
+			sha: "abc123",
+			err: errors.New("setting user name: starting git command: " +
+				"chdir bad path: no such file or directory"),
+		},
 	}
-	setConfig = func(setting, value string) error {
-		if setting == "user.name" {
-			if value != "sd-buildbot" {
-				t.Errorf("Username was set with %q, want %q", value, "sd-buildbot")
+
+	for _, test := range tests {
+		validator := func(command string, args ...string) {
+			if command != "git" {
+				t.Errorf("command = %q, want <git>", command)
 			}
-		} else if setting == "user.email" {
-			if value != "dev-null@screwdriver.cd" {
-				t.Errorf("Email was set with %q, want %q", value, "dev-null@screwdriver.cd")
+			if len(args) < 2 {
+				t.Errorf("no arguments")
 			}
-		} else {
-			t.Errorf("Config was called with %q and %q", setting, value)
-		}
-		return nil
-	}
 
-	oldMerge := mergePR
-	defer func() { mergePR = oldMerge }()
-	mergePR = func(pr, branch string) error {
-		if pr != testPrNumber {
-			t.Errorf("PR was sent with %q, want %q", pr, testPrNumber)
-		}
-		if branch != "_pr" {
-			t.Errorf("Branch was sent with %q, want %q", branch, "_pr")
-		}
-		return nil
-	}
+			var wantArgs []string
 
-	reset = func(sha string) error {
-		if sha != testSHA {
-			t.Errorf("Reset was called with SHA %q, want %q", sha, testSHA)
-		}
-		return nil
-	}
+			switch args[0] {
+			case "clone":
+				wantArgs = []string{"--quiet", "--progress", "--branch",
+					test.r.Branch, test.r.ScmURL, test.r.Path}
+			case "config":
+				switch args[1] {
+				case "user.name":
+					wantArgs = []string{"user.name", "sd-buildbot"}
+				case "user.email":
+					wantArgs = []string{"user.email", "dev-null@screwdriver.cd"}
+				default:
+					t.Errorf("incorrect argument for git config %v", args[1])
+				}
+			default:
+				t.Errorf("incorrect git command: %v", args[0])
+			}
 
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
-
-	if err != nil {
-		t.Errorf("Unexpected error from setup %v", err)
-	}
-}
-
-func TestSetupBadClone(t *testing.T) {
-	testPrNumber := "111"
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		return fmt.Errorf("Spooky error")
-	}
-	setConfig = func(setting, value string) error {
-		return fmt.Errorf("Should not get here")
-	}
-	mergePR = func(pr, branch string) error {
-		return fmt.Errorf("Should not get here")
-	}
-	reset = func(sha string) error {
-		return fmt.Errorf("Should not get here")
-	}
-
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
-
-	if err == nil {
-		t.Errorf("Missing error from setup")
-	}
-	if err.Error() != "cloning repository: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestSetupBadConfigName(t *testing.T) {
-	testPrNumber := "111"
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		return nil
-	}
-	setConfig = func(setting, value string) error {
-		if setting == "user.name" {
-			return fmt.Errorf("Spooky error")
-		}
-		return fmt.Errorf("Should not get here")
-	}
-	mergePR = func(pr, branch string) error {
-		return fmt.Errorf("Should not get here")
-	}
-	reset = func(sha string) error {
-		return nil
-	}
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
-
-	if err == nil {
-		t.Errorf("Missing error from setup")
-	}
-	if err.Error() != "setting username: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestSetupBadConfigEmail(t *testing.T) {
-	testPrNumber := "111"
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		return nil
-	}
-	setConfig = func(setting, value string) error {
-		if setting == "user.email" {
-			return fmt.Errorf("Spooky error")
-		}
-		return nil
-	}
-	mergePR = func(pr, branch string) error {
-		return fmt.Errorf("Should not get here")
-	}
-	reset = func(sha string) error {
-		return nil
-	}
-
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
-
-	if err == nil {
-		t.Errorf("Missing error from setup")
-	}
-	if err.Error() != "setting email: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestSetupBadMerge(t *testing.T) {
-	testPrNumber := "111"
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		return nil
-	}
-	setConfig = func(setting, value string) error {
-		return nil
-	}
-	mergePR = func(pr, branch string) error {
-		return fmt.Errorf("Spooky error")
-	}
-	reset = func(sha string) error {
-		return nil
-	}
-
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
-
-	if err == nil {
-		t.Errorf("Missing error from setup")
-	}
-	if err.Error() != "merging pr: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestSetupBadReset(t *testing.T) {
-	testPrNumber := "111"
-	testScmURL := "https://github.com/screwdriver-cd/launcher.git#master"
-	testDestination := "/tmp"
-	testSHA := "abc123"
-
-	clone = func(scmUrl, destination string) error {
-		return nil
-	}
-	setConfig = func(setting, value string) error {
-		return fmt.Errorf("Should not get here")
-	}
-	mergePR = func(pr, branch string) error {
-		return fmt.Errorf("Should not get here")
-	}
-	reset = func(sha string) error {
-		return fmt.Errorf("Spooky error")
-	}
-
-	err := Setup(testScmURL, testDestination, testPrNumber, testSHA)
-
-	if err == nil {
-		t.Errorf("Missing error from setup")
-	}
-	if err.Error() != "resetting HEAD: Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestReset(t *testing.T) {
-	testSHA := "abc123"
-	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		want := []string{
-			"reset", "--hard", testSHA,
-		}
-		if len(args) != len(want) {
-			t.Errorf("Incorrect args sent to git: %q, want %q", args, want)
-		}
-		for i, arg := range args {
-			if arg != want[i] {
-				t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+			if !reflect.DeepEqual(args[1:], wantArgs) {
+				t.Errorf("incorrect arguments for %v", args[0])
 			}
 		}
-	})
+		execCommand = getFakeExecCommand(validator)
 
-	err := Reset(testSHA)
-	if err != nil {
-		t.Errorf("Unexpected error from git reset %v", err)
+		err := test.r.Checkout()
+
+		if !reflect.DeepEqual(err, test.err) {
+			t.Errorf("Error = %v, want %v", err, test.err)
+		}
 	}
 }
