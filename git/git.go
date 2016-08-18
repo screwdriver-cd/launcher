@@ -11,8 +11,8 @@ import (
 var execCommand = exec.Command
 
 const (
-	SCM_URL_INDEX = 0
-	BRANCH_INDEX  = 1
+	scmUrlIndex = 0
+	branchIndex = 1
 )
 
 type repo struct {
@@ -35,9 +35,9 @@ func New(scmURL, path string) (Repo, error) {
 		return nil, fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
 	}
 	repo := repo{
-		ScmURL: parts[SCM_URL_INDEX],
+		ScmURL: parts[scmUrlIndex],
 		Path:   path,
-		Branch: parts[BRANCH_INDEX],
+		Branch: parts[branchIndex],
 	}
 	return Repo(repo), nil
 }
