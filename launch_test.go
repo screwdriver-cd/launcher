@@ -24,6 +24,7 @@ type FakePipelineDef screwdriver.PipelineDef
 type MockRepo struct {
 	checkout func() error
 	mergePR  func(string, string) error
+	getPath  func() string
 }
 
 func (r MockRepo) Checkout() error {
@@ -40,7 +41,12 @@ func (r MockRepo) MergePR(prNumber, sha string) error {
 	return nil
 }
 
-func (r MockRepo) GetPath() string { return "" }
+func (r MockRepo) GetPath() string {
+	if r.getPath != nil {
+		return r.getPath()
+	}
+	return ""
+}
 
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
@@ -140,7 +146,6 @@ func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, e
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
-	chdir = func(dir string) error { return nil }
 	newRepo = func(scmURL, path string) (git.Repo, error) {
 		repo := MockRepo{}
 		return git.Repo(repo), nil
@@ -148,7 +153,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(io.Writer, screwdriver.JobDef) error { return nil }
+	executorRun = func(path string, output io.Writer, jobDef screwdriver.JobDef) error { return nil }
 	cleanExit = func() {}
 	os.Exit(m.Run())
 }
@@ -456,6 +461,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 	testBuildID := "BUILDID"
 	testJobID := "JOBID"
 	testRoot := "/sd/workspace"
+	testPath := "test/path"
 
 	mainJob := screwdriver.JobDef{
 		Image: "node:4",
@@ -473,6 +479,17 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		"main": {
 			mainJob,
 		},
+	}
+
+	oldNewRepo := newRepo
+	defer func() { newRepo = oldNewRepo }()
+
+	newRepo = func(scmURL, path string) (git.Repo, error) {
+		repo := MockRepo{}
+		repo.getPath = func() string {
+			return "test/path"
+		}
+		return repo, nil
 	}
 
 	defer func() { writeFile = ioutil.WriteFile }()
@@ -501,9 +518,12 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(out io.Writer, jobDef screwdriver.JobDef) error {
+	executorRun = func(path string, out io.Writer, jobDef screwdriver.JobDef) error {
 		cmdDefs := jobDef.Commands
 		env := jobDef.Environment
+		if path != testPath {
+			t.Errorf("Executor run path = %v, want %v", path, testPath)
+		}
 		if !reflect.DeepEqual(cmdDefs, wantJobs["main"][0].Commands) {
 			t.Errorf("Executor run jobDef = %+v, \n want %+v", cmdDefs, wantJobs["main"])
 		}
@@ -573,7 +593,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	executorRun = func(io.Writer, screwdriver.JobDef) error {
+	executorRun = func(path string, out io.Writer, jobDef screwdriver.JobDef) error {
 		return executor.ErrStatus{Status: 1}
 	}
 

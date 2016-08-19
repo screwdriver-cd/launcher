@@ -58,6 +58,10 @@ func TestHelperProcess(*testing.T) {
 	os.Exit(255)
 }
 
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
+}
+
 func TestRunSingle(t *testing.T) {
 	var tests = []struct {
 		command string
@@ -104,7 +108,7 @@ func TestRunSingle(t *testing.T) {
 			Commands:    testCmds,
 			Environment: map[string]string{},
 		}
-		err := Run(nil, testJob)
+		err := Run("", nil, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
@@ -149,7 +153,7 @@ func TestRunMulti(t *testing.T) {
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
-	err := Run(nil, testJob)
+	err := Run("", nil, testJob)
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
@@ -192,7 +196,7 @@ func TestUnmocked(t *testing.T) {
 			},
 			Environment: testEnv,
 		}
-		err := Run(nil, testJob)
+		err := Run("", nil, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error: %v, want %v", err, test.err)
@@ -220,7 +224,7 @@ func TestEnv(t *testing.T) {
 
 	execCommand = exec.Command
 	output := new(bytes.Buffer)
-	err := Run(output, job)
+	err := Run("", output, job)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

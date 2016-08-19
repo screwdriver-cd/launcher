@@ -3,6 +3,7 @@ package executor
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"syscall"
 
@@ -21,18 +22,20 @@ func (e ErrStatus) Error() string {
 }
 
 // Run executes a slice of CommandDefs
-func Run(output io.Writer, job screwdriver.JobDef) error {
+func Run(path string, output io.Writer, job screwdriver.JobDef) error {
 	cmds := job.Commands
-	env := job.Environment
+	env := os.Environ()
+	for k, v := range job.Environment {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
 	for _, cmd := range cmds {
 		shargs := []string{"-e", "-c"}
 		shargs = append(shargs, cmd.Cmd)
 		c := execCommand("sh", shargs...)
 		c.Stdout = output
 		c.Stderr = output
-		for k, v := range env {
-			c.Env = append(c.Env, fmt.Sprintf("%s=%s", k, v))
-		}
+		c.Dir = path
+		c.Env = append(env, c.Env...)
 
 		if err := c.Start(); err != nil {
 			return fmt.Errorf("launching command %q: %v", cmd.Cmd, err)
