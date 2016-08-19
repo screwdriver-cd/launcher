@@ -9,111 +9,113 @@ import (
 )
 
 var execCommand = exec.Command
-var clone = Clone
-var setConfig = SetConfig
-var mergePR = MergePR
-var fetchPR = FetchPR
-var merge = Merge
-var reset = Reset
+
+const (
+	SCM_URL_INDEX = 0
+	BRANCH_INDEX  = 1
+)
+
+type repo struct {
+	ScmURL string
+	Path   string
+	Branch string
+}
+
+// Repo is a git repo
+type Repo interface {
+	Checkout() error
+	MergePR(prNumber, sha string) error
+	GetPath() string
+}
+
+// New returns a new repo object
+func New(scmURL, path string) (Repo, error) {
+	parts := strings.Split(scmURL, "#")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
+	}
+	repo := repo{
+		ScmURL: parts[SCM_URL_INDEX],
+		Path:   path,
+		Branch: parts[BRANCH_INDEX],
+	}
+	return Repo(repo), nil
+}
+
+func (r repo) GetPath() string {
+	return r.Path
+}
+
+// MergePR fetches and merges the specified pull request to the specified branch
+func (r repo) MergePR(prNumber string, sha string) error {
+	if err := fetchPR(prNumber, r.Path); err != nil {
+		return fmt.Errorf("fetching pr: %v", err)
+	}
+
+	if err := merge(sha, r.Path); err != nil {
+		return fmt.Errorf("merging sha: %v", err)
+	}
+
+	return nil
+}
+
+// Checkout checks out the git repo at the specified branch and configures the setting
+func (r repo) Checkout() error {
+	log.Printf("Cloning %v, on branch %v", r.ScmURL, r.Branch)
+	if err := clone(r.Branch, r.ScmURL, r.Path); err != nil {
+		return fmt.Errorf("cloning repository: %v", err)
+	}
+
+	log.Printf("Setting user name and user email")
+	if err := setConfig("user.name", "sd-buildbot", r.Path); err != nil {
+		return fmt.Errorf("setting user name: %v", err)
+	}
+
+	if err := setConfig("user.email", "dev-null@screwdriver.cd", r.Path); err != nil {
+		return fmt.Errorf("setting user email: %v", err)
+	}
+
+	return nil
+}
+
+// clone clones a git repo into a destination directory
+func clone(branch, scmURL, destination string) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %v", err)
+	}
+	return command(dir, "clone", "--quiet", "--progress", "--branch", branch, scmURL, destination)
+}
+
+// setConfig sets the specified git settting
+func setConfig(setting, name, dir string) error {
+	return command(dir, "config", setting, name)
+}
+
+// fetchPR fetches a pull request
+func fetchPR(prNumber, dir string) error {
+	return command(dir, "fetch", "origin", "pull/"+prNumber+"/head:pr")
+}
+
+// merge merges changes on the specified branch
+func merge(branch, dir string) error {
+	return command(dir, "merge", "--no-edit", branch)
+}
 
 // command executes the git command
-func command(arguments ...string) error {
+func command(dir string, arguments ...string) error {
 	cmd := execCommand("git", arguments...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	if err != nil {
+	cmd.Dir = dir
+
+	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting git command: %v", err)
 	}
 
-	err = cmd.Wait()
-	if err != nil {
+	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("running git command: %v", err)
 	}
-	return nil
-}
-
-// Clone clones a git repo into a destination directory
-func Clone(scmURL, destination string) error {
-	log.Printf("Cloning %v", scmURL)
-	parts := strings.Split(scmURL, "#")
-	if len(parts) < 2 {
-		return fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
-	}
-
-	repo := parts[0]
-	branch := parts[1]
-	return command("clone", "--quiet", "--progress", "--branch", branch, repo, destination)
-}
-
-// SetConfig sets up git configuration
-func SetConfig(setting, name string) error {
-	return command("config", setting, name)
-}
-
-// FetchPR fetches a pull request into a specified branch
-func FetchPR(prNumber string, branch string) error {
-	return command("fetch", "origin", "pull/"+prNumber+"/head:"+branch)
-}
-
-// Merge merges changes on the specified branch
-func Merge(branch string) error {
-	return command("merge", "--no-edit", branch)
-}
-
-// MergePR calls FetchPR and Merge
-func MergePR(prNumber string, branch string) error {
-	err := fetchPR(prNumber, branch)
-	if err != nil {
-		return fmt.Errorf("fetching pr: %v", err)
-	}
-	err = merge(branch)
-	if err != nil {
-		return fmt.Errorf("merging pr: %v", err)
-	}
-	return nil
-}
-
-//Reset resets the git HEAD to the specified commit
-func Reset(sha string) error {
-	return command("reset", "--hard", sha)
-}
-
-// Setup clones a repository, sets the local config, and merges a PR if necessary
-func Setup(scmURL, destination, pr, sha string) error {
-	err := clone(scmURL, destination)
-	if err != nil {
-		return fmt.Errorf("cloning repository: %v", err)
-	}
-
-	err = reset(sha)
-	if err != nil {
-		return fmt.Errorf("resetting HEAD: %v", err)
-	}
-
-	// TODO: Handle CWD better
-	if err != nil {
-		return err
-	}
-	os.Chdir(destination)
-
-	err = setConfig("user.name", "sd-buildbot")
-	if err != nil {
-		return fmt.Errorf("setting username: %v", err)
-	}
-
-	err = setConfig("user.email", "dev-null@screwdriver.cd")
-	if err != nil {
-		return fmt.Errorf("setting email: %v", err)
-	}
-
-	if pr != "" {
-		err = mergePR(pr, "_pr")
-		if err != nil {
-			return fmt.Errorf("merging pr: %v", err)
-		}
-	}
-
 	return nil
 }

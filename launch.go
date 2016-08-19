@@ -25,8 +25,9 @@ var VERSION string
 
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
-var gitSetup = git.Setup
+var newRepo = git.New
 var open = os.Open
+var chdir = os.Chdir
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
 
@@ -182,8 +183,24 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		j.Name = "main"
 	}
 
-	err = gitSetup(scm.httpsString(), w.Src, pr, b.SHA)
+	repo, err := newRepo(scm.httpsString(), w.Src)
 	if err != nil {
+		return err
+	}
+
+	err = repo.Checkout()
+	if err != nil {
+		return err
+	}
+
+	if pr != "" {
+		err = repo.MergePR(pr, b.SHA)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := chdir(repo.GetPath()); err != nil {
 		return err
 	}
 
