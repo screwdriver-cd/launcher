@@ -3,12 +3,18 @@ package screwdriver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
+	"math"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+var sleep = time.Sleep
 
 // BuildStatus is the status of a Screwdriver build
 type BuildStatus string
@@ -20,6 +26,8 @@ const (
 	Failure             = "FAILURE"
 	Aborted             = "ABORTED"
 )
+
+const maxAttempts = 5
 
 func (b BuildStatus) String() string {
 	return string(b)
@@ -137,6 +145,24 @@ func handleResponse(res *http.Response) ([]byte, error) {
 	return body, nil
 }
 
+func retry(attempts int, callback func() error) (err error) {
+	for i := 0; ; i++ {
+		err = callback()
+		if err == nil {
+			return nil
+		}
+
+		if i >= (attempts - 1) {
+			break
+		}
+
+		//Exponential backoff of 2 seconds
+		duration := time.Duration(math.Pow(2, float64(i+1)))
+		sleep(duration * time.Second)
+	}
+	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
+}
+
 func (a api) get(url *url.URL) ([]byte, error) {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
@@ -144,27 +170,81 @@ func (a api) get(url *url.URL) ([]byte, error) {
 	}
 	req.Header.Set("Authorization", tokenHeader(a.token))
 
-	res, err := a.client.Do(req)
+	res := &http.Response{}
+	resError := errors.New("")
+	attemptNumber := 1
+
+	err = retry(maxAttempts, func() error {
+		res, resError = a.client.Do(req)
+		if resError != nil {
+			return nil
+		}
+		if res.StatusCode/100 == 5 {
+			log.Printf("WARNING: received response %v from GET %v "+
+				"retrying (%v/%v)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
+			attemptNumber++
+			return fmt.Errorf("GET retries exhausted: %v returned from GET %v",
+				res.StatusCode, url.String())
+		}
+		return nil
+	})
+
 	if err != nil {
+		return nil, fmt.Errorf("timeout on request: %v", err)
+	}
+
+	if resError != nil {
 		return nil, fmt.Errorf("reading response from Screwdriver: %v", err)
 	}
+
 	defer res.Body.Close()
 
 	return handleResponse(res)
 }
 
 func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
-	req, err := http.NewRequest("POST", url.String(), payload)
-	if err != nil {
-		return nil, fmt.Errorf("generating request to Screwdriver: %v", err)
-	}
-	req.Header.Set("Content-Type", bodyType)
-	req.Header.Set("Authorization", tokenHeader(a.token))
+	res := &http.Response{}
+	req := &http.Request{}
+	reqError := errors.New("a")
+	resError := errors.New("")
+	attemptNumber := 1
 
-	res, err := a.client.Do(req)
+	err := retry(maxAttempts, func() error {
+		req, reqError = http.NewRequest("POST", url.String(), payload)
+		if reqError != nil {
+			return nil
+		}
+
+		req.Header.Set("Authorization", tokenHeader(a.token))
+		req.Header.Set("Content-Type", bodyType)
+
+		res, resError = a.client.Do(req)
+		if resError != nil {
+			return nil
+		}
+
+		if res.StatusCode/100 == 5 {
+			log.Printf("WARNING: received response %v from POST %v "+
+				"retrying (%v/%v)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
+			attemptNumber++
+			return fmt.Errorf("POST retries exhausted: %v returned from POST %v",
+				res.StatusCode, url.String())
+		}
+		return nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("posting to Screwdriver endpoint %v: %v", url, err)
+		return nil, fmt.Errorf("timeout on request %v", err)
 	}
+
+	if reqError != nil {
+		return nil, fmt.Errorf("generating request to Screwdriver: %v", reqError)
+	}
+
+	if resError != nil {
+		return nil, fmt.Errorf("reading response from Screwdriver: %v", resError)
+	}
+
 	defer res.Body.Close()
 
 	return handleResponse(res)
