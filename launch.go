@@ -27,7 +27,6 @@ var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var newRepo = git.New
 var open = os.Open
-var chdir = os.Chdir
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
 
@@ -200,10 +199,6 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		}
 	}
 
-	if err := chdir(repo.GetPath()); err != nil {
-		return err
-	}
-
 	var yaml io.ReadCloser
 
 	yaml, err = open(path.Join(w.Src, "screwdriver.yaml"))
@@ -241,7 +236,7 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
 
-	err = executorRun(os.Stdout, currentJob)
+	err = executorRun(repo.GetPath(), os.Stdout, currentJob)
 	if err != nil {
 		return err
 	}
