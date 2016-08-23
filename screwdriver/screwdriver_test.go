@@ -34,6 +34,28 @@ func makeFakeHTTPClient(t *testing.T, code int, body string) *http.Client {
 	return &http.Client{Transport: transport}
 }
 
+func makeValidatedFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Request)) *http.Client {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wantToken := "faketoken"
+		wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+
+		validateHeader(t, "Authorization", wantTokenHeader)
+		v(r)
+
+		w.WriteHeader(code)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintln(w, body)
+	}))
+
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			return url.Parse(server.URL)
+		},
+	}
+
+	return &http.Client{Transport: transport}
+}
+
 func validateHeader(t *testing.T, key, value string) func(r *http.Request) {
 	return func(r *http.Request) {
 		headers, ok := r.Header[key]
@@ -307,7 +329,14 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	for _, test := range tests {
 		yaml := bytes.NewBufferString("")
-		http := makeFakeHTTPClient(t, test.statusCode, test.json)
+		http := makeValidatedFakeHTTPClient(t, test.statusCode, test.json, func(r *http.Request) {
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(r.Body)
+			want := `{"yaml":""}`
+			if buf.String() != want {
+				t.Errorf("buf.String() = %q, want %q", buf.String(), want)
+			}
+		})
 		testAPI := api{"http://fakeurl", "faketoken", http}
 
 		p, err := testAPI.PipelineDefFromYaml(yaml)
