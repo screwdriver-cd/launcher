@@ -2,8 +2,11 @@ jobs:
   main:
     image: golang
     steps:
+      - env: env
       - get: go get -t ./...
       - vet: go vet ./...
       - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
       - test: go test ./...
       - build: go build -a -o launch
+    environment:
+      GOPATH: /sd/workspace
