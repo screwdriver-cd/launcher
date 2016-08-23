@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -203,14 +204,18 @@ func (a api) get(url *url.URL) ([]byte, error) {
 }
 
 func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(payload)
+	p := buf.String()
+
 	res := &http.Response{}
 	req := &http.Request{}
-	reqError := errors.New("a")
-	resError := errors.New("")
+	var reqError error
+	var resError error
 	attemptNumber := 1
 
 	err := retry(maxAttempts, func() error {
-		req, reqError = http.NewRequest("POST", url.String(), payload)
+		req, reqError = http.NewRequest("POST", url.String(), strings.NewReader(p))
 		if reqError != nil {
 			return nil
 		}
