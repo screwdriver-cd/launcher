@@ -29,10 +29,13 @@ var newRepo = git.New
 var open = os.Open
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
+var newEmitter = screwdriver.NewEmitter
 
 var cleanExit = func() {
 	os.Exit(0)
 }
+
+var emitterPath = "/var/run/sd/emitter"
 
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, api screwdriver.API) {
@@ -236,8 +239,13 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
 
-	err = executorRun(repo.GetPath(), os.Stdout, currentJob)
+	emitter, err := newEmitter(emitterPath)
 	if err != nil {
+		return err
+	}
+	defer emitter.Close()
+
+	if err := executorRun(repo.GetPath(), emitter, currentJob); err != nil {
 		return err
 	}
 

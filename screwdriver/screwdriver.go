@@ -62,12 +62,12 @@ type api struct {
 
 // New returns a new API object
 func New(url, token string) (API, error) {
-	api := api{
+	newapi := api{
 		url,
 		token,
 		&http.Client{},
 	}
-	return API(api), nil
+	return API(newapi), nil
 }
 
 // BuildStatusPayload is a Screwdriver Build Status payload.
