@@ -153,7 +153,9 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, output io.Writer, jobDef screwdriver.JobDef) error { return nil }
+	executorRun = func(defaultEnv map[string]string, path string, output io.Writer, jobDef screwdriver.JobDef) error {
+		return nil
+	}
 	cleanExit = func() {}
 	os.Exit(m.Run())
 }
@@ -462,6 +464,15 @@ func TestPipelineDefFromYaml(t *testing.T) {
 	testJobID := "JOBID"
 	testRoot := "/sd/workspace"
 	testPath := "test/path"
+	testEnv := map[string]string{
+		"SCREWDRIVER": "true",
+		"CI":          "true",
+		"CONTINUOUS_INTEGRATION": "true",
+		"SD_JOB_NAME":            "main",
+		"SD_PULL_REQUEST":        "",
+		"SD_SOURCE_DIR":          testPath,
+		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
+	}
 
 	mainJob := screwdriver.JobDef{
 		Image: "node:4",
@@ -518,9 +529,12 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, out io.Writer, jobDef screwdriver.JobDef) error {
+	executorRun = func(defaultEnv map[string]string, path string, out io.Writer, jobDef screwdriver.JobDef) error {
 		cmdDefs := jobDef.Commands
 		env := jobDef.Environment
+		if !reflect.DeepEqual(defaultEnv, testEnv) {
+			t.Errorf("Exectuor run default env = %+v, \n want %+v", defaultEnv, testEnv)
+		}
 		if path != testPath {
 			t.Errorf("Executor run path = %v, want %v", path, testPath)
 		}
@@ -593,7 +607,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	executorRun = func(path string, out io.Writer, jobDef screwdriver.JobDef) error {
+	executorRun = func(defaultEnv map[string]string, path string, out io.Writer, jobDef screwdriver.JobDef) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
