@@ -22,10 +22,13 @@ func (e ErrStatus) Error() string {
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, output io.Writer, job screwdriver.JobDef) error {
+func Run(defaultEnv map[string]string, path string, output io.Writer, job screwdriver.JobDef) error {
 	cmds := job.Commands
 	env := os.Environ()
 	for k, v := range job.Environment {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+	for k, v := range defaultEnv {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 	for _, cmd := range cmds {

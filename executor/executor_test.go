@@ -13,6 +13,16 @@ import (
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
+var defaultEnv = map[string]string{
+	"SCREWDRIVER": "true",
+	"CI":          "true",
+	"CONTINUOUS_INTEGRATION": "true",
+	"SD_JOB_NAME":            "main",
+	"SD_PULL_REQUEST":        "",
+	"SD_SOURCE_DIR":          "test/path",
+	"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
+}
+
 type execFunc func(command string, args ...string) *exec.Cmd
 
 func getFakeExecCommand(validator func(string, ...string)) execFunc {
@@ -108,7 +118,7 @@ func TestRunSingle(t *testing.T) {
 			Commands:    testCmds,
 			Environment: map[string]string{},
 		}
-		err := Run("", nil, testJob)
+		err := Run(defaultEnv, "", nil, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
@@ -153,7 +163,7 @@ func TestRunMulti(t *testing.T) {
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
-	err := Run("", nil, testJob)
+	err := Run(defaultEnv, "", nil, testJob)
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
@@ -196,7 +206,7 @@ func TestUnmocked(t *testing.T) {
 			},
 			Environment: testEnv,
 		}
-		err := Run("", nil, testJob)
+		err := Run(defaultEnv, "", nil, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error: %v, want %v", err, test.err)
@@ -224,7 +234,7 @@ func TestEnv(t *testing.T) {
 
 	execCommand = exec.Command
 	output := new(bytes.Buffer)
-	err := Run("", output, job)
+	err := Run(defaultEnv, "", output, job)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -240,6 +250,12 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		if found[k] != v {
 			t.Errorf("%v=%v, want %v", k, v, want[k])
+		}
+	}
+
+	for k, v := range defaultEnv {
+		if found[k] != v {
+			t.Errorf("%v=%v, want %v", k, v, defaultEnv[k])
 		}
 	}
 }

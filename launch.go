@@ -236,7 +236,18 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
 
-	err = executorRun(repo.GetPath(), os.Stdout, currentJob)
+	//Set all default environment variables
+	defaultEnv := map[string]string{
+		"SCREWDRIVER": "true",
+		"CI":          "true",
+		"CONTINUOUS_INTEGRATION": "true",
+		"SD_JOB_NAME":            j.Name,
+		"SD_PULL_REQUEST":        pr,
+		"SD_SOURCE_DIR":          repo.GetPath(),
+		"SD_ARTIFACTS_DIR":       w.Artifacts,
+	}
+
+	err = executorRun(defaultEnv, repo.GetPath(), os.Stdout, currentJob)
 	if err != nil {
 		return err
 	}
