@@ -143,6 +143,50 @@ func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, e
 	return screwdriver.PipelineDef(fakePipelineDef()), nil
 }
 
+type MockEmitter struct {
+	startCmd func(screwdriver.CommandDef)
+	write    func([]byte) (int, error)
+	close    func() error
+}
+
+func (e *MockEmitter) StartCmd(cmd screwdriver.CommandDef) {
+	if e.startCmd != nil {
+		e.startCmd(cmd)
+	}
+	return
+}
+
+func (e *MockEmitter) Write(b []byte) (int, error) {
+	if e.write != nil {
+		return e.write(b)
+	}
+	return len(b), nil
+}
+
+func (e *MockEmitter) Close() error {
+	if e.close != nil {
+		return e.close()
+	}
+	return nil
+}
+
+func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
+	tmp, err := ioutil.TempDir("", "ArtifactDir")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
+	}
+
+	oldEmitterPath := emitterPath
+	emitterPath = path.Join(tmp, "socket")
+	if _, err = os.Create(emitterPath); err != nil {
+		t.Fatalf("Error creating test socket: %v", err)
+	}
+	return tmp, func() {
+		os.RemoveAll(tmp)
+		emitterPath = oldEmitterPath
+	}
+}
+
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
@@ -153,8 +197,9 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, output io.Writer, jobDef screwdriver.JobDef) error { return nil }
+	executorRun = func(path string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef) error { return nil }
 	cleanExit = func() {}
+	writeFile = func(string, []byte, os.FileMode) error { return nil }
 	os.Exit(m.Run())
 }
 
@@ -492,9 +537,6 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		return repo, nil
 	}
 
-	defer func() { writeFile = ioutil.WriteFile }()
-	writeFile = func(d string, b []byte, p os.FileMode) error { return nil }
-
 	oldOpen := open
 	defer func() { open = oldOpen }()
 	open = func(f string) (*os.File, error) {
@@ -504,6 +546,9 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 		return os.Open("data/screwdriver.yaml")
 	}
+
+	_, cleanup := setupTempDirectoryAndSocket(t)
+	defer cleanup()
 
 	api := mockAPI(t, testBuildID, testJobID, "", screwdriver.Running)
 
@@ -518,7 +563,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, out io.Writer, jobDef screwdriver.JobDef) error {
+	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef) error {
 		cmdDefs := jobDef.Commands
 		env := jobDef.Environment
 		if path != testPath {
@@ -532,9 +577,8 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		}
 		return nil
 	}
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
 
-	if err != nil {
+	if err := launch(screwdriver.API(api), testBuildID, testRoot); err != nil {
 		t.Errorf("Launch returned error: %v", err)
 	}
 }
@@ -555,14 +599,11 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	oldMkdirAll := mkdirAll
 	defer func() { mkdirAll = oldMkdirAll }()
 	mkdirAll = os.MkdirAll
-	tmp, err := ioutil.TempDir("", "ArtifactDir")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmp)
 
-	err = launchAction(screwdriver.API(api), "testBuildID", tmp)
-	if err != nil {
+	tmp, cleanup := setupTempDirectoryAndSocket(t)
+	defer cleanup()
+
+	if err := launchAction(screwdriver.API(api), "testBuildID", tmp); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -593,7 +634,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	executorRun = func(path string, out io.Writer, jobDef screwdriver.JobDef) error {
+	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
@@ -622,6 +663,10 @@ func TestWriteCommandArtifact(t *testing.T) {
 		t.Fatalf("Couldn't create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmp)
+
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	writeFile = ioutil.WriteFile
 
 	err = writeArtifact(tmp, fName, sdCommand)
 	if err != nil {
@@ -665,6 +710,10 @@ func TestWriteEnvironmentArtifact(t *testing.T) {
 		t.Fatalf("Couldn't create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmp)
+
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	writeFile = ioutil.WriteFile
 
 	err = writeArtifact(tmp, fName, sdEnv)
 	if err != nil {
@@ -831,5 +880,32 @@ func TestMergePRError(t *testing.T) {
 	err := launch(screwdriver.API(api), testBuildID, testRoot)
 	if err.Error() != "Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
+	}
+}
+
+func TestEmitterClose(t *testing.T) {
+	testRoot := "/sd/workspace"
+	api := mockAPI(t, "testBuildID", "testJobID", "testPipelineID", "")
+	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+		return nil
+	}
+
+	called := false
+
+	newEmitter = func(path string) (screwdriver.Emitter, error) {
+		return &MockEmitter{
+			close: func() error {
+				called = true
+				return nil
+			},
+		}, nil
+	}
+
+	if err := launchAction(screwdriver.API(api), "testBuildID", testRoot); err != nil {
+		t.Errorf("Unexpected error from launch: %v", err)
+	}
+
+	if !called {
+		t.Errorf("Did not close the emitter")
 	}
 }

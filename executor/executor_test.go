@@ -30,6 +30,35 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
+type MockEmitter struct {
+	startCmd func(screwdriver.CommandDef)
+	write    func([]byte) (int, error)
+	close    func() error
+	found    []byte
+}
+
+func (e *MockEmitter) StartCmd(cmd screwdriver.CommandDef) {
+	if e.startCmd != nil {
+		e.startCmd(cmd)
+	}
+	return
+}
+
+func (e *MockEmitter) Write(b []byte) (int, error) {
+	if e.write != nil {
+		return e.write(b)
+	}
+	e.found = append(e.found, b...)
+	return len(b), nil
+}
+
+func (e *MockEmitter) Close() error {
+	if e.close != nil {
+		return e.close()
+	}
+	return nil
+}
+
 func TestHelperProcess(*testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
@@ -108,7 +137,7 @@ func TestRunSingle(t *testing.T) {
 			Commands:    testCmds,
 			Environment: map[string]string{},
 		}
-		err := Run("", nil, testJob)
+		err := Run("", &MockEmitter{}, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
@@ -153,7 +182,7 @@ func TestRunMulti(t *testing.T) {
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
-	err := Run("", nil, testJob)
+	err := Run("", &MockEmitter{}, testJob)
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
@@ -196,7 +225,7 @@ func TestUnmocked(t *testing.T) {
 			},
 			Environment: testEnv,
 		}
-		err := Run("", nil, testJob)
+		err := Run("", &MockEmitter{}, testJob)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error: %v, want %v", err, test.err)
@@ -223,14 +252,15 @@ func TestEnv(t *testing.T) {
 	}
 
 	execCommand = exec.Command
-	output := new(bytes.Buffer)
-	err := Run("", output, job)
+	output := MockEmitter{}
+	err := Run("", &output, job)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	found := map[string]string{}
-	scanner := bufio.NewScanner(output)
+
+	scanner := bufio.NewScanner(bytes.NewReader(output.found))
 	for scanner.Scan() {
 		line := scanner.Text()
 		split := strings.Split(line, "=")
@@ -239,7 +269,51 @@ func TestEnv(t *testing.T) {
 
 	for k, v := range want {
 		if found[k] != v {
-			t.Errorf("%v=%v, want %v", k, v, want[k])
+			t.Errorf("%v=%q, want %v", k, found[k], v)
+		}
+	}
+}
+
+func TestEmitter(t *testing.T) {
+	execCommand = exec.Command
+	var tests = []struct {
+		command string
+		name    string
+	}{
+		{"ls", "name1"},
+		{"ls && ls", "name2"},
+	}
+
+	testJob := screwdriver.JobDef{
+		Commands: []screwdriver.CommandDef{},
+	}
+	for _, test := range tests {
+		testJob.Commands = append(testJob.Commands, screwdriver.CommandDef{
+			Name: test.name,
+			Cmd:  test.command,
+		})
+	}
+
+	var found []string
+	emitter := MockEmitter{
+		startCmd: func(cmd screwdriver.CommandDef) {
+			found = append(found, cmd.Name)
+		},
+	}
+
+	err := Run("", &emitter, testJob)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if len(found) != len(tests) {
+		t.Fatalf("Unexpected startCmds called. Want %v. Got %v", len(tests), len(found))
+	}
+
+	for i, test := range tests {
+		if found[i] != test.name {
+			t.Errorf("Unexpected order. Want %v. Got %v", found[i], test.name)
 		}
 	}
 }
