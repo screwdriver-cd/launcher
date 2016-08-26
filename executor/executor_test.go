@@ -263,12 +263,21 @@ func TestEnv(t *testing.T) {
 	}
 
 	found := map[string]string{}
+	var foundCmd string
 
 	scanner := bufio.NewScanner(bytes.NewReader(output.found))
 	for scanner.Scan() {
 		line := scanner.Text()
 		split := strings.Split(line, "=")
+		if len(split) != 2 {
+			foundCmd = line
+			continue
+		}
 		found[split[0]] = split[1]
+	}
+
+	if foundCmd != "$ env" {
+		t.Errorf("foundCmd = %q, want %q", foundCmd, "env")
 	}
 
 	for k, v := range want {
