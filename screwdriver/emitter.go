@@ -53,7 +53,7 @@ func (e *emitter) processPipe() {
 
 	for scanner.Scan() {
 		newLine := logLine{
-			Time:    time.Now().UnixNano() / 1000,
+			Time:    time.Now().UnixNano() / int64(time.Millisecond),
 			Message: scanner.Text(),
 			Step:    e.cmd.Name,
 		}

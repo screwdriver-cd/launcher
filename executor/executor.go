@@ -32,6 +32,7 @@ func Run(path string, emitter screwdriver.Emitter, job screwdriver.JobDef) error
 		shargs = append(shargs, cmd.Cmd)
 		c := execCommand("sh", shargs...)
 
+		fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 		emitter.StartCmd(cmd)
 		c.Stdout = emitter
 		c.Stderr = emitter
