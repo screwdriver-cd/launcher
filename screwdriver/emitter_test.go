@@ -24,6 +24,7 @@ func TestEmitter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't create temp dir: %v", err)
 	}
+	fmt.Println("TEMPDIR:", tmp)
 	defer os.RemoveAll(tmp)
 
 	emitterpath := path.Join(tmp, "socket")
@@ -52,11 +53,16 @@ func TestEmitter(t *testing.T) {
 		fmt.Fprintln(emitter, test.message)
 		time.Sleep(1 * time.Millisecond)
 	}
+
+	emitter.Write([]byte("This should not be processed. It has no newline."))
+
 	f, err := os.Open(emitterpath)
 	if err != nil {
 		t.Fatalf("Error opening file: %v", err)
 	}
 
+	data, _ := ioutil.ReadFile(emitterpath)
+	fmt.Println("DATA: ", string(data))
 	scanner := bufio.NewScanner(f)
 	line := 0
 	var log logLine
@@ -68,6 +74,11 @@ func TestEmitter(t *testing.T) {
 		if err != nil {
 			t.Errorf("error unmarshalling %v", err)
 		}
+
+		if line >= len(tests) {
+			t.Fatalf("Too many lines received. Want %d, got %d", len(tests), line+1)
+		}
+
 		if log.Step != tests[line].step {
 			t.Errorf("step is incorrect. Wanted %v. Got %v", tests[line].step, log.Step)
 		}
