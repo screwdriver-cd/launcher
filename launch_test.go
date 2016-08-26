@@ -149,6 +149,10 @@ type MockEmitter struct {
 	close    func() error
 }
 
+func (e *MockEmitter) Error() error {
+	return nil
+}
+
 func (e *MockEmitter) StartCmd(cmd screwdriver.CommandDef) {
 	if e.startCmd != nil {
 		e.startCmd(cmd)

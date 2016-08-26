@@ -14,12 +14,16 @@ import (
 type Emitter interface {
 	StartCmd(cmd CommandDef)
 	io.WriteCloser
+	Error() error
 }
 
 type emitter struct {
 	file   *os.File
 	cmd    CommandDef
 	buffer *bytes.Buffer
+	reader io.Reader
+	*io.PipeWriter
+	err error
 }
 
 type logLine struct {
@@ -28,24 +32,9 @@ type logLine struct {
 	Step    string `json:"s"`
 }
 
-// Write implements the io.Writer interface for writing to the emitter
-func (e *emitter) Write(p []byte) (int, error) {
-	n, err := e.buffer.Write(p)
-
-	encoder := json.NewEncoder(e.file)
-
-	scanner := bufio.NewScanner(e.buffer)
-	for scanner.Scan() {
-		newLine := logLine{
-			Time:    time.Now().UnixNano() / 1000,
-			Message: scanner.Text(),
-			Step:    e.cmd.Name,
-		}
-		if err = encoder.Encode(newLine); err != nil {
-			return n, fmt.Errorf("encoding json: %v", err)
-		}
-	}
-	return n, err
+// Error gets the latest error from the emitter
+func (e *emitter) Error() error {
+	return e.err
 }
 
 // StartCmd switches the currently running step for the Emitter
@@ -53,22 +42,47 @@ func (e *emitter) StartCmd(cmd CommandDef) {
 	e.cmd = cmd
 }
 
-// Close closes the emitter and its underlying file handle
+// Close closes the emitter and its underlying handles
 func (e *emitter) Close() error {
-	return e.file.Close()
+	return e.PipeWriter.Close()
+}
+
+func (e *emitter) processPipe() {
+	scanner := bufio.NewScanner(e.reader)
+	encoder := json.NewEncoder(e.file)
+
+	for scanner.Scan() {
+		newLine := logLine{
+			Time:    time.Now().UnixNano() / 1000,
+			Message: scanner.Text(),
+			Step:    e.cmd.Name,
+		}
+		if err := encoder.Encode(newLine); err != nil {
+			e.err = fmt.Errorf("encoding json: %v", err)
+		}
+	}
+
+	if err := e.file.Close(); err != nil {
+		e.err = err
+	}
 }
 
 // NewEmitter returns an emitter object from an emitter destination path
 func NewEmitter(path string) (Emitter, error) {
+	r, w := io.Pipe()
 	file, err := os.OpenFile(path, os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed opening emitter path %q: %v", path, err)
 	}
 
-	e := emitter{
-		file:   file,
-		buffer: bytes.NewBuffer([]byte{}),
+	e := &emitter{
+		file:       file,
+		buffer:     bytes.NewBuffer([]byte{}),
+		reader:     r,
+		PipeWriter: w,
 	}
 
-	return &e, nil
+	go e.processPipe()
+
+	return e, nil
 }
