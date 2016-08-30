@@ -67,7 +67,7 @@ deploy:
 
     - script:
         name: get highest version from tags
-        code: export VERSION=$(./gitversion --prefix v show)
+        code: export VERSION=$(./gitversion --prefix v bump auto)
 
     - script:
         name: add new tag
