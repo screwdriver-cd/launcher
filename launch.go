@@ -35,8 +35,6 @@ var cleanExit = func() {
 	os.Exit(0)
 }
 
-var emitterPath = "/var/run/sd/emitter"
-
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, api screwdriver.API) {
 	if api != nil {
@@ -88,8 +86,8 @@ type Workspace struct {
 }
 
 // createWorkspace makes a Scrwedriver workspace from path components
-// e.g. ["screwdriver-cd" "screwdriver"] creates
-//     /sd/workspace/src/screwdriver-cd/screwdriver
+// e.g. ["github.com", "screwdriver-cd" "screwdriver"] creates
+//     /sd/workspace/src/github.com/screwdriver-cd/screwdriver
 //     /sd/workspace/artifacts
 func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	srcPaths = append([]string{"src"}, srcPaths...)
@@ -148,7 +146,7 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
-func launch(api screwdriver.API, buildID string, rootDir string) error {
+func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	log.Print("Setting Build Status to RUNNING")
 	err := api.UpdateBuildStatus(screwdriver.Running)
 	if err != nil {
@@ -175,7 +173,7 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 
 	scm, err := parseScmURL(p.ScmURL)
 	log.Printf("Creating Workspace in %v", rootDir)
-	w, err := createWorkspace(rootDir, scm.Org, scm.Repo)
+	w, err := createWorkspace(rootDir, scm.Host, scm.Org, scm.Repo)
 	if err != nil {
 		return err
 	}
@@ -245,7 +243,7 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 	}
 	defer emitter.Close()
 
-	if err := executorRun(repo.GetPath(), emitter, currentJob); err != nil {
+	if err := executorRun(repo.GetPath(), emitter, currentJob, api, buildID); err != nil {
 		return err
 	}
 
@@ -253,10 +251,10 @@ func launch(api screwdriver.API, buildID string, rootDir string) error {
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID string, rootDir string) error {
+func launchAction(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -328,12 +326,18 @@ func main() {
 			Usage: "Location for checking out and running code",
 			Value: "/sd/workspace",
 		},
+		cli.StringFlag{
+			Name:  "emitter",
+			Usage: "Location for writing log lines to",
+			Value: "/var/run/sd/emitter",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
 		url := c.String("api-uri")
 		token := c.String("token")
 		workspace := c.String("workspace")
+		emitterPath := c.String("emitter")
 		buildID := c.Args().Get(0)
 
 		if buildID == "" {
@@ -348,7 +352,7 @@ func main() {
 
 		defer recoverPanic(api)
 
-		launchAction(api, buildID, workspace)
+		launchAction(api, buildID, workspace, emitterPath)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")

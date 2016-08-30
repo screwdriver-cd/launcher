@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -323,7 +324,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 			jobs:       map[string][]JobDef{},
 			statusCode: 500,
 			err: errors.New("posting to Validator: timeout on request after 5 attempts, " +
-				"last error: POST retries exhausted: 500 returned from POST http://fakeurl/v3/validator"),
+				"last error: retries exhausted: 500 returned from http://fakeurl/v3/validator"),
 		},
 	}
 
@@ -363,7 +364,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		{Running, 200, nil},
 		{"NOTASTATUS", 200, errors.New("invalid build status: NOTASTATUS")},
 		{Success, 500, errors.New("posting to Build Status: timeout on request after 5 attempts, " +
-			"last error: POST retries exhausted: 500 returned from POST http://fakeurl/v3/webhooks/build")},
+			"last error: retries exhausted: 500 returned from http://fakeurl/v3/webhooks/build")},
 	}
 
 	for _, test := range tests {
@@ -376,5 +377,40 @@ func TestUpdateBuildStatus(t *testing.T) {
 			t.Errorf("Unexpected error from UpdateBuildStatus: %v, want %v", err, test.err)
 		}
 	}
+}
 
+func TestUpdateStepStart(t *testing.T) {
+	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		want := regexp.MustCompile(`{"startTime":"[\d-]+T[\d:.Z-]+"}`)
+		if !want.MatchString(buf.String()) {
+			t.Errorf("buf.String() = %q", buf.String())
+		}
+	})
+	testAPI := api{"http://fakeurl", "faketoken", http}
+
+	err := testAPI.UpdateStepStart("step1", "build1")
+
+	if err != nil {
+		t.Errorf("Unexpected error from UpdateStepStart: %v", err)
+	}
+}
+
+func TestUpdateStepStop(t *testing.T) {
+	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		want := regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.Z-]+","code":10}`)
+		if !want.MatchString(buf.String()) {
+			t.Errorf("buf.String() = %q", buf.String())
+		}
+	})
+	testAPI := api{"http://fakeurl", "faketoken", http}
+
+	err := testAPI.UpdateStepStop("step1", "build1", 10)
+
+	if err != nil {
+		t.Errorf("Unexpected error from UpdateStepStop: %v", err)
+	}
 }
