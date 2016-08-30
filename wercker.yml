@@ -70,10 +70,6 @@ deploy:
         code: export VERSION=$(./gitversion --prefix v bump auto)
 
     - script:
-        name: add new tag
-        code: git tag $VERSION
-
-    - script:
         name: push newly added tag
         code: git push origin $VERSION
 
