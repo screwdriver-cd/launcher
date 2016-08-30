@@ -41,6 +41,8 @@ type API interface {
 	PipelineFromID(pipelineID string) (Pipeline, error)
 	UpdateBuildStatus(status BuildStatus) error
 	PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error)
+	UpdateStepStart(buildID, stepName string) error
+	UpdateStepStop(buildID, stepName string, exitCode int) error
 }
 
 // SDError is an error response from the Screwdriver API
@@ -73,6 +75,17 @@ func New(url, token string) (API, error) {
 // BuildStatusPayload is a Screwdriver Build Status payload.
 type BuildStatusPayload struct {
 	Status string `json:"status"`
+}
+
+// StepStartPayload is a Screwdriver Step Start payload.
+type StepStartPayload struct {
+	StartTime time.Time `json:"startTime"`
+}
+
+// StepStopPayload is a Screwdriver Step Stop payload.
+type StepStopPayload struct {
+	EndTime  time.Time `json:"endTime"`
+	ExitCode int       `json:"code"`
 }
 
 // Validator is a Screwdriver Validator payload.
@@ -203,7 +216,7 @@ func (a api) get(url *url.URL) ([]byte, error) {
 	return handleResponse(res)
 }
 
-func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
+func (a api) write(url *url.URL, requestType string, bodyType string, payload io.Reader) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(payload)
 	p := buf.String()
@@ -215,7 +228,7 @@ func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, err
 	attemptNumber := 1
 
 	err := retry(maxAttempts, func() error {
-		req, reqError = http.NewRequest("POST", url.String(), strings.NewReader(p))
+		req, reqError = http.NewRequest(requestType, url.String(), strings.NewReader(p))
 		if reqError != nil {
 			return nil
 		}
@@ -229,10 +242,10 @@ func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, err
 		}
 
 		if res.StatusCode/100 == 5 {
-			log.Printf("WARNING: received response %v from POST %v "+
+			log.Printf("WARNING: received response %v from %v "+
 				"retrying (%v/%v)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
 			attemptNumber++
-			return fmt.Errorf("POST retries exhausted: %v returned from POST %v",
+			return fmt.Errorf("retries exhausted: %v returned from %v",
 				res.StatusCode, url.String())
 		}
 		return nil
@@ -253,6 +266,14 @@ func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, err
 	defer res.Body.Close()
 
 	return handleResponse(res)
+}
+
+func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
+	return a.write(url, "POST", bodyType, payload)
+}
+
+func (a api) put(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
+	return a.write(url, "PUT", bodyType, payload)
 }
 
 // BuildFromID fetches and returns a Build object from its ID
@@ -365,6 +386,51 @@ func (a api) UpdateBuildStatus(status BuildStatus) error {
 	_, err = a.post(u, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("posting to Build Status: %v", err)
+	}
+
+	return nil
+}
+
+func (a api) UpdateStepStart(buildID, stepName string) error {
+	u, err := a.makeURL(fmt.Sprintf("builds/%s/steps/%s", buildID, stepName))
+	if err != nil {
+		return fmt.Errorf("creating url: %v", err)
+	}
+
+	bs := StepStartPayload{
+		StartTime: time.Now(),
+	}
+	payload, err := json.Marshal(bs)
+	if err != nil {
+		return fmt.Errorf("marshaling JSON for Step Start: %v", err)
+	}
+
+	_, err = a.put(u, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("posting to Step Start: %v", err)
+	}
+
+	return nil
+}
+
+func (a api) UpdateStepStop(buildID, stepName string, exitCode int) error {
+	u, err := a.makeURL(fmt.Sprintf("builds/%s/steps/%s", buildID, stepName))
+	if err != nil {
+		return fmt.Errorf("creating url: %v", err)
+	}
+
+	bs := StepStopPayload{
+		EndTime:  time.Now(),
+		ExitCode: exitCode,
+	}
+	payload, err := json.Marshal(bs)
+	if err != nil {
+		return fmt.Errorf("marshaling JSON for Step Stop: %v", err)
+	}
+
+	_, err = a.put(u, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("posting to Step Stop: %v", err)
 	}
 
 	return nil

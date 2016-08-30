@@ -16,6 +16,17 @@ import (
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
+const (
+	TestWorkspace  = "/sd/workspace"
+	TestEmitter    = "/var/run/sd/emitter"
+	TestBuildID    = "BUILDID"
+	TestJobID      = "JOBID"
+	TestPipelineID = "PIPELINEID"
+
+	TestSCMURL = "git@github.com:screwdriver-cd/launcher.git#master"
+	TestSHA    = "abc123"
+)
+
 type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
@@ -86,6 +97,8 @@ type MockAPI struct {
 	pipelineFromID      func(string) (screwdriver.Pipeline, error)
 	updateBuildStatus   func(screwdriver.BuildStatus) error
 	pipelineDefFromYaml func(io.Reader) (screwdriver.PipelineDef, error)
+	updateStepStart     func(buildID, stepName string) error
+	updateStepStop      func(buildID, stepName string, exitCode int) error
 }
 
 func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
@@ -112,6 +125,20 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus) error {
 	if f.updateBuildStatus != nil {
 		return f.updateBuildStatus(status)
+	}
+	return nil
+}
+
+func (f MockAPI) UpdateStepStart(buildID, stepName string) error {
+	if f.updateStepStart != nil {
+		return f.updateStepStart(buildID, stepName)
+	}
+	return nil
+}
+
+func (f MockAPI) UpdateStepStop(buildID, stepName string, exitCode int) error {
+	if f.updateStepStop != nil {
+		return f.updateStepStop(buildID, stepName, exitCode)
 	}
 	return nil
 }
@@ -180,14 +207,12 @@ func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
 		t.Fatalf("Couldn't create temp dir: %v", err)
 	}
 
-	oldEmitterPath := emitterPath
-	emitterPath = path.Join(tmp, "socket")
+	emitterPath := path.Join(tmp, "socket")
 	if _, err = os.Create(emitterPath); err != nil {
 		t.Fatalf("Error creating test socket: %v", err)
 	}
 	return tmp, func() {
 		os.RemoveAll(tmp)
-		emitterPath = oldEmitterPath
 	}
 }
 
@@ -201,19 +226,18 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef) error { return nil }
+	executorRun = func(path string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+		return nil
+	}
 	cleanExit = func() {}
 	writeFile = func(string, []byte, os.FileMode) error { return nil }
 	os.Exit(m.Run())
 }
 
 func TestBuildJobPipelineFromID(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, testPipelineID, "RUNNING")
-	launch(screwdriver.API(api), testBuildID, testRoot)
+	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 }
 
 func TestBuildFromIdError(t *testing.T) {
@@ -224,7 +248,7 @@ func TestBuildFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), "shoulderror", "/sd/workspace")
+	err := launch(screwdriver.API(api), "shoulderror", "/sd/workspace", "/var/run/sd/emitter")
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -236,38 +260,32 @@ func TestBuildFromIdError(t *testing.T) {
 }
 
 func TestJobFromIdError(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Job(FakeJob{}), err
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
 
-	expected := fmt.Sprintf(`fetching Job ID %q`, testJobID)
+	expected := fmt.Sprintf(`fetching Job ID %q`, TestJobID)
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
 }
 
 func TestPipelineFromIdError(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
 	testPipelineID := "PIPELINEID"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, testPipelineID, "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Pipeline(FakePipeline{}), err
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 	if err == nil {
 		t.Fatalf("err should not be nil")
 	}
@@ -321,16 +339,15 @@ func TestCreateWorkspace(t *testing.T) {
 		madeDirs[path] = perm
 		return nil
 	}
-	testRoot := "/sd/workspace"
 
-	workspace, err := createWorkspace(testRoot, "screwdriver-cd", "launcher.git")
+	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher.git")
 
 	if err != nil {
 		t.Errorf("Unexpected error creating workspace: %v", err)
 	}
 
 	wantWorkspace := Workspace{
-		Root:      testRoot,
+		Root:      TestWorkspace,
 		Src:       "/sd/workspace/src/screwdriver-cd/launcher.git",
 		Artifacts: "/sd/workspace/artifacts",
 	}
@@ -384,49 +401,38 @@ func TestNonPR(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
-	testRoot := "/sd/workspace"
-	testSHA := "abc123"
-
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "main"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 	newRepo = func(scmURL, path string) (git.Repo, error) {
 		repo := MockRepo{}
 		return repo, nil
 	}
 
-	launch(screwdriver.API(api), testBuildID, testRoot)
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 }
 
 func TestPR(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
 	testPrNumber := "1"
-	testRoot := "/sd/workspace"
-	testSHA := "abc123"
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 	newRepo = func(scmURL, path string) (git.Repo, error) {
 		repo := MockRepo{}
@@ -434,36 +440,32 @@ func TestPR(t *testing.T) {
 			if prNumber != testPrNumber {
 				t.Errorf("pr number is %q, want %q", prNumber, testPrNumber)
 			}
-			if sha != testSHA {
-				t.Errorf("sha is %q, want %q", sha, testSHA)
+			if sha != TestSHA {
+				t.Errorf("sha is %q, want %q", sha, TestSHA)
 			}
 			return nil
 		}
 		return repo, nil
 	}
 
-	launch(screwdriver.API(api), testBuildID, testRoot)
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 }
 
 func TestCreateWorkspaceError(t *testing.T) {
 	oldMkdir := mkdirAll
 	defer func() { mkdirAll = oldMkdir }()
 
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 	mkdirAll = func(path string, perm os.FileMode) (err error) {
 		return fmt.Errorf("Spooky error")
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 
-	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher.git\": Spooky error" {
+	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher.git\": Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
 }
@@ -475,11 +477,10 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 	stat = func(path string) (info os.FileInfo, err error) {
 		return nil, nil
 	}
-	testRoot := "/sd/workspace"
 
 	wantWorkspace := Workspace{}
 
-	workspace, err := createWorkspace(testRoot, "screwdriver-cd", "launcher.git")
+	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher.git")
 
 	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher.git\", path already exists." {
 		t.Errorf("Error is wrong, got %v", err)
@@ -491,14 +492,12 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 }
 
 func TestUpdateBuildStatusError(t *testing.T) {
-	testBuildID := "BUILDID"
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, testBuildID, "", "", screwdriver.Running)
+	api := mockAPI(t, TestBuildID, "", "", screwdriver.Running)
 	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
 		return fmt.Errorf("Spooky error")
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 
 	want := "updating build status to RUNNING: Spooky error"
 	if err.Error() != want {
@@ -507,9 +506,6 @@ func TestUpdateBuildStatusError(t *testing.T) {
 }
 
 func TestPipelineDefFromYaml(t *testing.T) {
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testRoot := "/sd/workspace"
 	testPath := "test/path"
 
 	mainJob := screwdriver.JobDef{
@@ -551,10 +547,10 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		return os.Open("data/screwdriver.yaml")
 	}
 
-	_, cleanup := setupTempDirectoryAndSocket(t)
+	tmp, cleanup := setupTempDirectoryAndSocket(t)
 	defer cleanup()
 
-	api := mockAPI(t, testBuildID, testJobID, "", screwdriver.Running)
+	api := mockAPI(t, TestBuildID, TestJobID, "", screwdriver.Running)
 
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "main"}), nil
@@ -567,7 +563,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef) error {
+	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
 		cmdDefs := jobDef.Commands
 		env := jobDef.Environment
 		if path != testPath {
@@ -582,7 +578,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 		return nil
 	}
 
-	if err := launch(screwdriver.API(api), testBuildID, testRoot); err != nil {
+	if err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, path.Join(tmp, "socket")); err != nil {
 		t.Errorf("Launch returned error: %v", err)
 	}
 }
@@ -594,7 +590,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	}
 
 	var gotStatuses []screwdriver.BuildStatus
-	api := mockAPI(t, "testBuildID", "testJobID", "testPipelineID", "")
+	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
 	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
@@ -607,7 +603,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	tmp, cleanup := setupTempDirectoryAndSocket(t)
 	defer cleanup()
 
-	if err := launchAction(screwdriver.API(api), "testBuildID", tmp); err != nil {
+	if err := launchAction(screwdriver.API(api), "TestBuildID", tmp, path.Join(tmp, "socket")); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -623,7 +619,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 
 	var gotStatuses []screwdriver.BuildStatus
-	api := mockAPI(t, "testBuildID", "testJobID", "testPipelineID", "")
+	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
 	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
@@ -638,11 +634,11 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef) error {
+	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef, a screwdriver.API, buildID string) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
-	err = launchAction(screwdriver.API(api), "testBuildID", tmp)
+	err = launchAction(screwdriver.API(api), "TestBuildID", tmp, TestEmitter)
 	if err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
@@ -748,7 +744,7 @@ func TestWriteEnvironmentArtifact(t *testing.T) {
 }
 
 func TestRecoverPanic(t *testing.T) {
-	api := mockAPI(t, "testBuildID", "", "", screwdriver.Running)
+	api := mockAPI(t, "TestBuildID", "", "", screwdriver.Running)
 
 	updCalled := false
 	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
@@ -799,24 +795,18 @@ func TestNewRepoError(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
-	testRoot := "/sd/workspace"
-	testSHA := "abc123"
-
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 	newRepo = func(scmURL, path string) (git.Repo, error) {
 		return nil, fmt.Errorf("Spooky error")
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 	if err.Error() != "Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
@@ -825,18 +815,12 @@ func TestCheckoutError(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
-	testRoot := "/sd/workspace"
-	testSHA := "abc123"
-
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 	newRepo = func(scmURL, path string) (git.Repo, error) {
 		repo := MockRepo{}
@@ -846,7 +830,7 @@ func TestCheckoutError(t *testing.T) {
 		return repo, nil
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 	if err.Error() != "Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
@@ -856,21 +840,15 @@ func TestMergePRError(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	testBuildID := "BUILDID"
-	testJobID := "JOBID"
-	testSCMURL := "git@github.com:screwdriver-cd/launcher.git#master"
-	testRoot := "/sd/workspace"
-	testSHA := "abc123"
-
-	api := mockAPI(t, testBuildID, testJobID, "", "RUNNING")
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: testSHA}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: testSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 
 	newRepo = func(scmURL, path string) (git.Repo, error) {
@@ -881,15 +859,14 @@ func TestMergePRError(t *testing.T) {
 		return repo, nil
 	}
 
-	err := launch(screwdriver.API(api), testBuildID, testRoot)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 	if err.Error() != "Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
 }
 
 func TestEmitterClose(t *testing.T) {
-	testRoot := "/sd/workspace"
-	api := mockAPI(t, "testBuildID", "testJobID", "testPipelineID", "")
+	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
 	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
 		return nil
 	}
@@ -905,7 +882,7 @@ func TestEmitterClose(t *testing.T) {
 		}, nil
 	}
 
-	if err := launchAction(screwdriver.API(api), "testBuildID", testRoot); err != nil {
+	if err := launchAction(screwdriver.API(api), "TestBuildID", TestWorkspace, TestEmitter); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
