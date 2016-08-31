@@ -64,10 +64,10 @@ func (s scmPath) httpsString() string {
 
 // e.g. "git@github.com:screwdriver-cd/launch.git#master"
 func parseScmURL(url string) (scmPath, error) {
-	r := regexp.MustCompile("^git@(.*):(.*)/(.*)#(.*)$")
+	r := regexp.MustCompile("^git@(.*):(.*)/(.*?)(?:\\.git)?#(.*)$")
 	matched := r.FindStringSubmatch(url)
 	if matched == nil || len(matched) != 5 {
-		return scmPath{}, fmt.Errorf("Unable to parse SCM URL %v, match: %q", url, matched)
+		return scmPath{}, fmt.Errorf("unable to parse SCM URL %v, match: %q", url, matched)
 	}
 
 	return scmPath{
@@ -172,6 +172,10 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	}
 
 	scm, err := parseScmURL(p.ScmURL)
+	if err != nil {
+		return err
+	}
+
 	log.Printf("Creating Workspace in %v", rootDir)
 	w, err := createWorkspace(rootDir, scm.Host, scm.Org, scm.Repo)
 	if err != nil {
