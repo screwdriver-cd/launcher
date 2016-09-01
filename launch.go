@@ -27,6 +27,7 @@ var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var newRepo = git.New
 var open = os.Open
+var setEnv = os.Setenv
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
 var newEmitter = screwdriver.NewEmitter
@@ -182,6 +183,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return err
 	}
 
+	oldJobName := j.Name
 	pr := prNumber(j.Name)
 	if pr != "" {
 		j.Name = "main"
@@ -246,6 +248,21 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return err
 	}
 	defer emitter.Close()
+
+	defaultEnv := map[string]string{
+		"SCREWDRIVER": "true",
+		"CI":          "true",
+		"CONTINUOUS_INTEGRATION": "true",
+		"SD_JOB_NAME":            oldJobName,
+		"SD_PULL_REQUEST":        pr,
+		"SD_SOURCE_DIR":          repo.GetPath(),
+		"SD_ARTIFACTS_DIR":       w.Artifacts,
+	}
+	for k, v := range defaultEnv {
+		if err := setEnv(k, v); err != nil {
+			return err
+		}
+	}
 
 	if err := executorRun(repo.GetPath(), emitter, currentJob, api, buildID); err != nil {
 		return err

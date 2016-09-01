@@ -217,6 +217,7 @@ func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
 }
 
 func TestMain(m *testing.M) {
+	setEnv = func(key, value string) (err error) { return nil }
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
 	newRepo = func(scmURL, path string) (git.Repo, error) {
@@ -634,6 +635,8 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
+	oldRun := executorRun
+	defer func() { executorRun = oldRun }()
 	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef, a screwdriver.API, buildID string) error {
 		return executor.ErrStatus{Status: 1}
 	}
@@ -888,5 +891,89 @@ func TestEmitterClose(t *testing.T) {
 
 	if !called {
 		t.Errorf("Did not close the emitter")
+	}
+}
+
+func TestSetEnv(t *testing.T) {
+	oldSetEnv := setEnv
+	defer func() { setEnv = oldSetEnv }()
+
+	tests := []struct {
+		key   string
+		value string
+		err   error
+	}{
+		{
+			key:   "SCREWDRIVER",
+			value: "true",
+			err:   nil,
+		},
+		{
+			key:   "CI",
+			value: "true",
+			err:   nil,
+		},
+		{
+			key:   "CONTINUOUS_INTEGRATION",
+			value: "true",
+			err:   nil,
+		},
+		{
+			key:   "SD_JOB_NAME",
+			value: "PR-1",
+			err:   nil,
+		},
+		{
+			key:   "SD_PULL_REQUEST",
+			value: "1",
+			err:   nil,
+		},
+		{
+			key:   "SD_SOURCE_DIR",
+			value: "test/path",
+			err:   nil,
+		},
+		{
+			key:   "SD_ARTIFACTS_DIR",
+			value: "/sd/workspace/artifacts",
+			err:   nil,
+		},
+	}
+
+	testPath := "test/path"
+
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
+	}
+
+	oldNewRepo := newRepo
+	defer func() { newRepo = oldNewRepo }()
+
+	newRepo = func(scmURL, path string) (git.Repo, error) {
+		repo := MockRepo{}
+		repo.getPath = func() string {
+			return testPath
+		}
+		return repo, nil
+	}
+
+	defer func() { writeFile = ioutil.WriteFile }()
+	writeFile = func(d string, b []byte, p os.FileMode) error { return nil }
+
+	for _, test := range tests {
+		setEnv = func(key, value string) error {
+			if key == test.key && value != test.value {
+				return fmt.Errorf("Invalid value for environment variable %v: "+
+					"got %v, want %v", test.key, value, test.value)
+			}
+			return nil
+		}
+
+		err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+
+		if !reflect.DeepEqual(err, test.err) {
+			t.Errorf("Error = %v, want %v", err, test.err)
+		}
 	}
 }
