@@ -8,10 +8,6 @@ build:
       code: |
         export ORG_SOURCE=$WERCKER_SOURCE_DIR
 
-    - script:
-      name: generate the new version
-      code: export VERSION=$($ORG_SOURCE/gitversion --prefix v bump auto)
-
     - wercker/setup-go-workspace:
       package-dir: github.com/screwdriver-cd/launcher
 
@@ -35,6 +31,10 @@ build:
           | sed 's/"//g')
         chmod +x gitversion
         mv gitversion $ORG_SOURCE
+
+    - script:
+      name: generate the new version
+      code: export VERSION=$($ORG_SOURCE/gitversion --prefix v bump auto)
 
     - script:
       name: go build

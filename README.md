@@ -1,8 +1,9 @@
 # Screwdriver Job Launcher
-[![Build Status][wercker-image]][wercker-url] [![Open Issues][issues-image]][issues-url]
+[![Build Status][wercker-image]][wercker-url]
+[![Open Issues][issues-image]][issues-url]
 [![Go Report Card][goreport-image]][goreport-url]
 
-> The entrypoint for job launching in Screwdriver.
+> The entrypoint for job launching in Screwdriver
 
 ## Usage
 
