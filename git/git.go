@@ -2,7 +2,7 @@ package git
 
 import (
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,7 +11,7 @@ import (
 var execCommand = exec.Command
 
 const (
-	scmUrlIndex = 0
+	scmURLIndex = 0
 	branchIndex = 1
 )
 
@@ -19,6 +19,7 @@ type repo struct {
 	ScmURL string
 	Path   string
 	Branch string
+	logger io.Writer
 }
 
 // Repo is a git repo
@@ -29,17 +30,18 @@ type Repo interface {
 }
 
 // New returns a new repo object
-func New(scmURL, path string) (Repo, error) {
+func New(scmURL, path string, logger io.Writer) (Repo, error) {
 	parts := strings.Split(scmURL, "#")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
 	}
-	repo := repo{
-		ScmURL: parts[scmUrlIndex],
+	newrepo := repo{
+		ScmURL: parts[scmURLIndex],
 		Path:   path,
 		Branch: parts[branchIndex],
+		logger: logger,
 	}
-	return Repo(repo), nil
+	return Repo(newrepo), nil
 }
 
 func (r repo) GetPath() string {
@@ -48,11 +50,11 @@ func (r repo) GetPath() string {
 
 // MergePR fetches and merges the specified pull request to the specified branch
 func (r repo) MergePR(prNumber string, sha string) error {
-	if err := fetchPR(prNumber, r.Path); err != nil {
+	if err := fetchPR(prNumber, r.Path, r.logger); err != nil {
 		return fmt.Errorf("fetching pr: %v", err)
 	}
 
-	if err := merge(sha, r.Path); err != nil {
+	if err := merge(sha, r.Path, r.logger); err != nil {
 		return fmt.Errorf("merging sha: %v", err)
 	}
 
@@ -61,17 +63,17 @@ func (r repo) MergePR(prNumber string, sha string) error {
 
 // Checkout checks out the git repo at the specified branch and configures the setting
 func (r repo) Checkout() error {
-	log.Printf("Cloning %v, on branch %v", r.ScmURL, r.Branch)
-	if err := clone(r.Branch, r.ScmURL, r.Path); err != nil {
+	fmt.Fprintf(r.logger, "Cloning %v, on branch %v", r.ScmURL, r.Branch)
+	if err := clone(r.Branch, r.ScmURL, r.Path, r.logger); err != nil {
 		return fmt.Errorf("cloning repository: %v", err)
 	}
 
-	log.Printf("Setting user name and user email")
-	if err := setConfig("user.name", "sd-buildbot", r.Path); err != nil {
+	fmt.Fprintf(r.logger, "Setting user name and user email")
+	if err := setConfig("user.name", "sd-buildbot", r.Path, r.logger); err != nil {
 		return fmt.Errorf("setting user name: %v", err)
 	}
 
-	if err := setConfig("user.email", "dev-null@screwdriver.cd", r.Path); err != nil {
+	if err := setConfig("user.email", "dev-null@screwdriver.cd", r.Path, r.logger); err != nil {
 		return fmt.Errorf("setting user email: %v", err)
 	}
 
@@ -79,35 +81,35 @@ func (r repo) Checkout() error {
 }
 
 // clone clones a git repo into a destination directory
-func clone(branch, scmURL, destination string) error {
+func clone(branch, scmURL, destination string, logger io.Writer) error {
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("getting working directory: %v", err)
 	}
-	return command(dir, "clone", "--quiet", "--progress", "--branch", branch, scmURL, destination)
+	return command(logger, dir, "clone", "--quiet", "--progress", "--branch", branch, scmURL, destination)
 }
 
 // setConfig sets the specified git settting
-func setConfig(setting, name, dir string) error {
-	return command(dir, "config", setting, name)
+func setConfig(setting, name, dir string, logger io.Writer) error {
+	return command(logger, dir, "config", setting, name)
 }
 
 // fetchPR fetches a pull request
-func fetchPR(prNumber, dir string) error {
-	return command(dir, "fetch", "origin", "pull/"+prNumber+"/head:pr")
+func fetchPR(prNumber, dir string, logger io.Writer) error {
+	return command(logger, dir, "fetch", "origin", "pull/"+prNumber+"/head:pr")
 }
 
 // merge merges changes on the specified branch
-func merge(branch, dir string) error {
-	return command(dir, "merge", "--no-edit", branch)
+func merge(branch, dir string, logger io.Writer) error {
+	return command(logger, dir, "merge", "--no-edit", branch)
 }
 
 // command executes the git command
-func command(dir string, arguments ...string) error {
+func command(logger io.Writer, dir string, arguments ...string) error {
 	cmd := execCommand("git", arguments...)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = logger
+	cmd.Stderr = logger
 	cmd.Dir = dir
 
 	if err := cmd.Start(); err != nil {

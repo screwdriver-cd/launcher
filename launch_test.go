@@ -18,7 +18,7 @@ import (
 
 const (
 	TestWorkspace  = "/sd/workspace"
-	TestEmitter    = "/var/run/sd/emitter"
+	TestEmitter    = "./data/emitter"
 	TestBuildID    = "BUILDID"
 	TestJobID      = "JOBID"
 	TestPipelineID = "PIPELINEID"
@@ -220,7 +220,7 @@ func TestMain(m *testing.M) {
 	setEnv = func(key, value string) (err error) { return nil }
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		return git.Repo(repo), nil
 	}
@@ -412,7 +412,7 @@ func TestNonPR(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		return repo, nil
 	}
@@ -435,7 +435,7 @@ func TestPR(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		repo.mergePR = func(prNumber, sha string) error {
 			if prNumber != testPrNumber {
@@ -530,7 +530,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		repo.getPath = func() string {
 			return "test/path"
@@ -805,15 +805,17 @@ func TestNewRepoError(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		return nil, fmt.Errorf("Spooky error")
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	if err.Error() != "Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
+	wantErr := "Spooky error"
+	if err.Error() != wantErr {
+		t.Errorf("Error is wrong, got %v. want %v", err, wantErr)
 	}
 }
+
 func TestCheckoutError(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
@@ -825,7 +827,7 @@ func TestCheckoutError(t *testing.T) {
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		repo.checkout = func() error {
 			return fmt.Errorf("Spooky error")
@@ -854,7 +856,7 @@ func TestMergePRError(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
 	}
 
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		repo.mergePR = func(prNumber, sha string) error {
 			return fmt.Errorf("Spooky error")
@@ -950,7 +952,7 @@ func TestSetEnv(t *testing.T) {
 	oldNewRepo := newRepo
 	defer func() { newRepo = oldNewRepo }()
 
-	newRepo = func(scmURL, path string) (git.Repo, error) {
+	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
 		repo.getPath = func() string {
 			return testPath

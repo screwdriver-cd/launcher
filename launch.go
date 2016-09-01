@@ -189,7 +189,13 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		j.Name = "main"
 	}
 
-	repo, err := newRepo(scm.httpsString(), w.Src)
+	emitter, err := newEmitter(emitterPath)
+	if err != nil {
+		return err
+	}
+	defer emitter.Close()
+
+	repo, err := newRepo(scm.httpsString(), w.Src, emitter)
 	if err != nil {
 		return err
 	}
@@ -242,12 +248,6 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	if err != nil {
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
-
-	emitter, err := newEmitter(emitterPath)
-	if err != nil {
-		return err
-	}
-	defer emitter.Close()
 
 	defaultEnv := map[string]string{
 		"SCREWDRIVER": "true",
