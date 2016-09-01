@@ -78,7 +78,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testSt
 				// Panic to get the stacktrace
 				panic(true)
 			}
-			return screwdriver.Pipeline(FakePipeline{}), nil
+			return screwdriver.Pipeline(FakePipeline{ScmURL: "git@github.com:screwdriver-cd/launcher.git#master"}), nil
 		},
 		updateBuildStatus: func(status screwdriver.BuildStatus) error {
 			if status != testStatus {
@@ -299,10 +299,10 @@ func TestPipelineFromIdError(t *testing.T) {
 func TestParseScmURL(t *testing.T) {
 	wantHost := "github.com"
 	wantOrg := "screwdriver-cd"
-	wantRepo := "launcher.git"
+	wantRepo := "launcher"
 	wantBranch := "master"
 
-	scmURL := "git@github.com:screwdriver-cd/launcher.git#master"
+	scmURL := "git@github.com:screwdriver-cd/launcher#master"
 	parsedURL, err := parseScmURL(scmURL)
 	host, org, repo, branch := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch
 	if err != nil {
@@ -465,7 +465,7 @@ func TestCreateWorkspaceError(t *testing.T) {
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 
-	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher.git\": Spooky error" {
+	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher\": Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
 }
@@ -540,7 +540,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 	oldOpen := open
 	defer func() { open = oldOpen }()
 	open = func(f string) (*os.File, error) {
-		if f != "/sd/workspace/src/screwdriver.yaml" {
+		if f != "/sd/workspace/src/github.com/screwdriver-cd/launcher/screwdriver.yaml" {
 			t.Errorf("File name not correct: %q", f)
 		}
 
