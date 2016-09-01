@@ -34,8 +34,8 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
 	shargs = append(shargs, cmd.Cmd)
 	c := execCommand("sh", shargs...)
 
-	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 	emitter.StartCmd(cmd)
+	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 	c.Stdout = emitter
 	c.Stderr = emitter
 

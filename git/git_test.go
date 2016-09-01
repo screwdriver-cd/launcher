@@ -62,6 +62,7 @@ func TestGetPath(t *testing.T) {
 		ScmURL: "test.com",
 		Path:   "test/path",
 		Branch: "testBranch",
+		logger: os.Stderr,
 	}
 
 	wantPath := "test/path"
@@ -91,6 +92,7 @@ func TestMergePR(t *testing.T) {
 				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
 				Path:   currDir,
 				Branch: "master",
+				logger: os.Stderr,
 			},
 			pr:  "1",
 			sha: "abc123",
@@ -101,6 +103,7 @@ func TestMergePR(t *testing.T) {
 				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
 				Path:   "bad path",
 				Branch: "master",
+				logger: os.Stderr,
 			},
 			pr:  "1",
 			sha: "abc123",
@@ -163,6 +166,7 @@ func TestCheckout(t *testing.T) {
 				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
 				Path:   currDir,
 				Branch: "master",
+				logger: os.Stderr,
 			},
 			sha: "abc123",
 			err: nil,
@@ -172,6 +176,7 @@ func TestCheckout(t *testing.T) {
 				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
 				Path:   "bad path",
 				Branch: "master",
+				logger: os.Stderr,
 			},
 			sha: "abc123",
 			err: errors.New("setting user name: starting git command: " +
