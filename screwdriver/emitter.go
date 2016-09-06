@@ -42,11 +42,6 @@ func (e *emitter) StartCmd(cmd CommandDef) {
 	e.cmd = cmd
 }
 
-// Close closes the emitter and its underlying handles
-func (e *emitter) Close() error {
-	return e.PipeWriter.Close()
-}
-
 func (e *emitter) processPipe() {
 	scanner := bufio.NewScanner(e.reader)
 	encoder := json.NewEncoder(e.file)
@@ -75,11 +70,16 @@ func NewEmitter(path string) (Emitter, error) {
 		return nil, fmt.Errorf("failed opening emitter path %q: %v", path, err)
 	}
 
+	cmd := CommandDef{
+		Name: "sd-setup",
+	}
+
 	e := &emitter{
 		file:       file,
 		buffer:     bytes.NewBuffer([]byte{}),
 		reader:     r,
 		PipeWriter: w,
+		cmd:        cmd,
 	}
 
 	go e.processPipe()

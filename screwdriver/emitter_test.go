@@ -38,31 +38,34 @@ func TestEmitter(t *testing.T) {
 	}
 	defer emitter.Close()
 
-	var tests = []struct {
+	type testlist []struct {
 		message string
 		step    string
-	}{
+	}
+	var tests = testlist{
 		{"line1", "step1"},
 		{"line2", "step1"},
 		{"line3", "step2"},
 		{"line4", "step2"},
 	}
 
+	fmt.Fprintln(emitter, "running sd-setup step")
+	time.Sleep(1 * time.Millisecond)
 	for _, test := range tests {
 		emitter.StartCmd(fakeCmd(test.step))
 		fmt.Fprintln(emitter, test.message)
 		time.Sleep(1 * time.Millisecond)
 	}
-
 	emitter.Write([]byte("This should not be processed. It has no newline."))
+
+	tests = append(testlist{{"running sd-setup step", "sd-setup"}}, tests...)
 
 	f, err := os.Open(emitterpath)
 	if err != nil {
 		t.Fatalf("Error opening file: %v", err)
 	}
 
-	data, _ := ioutil.ReadFile(emitterpath)
-	fmt.Println("DATA: ", string(data))
+	_, _ = ioutil.ReadFile(emitterpath)
 	scanner := bufio.NewScanner(f)
 	line := 0
 	var log logLine
