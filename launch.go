@@ -149,8 +149,7 @@ func prNumber(jobName string) string {
 
 func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	log.Print("Setting Build Status to RUNNING")
-	err := api.UpdateBuildStatus(screwdriver.Running, buildID)
-	if err != nil {
+	if err := api.UpdateBuildStatus(screwdriver.Running, buildID); err != nil {
 		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
 
@@ -218,7 +217,6 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	if err != nil {
 		return fmt.Errorf("opening screwdriver.yaml: %v", err)
 	}
-
 	defer yaml.Close()
 
 	pipelineDef, err := api.PipelineDefFromYaml(yaml)
