@@ -39,7 +39,7 @@ type API interface {
 	BuildFromID(buildID string) (Build, error)
 	JobFromID(jobID string) (Job, error)
 	PipelineFromID(pipelineID string) (Pipeline, error)
-	UpdateBuildStatus(status BuildStatus) error
+	UpdateBuildStatus(status BuildStatus, buildID string) error
 	PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error)
 	UpdateStepStart(buildID, stepName string) error
 	UpdateStepStop(buildID, stepName string, exitCode int) error
@@ -360,7 +360,7 @@ func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
 	return pipelineDef, nil
 }
 
-func (a api) UpdateBuildStatus(status BuildStatus) error {
+func (a api) UpdateBuildStatus(status BuildStatus, buildID string) error {
 	switch status {
 	case Running:
 	case Success:
@@ -370,7 +370,7 @@ func (a api) UpdateBuildStatus(status BuildStatus) error {
 		return fmt.Errorf("invalid build status: %s", status)
 	}
 
-	u, err := a.makeURL("webhooks/build")
+	u, err := a.makeURL(fmt.Sprintf("builds/%s", buildID))
 	if err != nil {
 		return fmt.Errorf("creating url: %v", err)
 	}
@@ -383,7 +383,7 @@ func (a api) UpdateBuildStatus(status BuildStatus) error {
 		return fmt.Errorf("marshaling JSON for Build Status: %v", err)
 	}
 
-	_, err = a.post(u, "application/json", bytes.NewReader(payload))
+	_, err = a.put(u, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("posting to Build Status: %v", err)
 	}

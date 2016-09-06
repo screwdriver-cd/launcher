@@ -80,7 +80,12 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testSt
 			}
 			return screwdriver.Pipeline(FakePipeline{ScmURL: "git@github.com:screwdriver-cd/launcher.git#master"}), nil
 		},
-		updateBuildStatus: func(status screwdriver.BuildStatus) error {
+		updateBuildStatus: func(status screwdriver.BuildStatus, buildID string) error {
+			if buildID != testBuildID {
+				t.Errorf("status == %s, want %s", status, testStatus)
+				// Panic to get the stacktrace
+				panic(true)
+			}
 			if status != testStatus {
 				t.Errorf("status == %s, want %s", status, testStatus)
 				// Panic to get the stacktrace
@@ -95,7 +100,7 @@ type MockAPI struct {
 	buildFromID         func(string) (screwdriver.Build, error)
 	jobFromID           func(string) (screwdriver.Job, error)
 	pipelineFromID      func(string) (screwdriver.Pipeline, error)
-	updateBuildStatus   func(screwdriver.BuildStatus) error
+	updateBuildStatus   func(screwdriver.BuildStatus, string) error
 	pipelineDefFromYaml func(io.Reader) (screwdriver.PipelineDef, error)
 	updateStepStart     func(buildID, stepName string) error
 	updateStepStop      func(buildID, stepName string, exitCode int) error
@@ -122,9 +127,9 @@ func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error)
 	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID string) error {
 	if f.updateBuildStatus != nil {
-		return f.updateBuildStatus(status)
+		return f.updateBuildStatus(status, buildID)
 	}
 	return nil
 }
@@ -494,7 +499,7 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 
 func TestUpdateBuildStatusError(t *testing.T) {
 	api := mockAPI(t, TestBuildID, "", "", screwdriver.Running)
-	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
 		return fmt.Errorf("Spooky error")
 	}
 
@@ -592,7 +597,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 
 	var gotStatuses []screwdriver.BuildStatus
 	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -621,7 +626,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	var gotStatuses []screwdriver.BuildStatus
 	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -750,7 +755,7 @@ func TestRecoverPanic(t *testing.T) {
 	api := mockAPI(t, "TestBuildID", "", "", screwdriver.Running)
 
 	updCalled := false
-	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
 		updCalled = true
 		fmt.Printf("Status set: %v\n", status)
 		if status != screwdriver.Failure {
@@ -765,7 +770,7 @@ func TestRecoverPanic(t *testing.T) {
 	}
 
 	func() {
-		defer recoverPanic(api)
+		defer recoverPanic("", api)
 		panic("OH NOES!")
 	}()
 
@@ -785,7 +790,7 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 	}
 
 	func() {
-		defer recoverPanic(nil)
+		defer recoverPanic("", nil)
 		panic("OH NOES!")
 	}()
 
@@ -872,7 +877,7 @@ func TestMergePRError(t *testing.T) {
 
 func TestEmitterClose(t *testing.T) {
 	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
 		return nil
 	}
 
