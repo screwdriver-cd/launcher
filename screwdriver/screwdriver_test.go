@@ -364,14 +364,14 @@ func TestUpdateBuildStatus(t *testing.T) {
 		{Running, 200, nil},
 		{"NOTASTATUS", 200, errors.New("invalid build status: NOTASTATUS")},
 		{Success, 500, errors.New("posting to Build Status: timeout on request after 5 attempts, " +
-			"last error: retries exhausted: 500 returned from http://fakeurl/v3/webhooks/build")},
+			"last error: retries exhausted: 500 returned from http://fakeurl/v3/builds/15")},
 	}
 
 	for _, test := range tests {
 		http := makeFakeHTTPClient(t, test.statusCode, "{}")
 		testAPI := api{"http://fakeurl", "faketoken", http}
 
-		err := testAPI.UpdateBuildStatus(test.status)
+		err := testAPI.UpdateBuildStatus(test.status, "15")
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from UpdateBuildStatus: %v, want %v", err, test.err)

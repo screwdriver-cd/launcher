@@ -37,10 +37,10 @@ var cleanExit = func() {
 }
 
 // exit sets the build status and exits successfully
-func exit(status screwdriver.BuildStatus, api screwdriver.API) {
+func exit(status screwdriver.BuildStatus, buildID string, api screwdriver.API) {
 	if api != nil {
 		log.Printf("Setting build status to %s", status)
-		if err := api.UpdateBuildStatus(status); err != nil {
+		if err := api.UpdateBuildStatus(status, buildID); err != nil {
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
@@ -149,7 +149,7 @@ func prNumber(jobName string) string {
 
 func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	log.Print("Setting Build Status to RUNNING")
-	err := api.UpdateBuildStatus(screwdriver.Running)
+	err := api.UpdateBuildStatus(screwdriver.Running, buildID)
 	if err != nil {
 		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
@@ -229,7 +229,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	jobs := pipelineDef.Jobs[j.Name]
 	if len(jobs) == 0 {
 		log.Printf("ERROR: Launcher currently only supports 1 matrix job. 0 jobs are configured for %q\n", j.Name)
-		exit(screwdriver.Failure, api)
+		exit(screwdriver.Failure, buildID, api)
 	}
 
 	if len(jobs) != 1 {
@@ -282,15 +282,15 @@ func launchAction(api screwdriver.API, buildID, rootDir, emitterPath string) err
 			log.Printf("Error running launcher: %v\n", err)
 		}
 
-		exit(screwdriver.Failure, api)
+		exit(screwdriver.Failure, buildID, api)
 		return nil
 	}
 
-	exit(screwdriver.Success, api)
+	exit(screwdriver.Success, buildID, api)
 	return nil
 }
 
-func recoverPanic(api screwdriver.API) {
+func recoverPanic(buildID string, api screwdriver.API) {
 	if p := recover(); p != nil {
 		filename := fmt.Sprintf("launcher-stacktrace-%s", time.Now().Format(time.RFC3339))
 		tracefile := filepath.Join(os.TempDir(), filename)
@@ -302,7 +302,7 @@ func recoverPanic(api screwdriver.API) {
 			log.Printf("ERROR: Unable to write stacktrace to file: %v", err)
 		}
 
-		exit(screwdriver.Failure, api)
+		exit(screwdriver.Failure, buildID, api)
 	}
 }
 
@@ -318,7 +318,7 @@ func finalRecover() {
 
 func main() {
 	defer finalRecover()
-	defer recoverPanic(nil)
+	defer recoverPanic("", nil)
 
 	app := cli.NewApp()
 	app.Name = "launcher"
@@ -368,16 +368,16 @@ func main() {
 		api, err := screwdriver.New(url, token)
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
-			exit(screwdriver.Failure, nil)
+			exit(screwdriver.Failure, buildID, nil)
 		}
 
-		defer recoverPanic(api)
+		defer recoverPanic(buildID, api)
 
 		launchAction(api, buildID, workspace, emitterPath)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
-		exit(screwdriver.Failure, api)
+		exit(screwdriver.Failure, buildID, api)
 		return nil
 	}
 	app.Run(os.Args)
