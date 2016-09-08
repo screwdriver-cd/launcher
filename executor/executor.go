@@ -2,7 +2,6 @@ package executor
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"syscall"
 
@@ -58,12 +57,8 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, emitter screwdriver.Emitter, job screwdriver.JobDef, api screwdriver.API, buildID string) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, job screwdriver.JobDef, api screwdriver.API, buildID string) error {
 	cmds := job.Commands
-	env := os.Environ()
-	for k, v := range job.Environment {
-		env = append(env, fmt.Sprintf("%s=%s", k, v))
-	}
 
 	for _, cmd := range cmds {
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {

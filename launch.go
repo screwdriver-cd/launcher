@@ -27,7 +27,6 @@ var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var newRepo = git.New
 var open = os.Open
-var setEnv = os.Setenv
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
 var newEmitter = screwdriver.NewEmitter
@@ -256,17 +255,57 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		"SD_SOURCE_DIR":          repo.GetPath(),
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 	}
-	for k, v := range defaultEnv {
-		if err := setEnv(k, v); err != nil {
-			return err
-		}
+
+	secrets, err := api.SecretsForBuild(b)
+	if err != nil {
+		return fmt.Errorf("Fetching secrets for build %s", b.ID)
 	}
 
-	if err := executorRun(repo.GetPath(), emitter, currentJob, api, buildID); err != nil {
+	env := createEnvironment(defaultEnv, secrets)
+
+	if err := executorRun(repo.GetPath(), env, emitter, currentJob, api, buildID); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []string {
+	combined := map[string]string{}
+
+	// Start with the current environment
+	for _, e := range os.Environ() {
+		s := strings.Split(e, "=")
+		if len(s) != 2 {
+			log.Printf("WARN: bad environment value from base environment: %s", e)
+		}
+
+		combined[s[0]] = s[1]
+	}
+
+	// Add the base environment values
+	for k, v := range base {
+		combined[k] = v
+	}
+
+	// Add secrets to the environment
+	for _, s := range secrets {
+		combined[s.Name] = s.Value
+	}
+
+	// Delete any environment variables that we don't want the user to accidentally dump
+	for _, k := range []string{
+		"SD_TOKEN",
+	} {
+		delete(combined, k)
+	}
+
+	// Create the final string slice
+	envStrings := []string{}
+	for k, v := range combined {
+		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
+	}
+	return envStrings
 }
 
 // Executes the command based on arguments from the CLI

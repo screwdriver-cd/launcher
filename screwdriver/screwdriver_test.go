@@ -414,3 +414,32 @@ func TestUpdateStepStop(t *testing.T) {
 		t.Errorf("Unexpected error from UpdateStepStop: %v", err)
 	}
 }
+
+func TestSecretsForBuild(t *testing.T) {
+	testBuild := Build{
+		ID:    "testId",
+		JobID: "testJob",
+		SHA:   "testSHA",
+	}
+	testResponse := `[{"name": "foo", "value": "bar"}]`
+	wantSecrets := Secrets{
+		{Name: "foo", Value: "bar"},
+	}
+
+	http := makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
+		wantURL, _ := url.Parse("http://fakeurl/v3/builds/testId/secrets")
+		if r.URL.String() != wantURL.String() {
+			t.Errorf("Secrets URL=%q, want %q", r.URL, wantURL)
+		}
+	})
+	testAPI := api{"http://fakeurl", "faketoken", http}
+
+	s, err := testAPI.SecretsForBuild(testBuild)
+	if err != nil {
+		t.Fatalf("Unexpected error from SecretsForBuild: %v", err)
+	}
+
+	if !reflect.DeepEqual(s, wantSecrets) {
+		t.Errorf("s=%q, want %q", s, wantSecrets)
+	}
+}

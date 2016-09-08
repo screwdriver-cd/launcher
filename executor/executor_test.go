@@ -56,6 +56,10 @@ func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID strin
 	return nil
 }
 
+func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, error) {
+	return nil, nil
+}
+
 func (f MockAPI) UpdateStepStart(buildID, stepName string) error {
 	if f.updateStepStart != nil {
 		return f.updateStepStart(buildID, stepName)
@@ -193,7 +197,7 @@ func TestRunSingle(t *testing.T) {
 				return nil
 			},
 		})
-		err := Run("", &MockEmitter{}, testJob, testAPI, testBuild)
+		err := Run("", nil, &MockEmitter{}, testJob, testAPI, testBuild)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
@@ -250,7 +254,7 @@ func TestRunMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", &MockEmitter{}, testJob, testAPI, testBuild)
+	err := Run("", nil, &MockEmitter{}, testJob, testAPI, testBuild)
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
@@ -306,7 +310,7 @@ func TestUnmocked(t *testing.T) {
 				return nil
 			},
 		})
-		err := Run("", &MockEmitter{}, testJob, testAPI, testBuild)
+		err := Run("", nil, &MockEmitter{}, testJob, testAPI, testBuild)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error: %v, want %v", err, test.err)
@@ -347,7 +351,11 @@ func TestEnv(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", &output, job, testAPI, testBuild)
+	wantFlattened := []string{}
+	for k, v := range want {
+		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
+	}
+	err := Run("", wantFlattened, &output, job, testAPI, testBuild)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -416,7 +424,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", &emitter, testJob, testAPI, testBuild)
+	err := Run("", nil, &emitter, testJob, testAPI, testBuild)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
