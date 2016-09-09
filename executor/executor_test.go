@@ -319,10 +319,21 @@ func TestUnmocked(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
+	jobEnv := map[string]string{
+		"GOPATH": "/go/path",
+	}
+
+	baseEnv := []string{
+		"var1=foo",
+		"var2=bar",
+		"VAR3=baz",
+	}
+
 	want := map[string]string{
-		"var1": "foo",
-		"var2": "bar",
-		"VAR3": "baz",
+		"var1":   "foo",
+		"var2":   "bar",
+		"VAR3":   "baz",
+		"GOPATH": "/go/path",
 	}
 
 	cmds := []screwdriver.CommandDef{
@@ -334,7 +345,7 @@ func TestEnv(t *testing.T) {
 
 	job := screwdriver.JobDef{
 		Commands:    cmds,
-		Environment: want,
+		Environment: jobEnv,
 	}
 
 	execCommand = exec.Command
@@ -355,7 +366,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", wantFlattened, &output, job, testAPI, testBuild)
+	err := Run("", baseEnv, &output, job, testAPI, testBuild)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
