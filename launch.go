@@ -275,12 +275,16 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []st
 
 	// Start with the current environment
 	for _, e := range os.Environ() {
-		s := strings.Split(e, "=")
-		if len(s) != 2 {
+		pieces := strings.SplitAfterN(e, "=", 2)
+		if len(pieces) != 2 {
 			log.Printf("WARN: bad environment value from base environment: %s", e)
+			continue
 		}
 
-		combined[s[0]] = s[1]
+		k := pieces[0][:len(pieces[0])-1] // Drop the "=" off the end
+		v := pieces[1]
+
+		combined[k] = v
 	}
 
 	// Add the base environment values
