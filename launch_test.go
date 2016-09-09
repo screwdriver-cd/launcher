@@ -1015,3 +1015,39 @@ func TestEnvSecrets(t *testing.T) {
 		t.Errorf("secret not set in environment %v, want FOONAME=barvalue", foundEnv)
 	}
 }
+
+func TestCreateEnvironment(t *testing.T) {
+	os.Setenv("OSENVWITHEQUALS", "foo=bar=")
+	base := map[string]string{
+		"FOO":             "bar",
+		"THINGWITHEQUALS": "abc=def",
+		"GETSOVERRIDDEN":  "goesaway",
+	}
+
+	secrets := screwdriver.Secrets{
+		{Name: "secret1", Value: "secret1value"},
+		{Name: "GETSOVERRIDDEN", Value: "override"},
+	}
+	env := createEnvironment(base, secrets)
+
+	foundEnv := map[string]bool{}
+	for _, i := range env {
+		foundEnv[i] = true
+	}
+
+	for _, want := range []string{
+		"FOO=bar",
+		"THINGWITHEQUALS=abc=def",
+		"secret1=secret1value",
+		"GETSOVERRIDDEN=override",
+		"OSENVWITHEQUALS=foo=bar=",
+	} {
+		if !foundEnv[want] {
+			t.Errorf("Did not receive expected environment setting %q", want)
+		}
+	}
+
+	if foundEnv["GETSOVERRIDDEN=goesaway"] {
+		t.Errorf("Failed to override the base environment with a secret")
+	}
+}
