@@ -261,7 +261,7 @@ func TestBuildFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), "shoulderror", "/sd/workspace", "/var/run/sd/emitter")
+	err := launch(screwdriver.API(api), "shoulderror", TestWorkspace, TestEmitter)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -461,7 +461,10 @@ func TestPR(t *testing.T) {
 		return repo, nil
 	}
 
-	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	if err != nil {
+		t.Errorf("Unexpected error from launc: %v", err)
+	}
 }
 
 func TestCreateWorkspaceError(t *testing.T) {
