@@ -147,8 +147,18 @@ func prNumber(jobName string) string {
 }
 
 func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
+	emitter, err := newEmitter(emitterPath)
+	if err != nil {
+		return err
+	}
+	defer emitter.Close()
+
+	if err = api.UpdateStepStart(buildID, "sd-setup"); err != nil {
+		return fmt.Errorf("updating sd-setup start: %v", err)
+	}
+
 	log.Print("Setting Build Status to RUNNING")
-	if err := api.UpdateBuildStatus(screwdriver.Running, buildID); err != nil {
+	if err = api.UpdateBuildStatus(screwdriver.Running, buildID); err != nil {
 		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
 
@@ -186,12 +196,6 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	if pr != "" {
 		j.Name = "main"
 	}
-
-	emitter, err := newEmitter(emitterPath)
-	if err != nil {
-		return err
-	}
-	defer emitter.Close()
 
 	repo, err := newRepo(scm.httpsString(), w.Src, emitter)
 	if err != nil {
@@ -262,6 +266,10 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	}
 
 	env := createEnvironment(defaultEnv, secrets)
+
+	if err := api.UpdateStepStop(buildID, "sd-setup", 0); err != nil {
+		return fmt.Errorf("updating sd-setup stop: %v", err)
+	}
 
 	if err := executorRun(repo.GetPath(), env, emitter, currentJob, api, buildID); err != nil {
 		return err
