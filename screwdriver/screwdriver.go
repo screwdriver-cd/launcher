@@ -43,6 +43,7 @@ type API interface {
 	PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error)
 	UpdateStepStart(buildID, stepName string) error
 	UpdateStepStop(buildID, stepName string, exitCode int) error
+	SecretsForBuild(build Build) (Secrets, error)
 }
 
 // SDError is an error response from the Screwdriver API
@@ -131,6 +132,15 @@ type Build struct {
 	JobID string `json:"jobId"`
 	SHA   string `json:"sha"`
 }
+
+// Secret is a Screwdriver build secret.
+type Secret struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// Secrets is the collection of secrets for a Screwdriver build
+type Secrets []Secret
 
 func (a api) makeURL(path string) (*url.URL, error) {
 	version := "v3"
@@ -434,4 +444,25 @@ func (a api) UpdateStepStop(buildID, stepName string, exitCode int) error {
 	}
 
 	return nil
+}
+
+func (a api) SecretsForBuild(build Build) (Secrets, error) {
+	u, err := a.makeURL(fmt.Sprintf("builds/%s/secrets", build.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := a.get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	secrets := Secrets{}
+
+	err = json.Unmarshal(body, &secrets)
+	if err != nil {
+		return secrets, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+
+	return secrets, nil
 }

@@ -104,6 +104,14 @@ type MockAPI struct {
 	pipelineDefFromYaml func(io.Reader) (screwdriver.PipelineDef, error)
 	updateStepStart     func(buildID, stepName string) error
 	updateStepStop      func(buildID, stepName string, exitCode int) error
+	secretsForBuild     func(build screwdriver.Build) (screwdriver.Secrets, error)
+}
+
+func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, error) {
+	if f.secretsForBuild != nil {
+		return f.secretsForBuild(build)
+	}
+	return nil, nil
 }
 
 func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
@@ -222,7 +230,6 @@ func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
 }
 
 func TestMain(m *testing.M) {
-	setEnv = func(key, value string) (err error) { return nil }
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
 	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
@@ -232,7 +239,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -569,16 +576,16 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, out screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
 		cmdDefs := jobDef.Commands
-		env := jobDef.Environment
+		jobEnv := jobDef.Environment
 		if path != testPath {
 			t.Errorf("Executor run path = %v, want %v", path, testPath)
 		}
 		if !reflect.DeepEqual(cmdDefs, wantJobs["main"][0].Commands) {
 			t.Errorf("Executor run jobDef = %+v, \n want %+v", cmdDefs, wantJobs["main"])
 		}
-		if !reflect.DeepEqual(env, wantJobs["main"][0].Environment) {
+		if !reflect.DeepEqual(jobEnv, wantJobs["main"][0].Environment) {
 			t.Errorf("Executor run env = %+v, \n want %+v", env, wantJobs["main"][0].Environment)
 		}
 		return nil
@@ -642,7 +649,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, out screwdriver.Emitter, jobDef screwdriver.JobDef, a screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, out screwdriver.Emitter, jobDef screwdriver.JobDef, a screwdriver.API, buildID string) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
@@ -902,49 +909,17 @@ func TestEmitterClose(t *testing.T) {
 }
 
 func TestSetEnv(t *testing.T) {
-	oldSetEnv := setEnv
-	defer func() { setEnv = oldSetEnv }()
+	oldExecutorRun := executorRun
+	defer func() { executorRun = oldExecutorRun }()
 
-	tests := []struct {
-		key   string
-		value string
-		err   error
-	}{
-		{
-			key:   "SCREWDRIVER",
-			value: "true",
-			err:   nil,
-		},
-		{
-			key:   "CI",
-			value: "true",
-			err:   nil,
-		},
-		{
-			key:   "CONTINUOUS_INTEGRATION",
-			value: "true",
-			err:   nil,
-		},
-		{
-			key:   "SD_JOB_NAME",
-			value: "PR-1",
-			err:   nil,
-		},
-		{
-			key:   "SD_PULL_REQUEST",
-			value: "1",
-			err:   nil,
-		},
-		{
-			key:   "SD_SOURCE_DIR",
-			value: "test/path",
-			err:   nil,
-		},
-		{
-			key:   "SD_ARTIFACTS_DIR",
-			value: "/sd/workspace/artifacts",
-			err:   nil,
-		},
+	tests := map[string]string{
+		"SCREWDRIVER": "true",
+		"CI":          "true",
+		"CONTINUOUS_INTEGRATION": "true",
+		"SD_JOB_NAME":            "PR-1",
+		"SD_PULL_REQUEST":        "1",
+		"SD_SOURCE_DIR":          "test/path",
+		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 	}
 
 	testPath := "test/path"
@@ -965,22 +940,78 @@ func TestSetEnv(t *testing.T) {
 		return repo, nil
 	}
 
-	defer func() { writeFile = ioutil.WriteFile }()
-	writeFile = func(d string, b []byte, p os.FileMode) error { return nil }
+	foundEnv := map[string]string{}
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+		if len(env) == 0 {
+			t.Fatalf("Unexpected empty environment passed to executorRun")
+		}
 
-	for _, test := range tests {
-		setEnv = func(key, value string) error {
-			if key == test.key && value != test.value {
-				return fmt.Errorf("Invalid value for environment variable %v: "+
-					"got %v, want %v", test.key, value, test.value)
+		for _, e := range env {
+			split := strings.Split(e, "=")
+			if len(split) != 2 {
+				t.Fatalf("Bad environment value passed to executorRun: %s", e)
 			}
-			return nil
+			foundEnv[split[0]] = split[1]
 		}
 
-		err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+		return nil
+	}
 
-		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Error = %v, want %v", err, test.err)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
+	for k, v := range tests {
+		if foundEnv[k] != v {
+			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
+			// t.Errorf("Invalid value for environment variable %v: got %v, want %v", test.key, value, test.value)
 		}
+	}
+}
+
+func TestEnvSecrets(t *testing.T) {
+	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
+	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
+	}
+
+	testBuild := FakeBuild{ID: TestBuildID, JobID: TestJobID}
+	api.secretsForBuild = func(build screwdriver.Build) (screwdriver.Secrets, error) {
+		if !reflect.DeepEqual(build.ID, testBuild.ID) {
+			t.Errorf("build.ID = %v, want %v", build.ID, testBuild.ID)
+		}
+
+		testSecrets := screwdriver.Secrets{
+			{Name: "FOONAME", Value: "barvalue"},
+		}
+		return testSecrets, nil
+	}
+
+	foundEnv := map[string]string{}
+	oldExecutorRun := executorRun
+	defer func() { executorRun = oldExecutorRun }()
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+		if len(env) == 0 {
+			t.Fatalf("Unexpected empty environment passed to executorRun")
+		}
+
+		for _, e := range env {
+			split := strings.Split(e, "=")
+			if len(split) != 2 {
+				t.Fatalf("Bad environment value passed to executorRun: %s", e)
+			}
+			foundEnv[split[0]] = split[1]
+		}
+
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
+
+	if foundEnv["FOONAME"] != "barvalue" {
+		t.Errorf("secret not set in environment %v, want FOONAME=barvalue", foundEnv)
 	}
 }
