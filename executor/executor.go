@@ -60,6 +60,10 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
 func Run(path string, env []string, emitter screwdriver.Emitter, job screwdriver.JobDef, api screwdriver.API, buildID string) error {
 	cmds := job.Commands
 
+	for k, v := range job.Environment {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+
 	for _, cmd := range cmds {
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
 			return fmt.Errorf("updating step start %q: %v", cmd.Name, err)
