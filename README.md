@@ -9,7 +9,7 @@
 
 ```bash
 $ go get github.com/screwdriver-cd/launcher
-$ launch --api-uri http://localhost:8080/v3 cba94a05f8aa063f4b8cfb62cbc355e0c5f02698
+$ launch --api-uri http://localhost:8080/v4 cba94a05f8aa063f4b8cfb62cbc355e0c5f02698
 ```
 
 ## Testing
