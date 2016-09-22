@@ -64,12 +64,12 @@ func (r repo) MergePR(prNumber string, sha string) error {
 
 // Checkout checks out the git repo at the specified branch and configures the setting
 func (r repo) Checkout() error {
-	fmt.Fprintf(r.logger, "Cloning %v, on branch %v", r.scmURL, r.branch)
+	fmt.Fprintf(r.logger, "Cloning %v, on branch %v\n", r.scmURL, r.branch)
 	if err := r.clone(); err != nil {
 		return fmt.Errorf("cloning repository: %v", err)
 	}
 
-	fmt.Fprintf(r.logger, "Setting user name and user email")
+	fmt.Fprintln(r.logger, "Setting user name and user email")
 	if err := r.setConfig("user.name", "sd-buildbot"); err != nil {
 		return fmt.Errorf("setting user name: %v", err)
 	}

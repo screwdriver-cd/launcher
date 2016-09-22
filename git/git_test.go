@@ -225,3 +225,21 @@ func TestCheckout(t *testing.T) {
 		}
 	}
 }
+
+func TestNewRepo(t *testing.T) {
+	testRepo := repo{
+		scmURL: "test.com/org/repo",
+		path:   "test/path",
+		branch: "testBranch",
+		logger: os.Stderr,
+	}
+	testURL := fmt.Sprintf("%s#%s", testRepo.scmURL, testRepo.branch)
+	r, err := New(testURL, testRepo.path, testRepo.logger)
+	if err != nil {
+		t.Fatalf("Error creating a new repo: %v", err)
+	}
+
+	if !reflect.DeepEqual(r, testRepo) {
+		t.Errorf("repo=%v, want %v", r, testRepo)
+	}
+}
