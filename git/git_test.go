@@ -59,15 +59,15 @@ func TestHelperProcess(*testing.T) {
 
 func TestGetPath(t *testing.T) {
 	testRepo := repo{
-		ScmURL: "test.com",
-		Path:   "test/path",
-		Branch: "testBranch",
+		scmURL: "test.com",
+		path:   "test/path",
+		branch: "testBranch",
 		logger: os.Stderr,
 	}
 
 	wantPath := "test/path"
 
-	if path := testRepo.GetPath(); path != wantPath {
+	if path := testRepo.Path(); path != wantPath {
 		t.Errorf("path = %q, want %q", path, wantPath)
 	}
 }
@@ -89,9 +89,9 @@ func TestMergePR(t *testing.T) {
 	}{
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   currDir,
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   currDir,
+				branch: "master",
 				logger: os.Stderr,
 			},
 			pr:  "1",
@@ -100,9 +100,9 @@ func TestMergePR(t *testing.T) {
 		},
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   "bad path",
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   "bad path",
+				branch: "master",
 				logger: os.Stderr,
 			},
 			pr:  "1",
@@ -163,9 +163,9 @@ func TestCheckout(t *testing.T) {
 	}{
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   currDir,
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   currDir,
+				branch: "master",
 				logger: os.Stderr,
 			},
 			sha: "abc123",
@@ -173,9 +173,9 @@ func TestCheckout(t *testing.T) {
 		},
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   "bad path",
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   "bad path",
+				branch: "master",
 				logger: os.Stderr,
 			},
 			sha: "abc123",
@@ -198,7 +198,7 @@ func TestCheckout(t *testing.T) {
 			switch args[0] {
 			case "clone":
 				wantArgs = []string{"--quiet", "--progress", "--branch",
-					test.r.Branch, test.r.ScmURL, test.r.Path}
+					test.r.branch, test.r.scmURL, test.r.path}
 			case "config":
 				switch args[1] {
 				case "user.name":

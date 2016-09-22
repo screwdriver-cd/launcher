@@ -16,9 +16,9 @@ const (
 )
 
 type repo struct {
-	ScmURL string
-	Path   string
-	Branch string
+	scmURL string
+	path   string
+	branch string
 	logger io.Writer
 }
 
@@ -26,7 +26,7 @@ type repo struct {
 type Repo interface {
 	Checkout() error
 	MergePR(prNumber, sha string) error
-	GetPath() string
+	Path() string
 }
 
 // New returns a new repo object
@@ -36,25 +36,25 @@ func New(scmURL, path string, logger io.Writer) (Repo, error) {
 		return nil, fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
 	}
 	newrepo := repo{
-		ScmURL: parts[scmURLIndex],
-		Path:   path,
-		Branch: parts[branchIndex],
+		scmURL: parts[scmURLIndex],
+		path:   path,
+		branch: parts[branchIndex],
 		logger: logger,
 	}
 	return Repo(newrepo), nil
 }
 
-func (r repo) GetPath() string {
-	return r.Path
+func (r repo) Path() string {
+	return r.path
 }
 
 // MergePR fetches and merges the specified pull request to the specified branch
 func (r repo) MergePR(prNumber string, sha string) error {
-	if err := fetchPR(prNumber, r.Path, r.logger); err != nil {
+	if err := fetchPR(prNumber, r.path, r.logger); err != nil {
 		return fmt.Errorf("fetching pr: %v", err)
 	}
 
-	if err := merge(sha, r.Path, r.logger); err != nil {
+	if err := merge(sha, r.path, r.logger); err != nil {
 		return fmt.Errorf("merging sha: %v", err)
 	}
 
@@ -63,17 +63,17 @@ func (r repo) MergePR(prNumber string, sha string) error {
 
 // Checkout checks out the git repo at the specified branch and configures the setting
 func (r repo) Checkout() error {
-	fmt.Fprintf(r.logger, "Cloning %v, on branch %v", r.ScmURL, r.Branch)
-	if err := clone(r.Branch, r.ScmURL, r.Path, r.logger); err != nil {
+	fmt.Fprintf(r.logger, "Cloning %v, on branch %v", r.scmURL, r.branch)
+	if err := clone(r.branch, r.scmURL, r.path, r.logger); err != nil {
 		return fmt.Errorf("cloning repository: %v", err)
 	}
 
 	fmt.Fprintf(r.logger, "Setting user name and user email")
-	if err := setConfig("user.name", "sd-buildbot", r.Path, r.logger); err != nil {
+	if err := setConfig("user.name", "sd-buildbot", r.path, r.logger); err != nil {
 		return fmt.Errorf("setting user name: %v", err)
 	}
 
-	if err := setConfig("user.email", "dev-null@screwdriver.cd", r.Path, r.logger); err != nil {
+	if err := setConfig("user.email", "dev-null@screwdriver.cd", r.path, r.logger); err != nil {
 		return fmt.Errorf("setting user email: %v", err)
 	}
 

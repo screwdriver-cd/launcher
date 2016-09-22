@@ -256,7 +256,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PULL_REQUEST":        pr,
-		"SD_SOURCE_DIR":          repo.GetPath(),
+		"SD_SOURCE_DIR":          repo.Path(),
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 	}
 
@@ -271,7 +271,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("updating sd-setup stop: %v", err)
 	}
 
-	if err := executorRun(repo.GetPath(), env, emitter, currentJob, api, buildID); err != nil {
+	if err := executorRun(repo.Path(), env, emitter, currentJob, api, buildID); err != nil {
 		return err
 	}
 

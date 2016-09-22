@@ -35,7 +35,7 @@ type FakePipelineDef screwdriver.PipelineDef
 type MockRepo struct {
 	checkout func() error
 	mergePR  func(string, string) error
-	getPath  func() string
+	path     func() string
 }
 
 func (r MockRepo) Checkout() error {
@@ -52,9 +52,9 @@ func (r MockRepo) MergePR(prNumber, sha string) error {
 	return nil
 }
 
-func (r MockRepo) GetPath() string {
-	if r.getPath != nil {
-		return r.getPath()
+func (r MockRepo) Path() string {
+	if r.path != nil {
+		return r.path()
 	}
 	return ""
 }
@@ -547,7 +547,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 
 	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
-		repo.getPath = func() string {
+		repo.path = func() string {
 			return "test/path"
 		}
 		return repo, nil
@@ -937,7 +937,7 @@ func TestSetEnv(t *testing.T) {
 
 	newRepo = func(scmURL, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
-		repo.getPath = func() string {
+		repo.path = func() string {
 			return testPath
 		}
 		return repo, nil
