@@ -31,7 +31,7 @@ type Repo interface {
 }
 
 // New returns a new repo object
-func New(scmURL, path string, logger io.Writer) (Repo, error) {
+func New(scmURL, sha, path string, logger io.Writer) (Repo, error) {
 	parts := strings.Split(scmURL, "#")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
@@ -40,6 +40,7 @@ func New(scmURL, path string, logger io.Writer) (Repo, error) {
 		scmURL: parts[scmURLIndex],
 		path:   path,
 		branch: parts[branchIndex],
+		sha:    sha,
 		logger: logger,
 	}
 	return Repo(newrepo), nil
@@ -68,6 +69,11 @@ func (r repo) Checkout() error {
 	if err := r.clone(); err != nil {
 		return fmt.Errorf("cloning repository: %v", err)
 	}
+
+	if err := r.reset(); err != nil {
+		return fmt.Errorf("resetting repo to SHA %s: %v", r.sha, err)
+	}
+	fmt.Fprintf(r.logger, "Reset to SHA %s\n", r.sha)
 
 	fmt.Fprintln(r.logger, "Setting user name and user email")
 	if err := r.setConfig("user.name", "sd-buildbot"); err != nil {
@@ -100,9 +106,14 @@ func (r repo) fetchPR(prNumber string) error {
 	return command(r.logger, r.path, "fetch", "origin", "pull/"+prNumber+"/head:pr")
 }
 
-// merge merges changes on the specified branch
+// merge merges changes onto the specified branch
 func (r repo) merge(branch string) error {
 	return command(r.logger, r.path, "merge", "--no-edit", branch)
+}
+
+// reset forces the repo to its sha
+func (r repo) reset() error {
+	return command(r.logger, r.path, "reset", "--hard", r.sha)
 }
 
 // command executes the git command

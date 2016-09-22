@@ -197,7 +197,14 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		j.Name = "main"
 	}
 
-	repo, err := newRepo(scm.httpsString(), w.Src, emitter)
+	// For PRs, we are fine with merging to the latest version of the branch.
+	// The SHA that we get from the Build is the SHA of the commit that we are building.
+	checkoutSHA := b.SHA
+	if pr != "" {
+		checkoutSHA = scm.Branch
+	}
+
+	repo, err := newRepo(scm.httpsString(), checkoutSHA, w.Src, emitter)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
+)
+
+const (
+	testSHA = "1a2b3c4d5e6f7g"
 )
 
 type execFunc func(command string, args ...string) *exec.Cmd
@@ -51,6 +56,8 @@ func TestHelperProcess(*testing.T) {
 		case "fetch":
 			return
 		case "merge":
+			return
+		case "reset":
 			return
 		}
 	}
@@ -159,17 +166,18 @@ func TestCheckout(t *testing.T) {
 	tests := []struct {
 		r   repo
 		sha string
-		err error
+		err string
 	}{
 		{
 			r: repo{
 				scmURL: "https://github.com/screwdriver-cd/launcher.git",
 				path:   currDir,
 				branch: "master",
+				sha:    testSHA,
 				logger: os.Stderr,
 			},
 			sha: "abc123",
-			err: nil,
+			err: "",
 		},
 		{
 			r: repo{
@@ -179,8 +187,7 @@ func TestCheckout(t *testing.T) {
 				logger: os.Stderr,
 			},
 			sha: "abc123",
-			err: errors.New("setting user name: starting git command: " +
-				"chdir bad path: no such file or directory"),
+			err: "chdir bad path: no such file or directory",
 		},
 	}
 
@@ -208,8 +215,10 @@ func TestCheckout(t *testing.T) {
 				default:
 					t.Errorf("incorrect argument for git config %v", args[1])
 				}
+			case "reset":
+				wantArgs = []string{"--hard", test.r.sha}
 			default:
-				t.Errorf("incorrect git command: %v", args[0])
+				t.Errorf("unexpected git command: %v", args[0])
 			}
 
 			if !reflect.DeepEqual(args[1:], wantArgs) {
@@ -220,8 +229,14 @@ func TestCheckout(t *testing.T) {
 
 		err := test.r.Checkout()
 
-		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Error = %v, want %v", err, test.err)
+		if test.err == "" {
+			if err != nil {
+				t.Errorf("Unexpected error from Checkout() for test %v: %v", test, err)
+			}
+		} else {
+			if !strings.Contains(err.Error(), test.err) {
+				t.Errorf("Want error %s, got %s for test %v", test.err, err.Error(), test)
+			}
 		}
 	}
 }
@@ -231,10 +246,11 @@ func TestNewRepo(t *testing.T) {
 		scmURL: "test.com/org/repo",
 		path:   "test/path",
 		branch: "testBranch",
+		sha:    testSHA,
 		logger: os.Stderr,
 	}
 	testURL := fmt.Sprintf("%s#%s", testRepo.scmURL, testRepo.branch)
-	r, err := New(testURL, testRepo.path, testRepo.logger)
+	r, err := New(testURL, testRepo.sha, testRepo.path, testRepo.logger)
 	if err != nil {
 		t.Fatalf("Error creating a new repo: %v", err)
 	}
