@@ -143,7 +143,7 @@ type Secret struct {
 type Secrets []Secret
 
 func (a api) makeURL(path string) (*url.URL, error) {
-	version := "v3"
+	version := "v4"
 	fullpath := fmt.Sprintf("%s/%s/%s", a.baseURL, version, path)
 	return url.Parse(fullpath)
 }

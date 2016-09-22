@@ -94,7 +94,7 @@ func TestBuildFromID(t *testing.T) {
 			build:      Build{},
 			statusCode: 500,
 			err: errors.New("timeout on request: after 5 attempts, last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v3/builds/"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/builds/"),
 		},
 		{
 			build:      Build{},
@@ -157,7 +157,7 @@ func TestJobFromID(t *testing.T) {
 			job:        Job{},
 			statusCode: 500,
 			err: errors.New("timeout on request: after 5 attempts, last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v3/jobs/"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/jobs/"),
 		},
 		{
 			job:        Job{},
@@ -219,7 +219,7 @@ func TestPipelineFromID(t *testing.T) {
 			pipeline:   Pipeline{},
 			statusCode: 500,
 			err: errors.New("timeout on request: after 5 attempts, last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v3/pipelines/"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/pipelines/"),
 		},
 		{
 			pipeline:   Pipeline{},
@@ -324,7 +324,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 			jobs:       map[string][]JobDef{},
 			statusCode: 500,
 			err: errors.New("posting to Validator: timeout on request after 5 attempts, " +
-				"last error: retries exhausted: 500 returned from http://fakeurl/v3/validator"),
+				"last error: retries exhausted: 500 returned from http://fakeurl/v4/validator"),
 		},
 	}
 
@@ -364,7 +364,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		{Running, 200, nil},
 		{"NOTASTATUS", 200, errors.New("invalid build status: NOTASTATUS")},
 		{Success, 500, errors.New("posting to Build Status: timeout on request after 5 attempts, " +
-			"last error: retries exhausted: 500 returned from http://fakeurl/v3/builds/15")},
+			"last error: retries exhausted: 500 returned from http://fakeurl/v4/builds/15")},
 	}
 
 	for _, test := range tests {
@@ -427,7 +427,7 @@ func TestSecretsForBuild(t *testing.T) {
 	}
 
 	http := makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
-		wantURL, _ := url.Parse("http://fakeurl/v3/builds/testId/secrets")
+		wantURL, _ := url.Parse("http://fakeurl/v4/builds/testId/secrets")
 		if r.URL.String() != wantURL.String() {
 			t.Errorf("Secrets URL=%q, want %q", r.URL, wantURL)
 		}
