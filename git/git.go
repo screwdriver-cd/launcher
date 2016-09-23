@@ -16,9 +16,10 @@ const (
 )
 
 type repo struct {
-	ScmURL string
-	Path   string
-	Branch string
+	scmURL string
+	path   string
+	branch string
+	sha    string
 	logger io.Writer
 }
 
@@ -26,35 +27,36 @@ type repo struct {
 type Repo interface {
 	Checkout() error
 	MergePR(prNumber, sha string) error
-	GetPath() string
+	Path() string
 }
 
 // New returns a new repo object
-func New(scmURL, path string, logger io.Writer) (Repo, error) {
+func New(scmURL, sha, path string, logger io.Writer) (Repo, error) {
 	parts := strings.Split(scmURL, "#")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("expected #branchname in SCM URL: %v", scmURL)
 	}
 	newrepo := repo{
-		ScmURL: parts[scmURLIndex],
-		Path:   path,
-		Branch: parts[branchIndex],
+		scmURL: parts[scmURLIndex],
+		path:   path,
+		branch: parts[branchIndex],
+		sha:    sha,
 		logger: logger,
 	}
 	return Repo(newrepo), nil
 }
 
-func (r repo) GetPath() string {
-	return r.Path
+func (r repo) Path() string {
+	return r.path
 }
 
 // MergePR fetches and merges the specified pull request to the specified branch
 func (r repo) MergePR(prNumber string, sha string) error {
-	if err := fetchPR(prNumber, r.Path, r.logger); err != nil {
+	if err := r.fetchPR(prNumber); err != nil {
 		return fmt.Errorf("fetching pr: %v", err)
 	}
 
-	if err := merge(sha, r.Path, r.logger); err != nil {
+	if err := r.merge(sha); err != nil {
 		return fmt.Errorf("merging sha: %v", err)
 	}
 
@@ -63,45 +65,55 @@ func (r repo) MergePR(prNumber string, sha string) error {
 
 // Checkout checks out the git repo at the specified branch and configures the setting
 func (r repo) Checkout() error {
-	fmt.Fprintf(r.logger, "Cloning %v, on branch %v", r.ScmURL, r.Branch)
-	if err := clone(r.Branch, r.ScmURL, r.Path, r.logger); err != nil {
+	fmt.Fprintf(r.logger, "Cloning %v, on branch %v\n", r.scmURL, r.branch)
+	if err := r.clone(); err != nil {
 		return fmt.Errorf("cloning repository: %v", err)
 	}
 
-	fmt.Fprintf(r.logger, "Setting user name and user email")
-	if err := setConfig("user.name", "sd-buildbot", r.Path, r.logger); err != nil {
+	if err := r.reset(); err != nil {
+		return fmt.Errorf("resetting repo to SHA %s: %v", r.sha, err)
+	}
+	fmt.Fprintf(r.logger, "Reset to SHA %s\n", r.sha)
+
+	fmt.Fprintln(r.logger, "Setting user name and user email")
+	if err := r.setConfig("user.name", "sd-buildbot"); err != nil {
 		return fmt.Errorf("setting user name: %v", err)
 	}
 
-	if err := setConfig("user.email", "dev-null@screwdriver.cd", r.Path, r.logger); err != nil {
+	if err := r.setConfig("user.email", "dev-null@screwdriver.cd"); err != nil {
 		return fmt.Errorf("setting user email: %v", err)
 	}
 
 	return nil
 }
 
-// clone clones a git repo into a destination directory
-func clone(branch, scmURL, destination string, logger io.Writer) error {
+// clone clones a git repo into its destination directory
+func (r repo) clone() error {
 	dir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("getting working directory: %v", err)
+		return err
 	}
-	return command(logger, dir, "clone", "--quiet", "--progress", "--branch", branch, scmURL, destination)
+	return command(r.logger, dir, "clone", "--quiet", "--progress", "--branch", r.branch, r.scmURL, r.path)
 }
 
-// setConfig sets the specified git settting
-func setConfig(setting, name, dir string, logger io.Writer) error {
-	return command(logger, dir, "config", setting, name)
+// setConfig applies a git config change to the repo
+func (r repo) setConfig(setting, name string) error {
+	return command(r.logger, r.path, "config", setting, name)
 }
 
 // fetchPR fetches a pull request
-func fetchPR(prNumber, dir string, logger io.Writer) error {
-	return command(logger, dir, "fetch", "origin", "pull/"+prNumber+"/head:pr")
+func (r repo) fetchPR(prNumber string) error {
+	return command(r.logger, r.path, "fetch", "origin", "pull/"+prNumber+"/head:pr")
 }
 
-// merge merges changes on the specified branch
-func merge(branch, dir string, logger io.Writer) error {
-	return command(logger, dir, "merge", "--no-edit", branch)
+// merge merges changes onto the specified branch
+func (r repo) merge(branch string) error {
+	return command(r.logger, r.path, "merge", "--no-edit", branch)
+}
+
+// reset forces the repo to its sha
+func (r repo) reset() error {
+	return command(r.logger, r.path, "reset", "--hard", r.sha)
 }
 
 // command executes the git command

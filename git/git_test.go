@@ -6,7 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
+)
+
+const (
+	testSHA = "1a2b3c4d5e6f7g"
 )
 
 type execFunc func(command string, args ...string) *exec.Cmd
@@ -52,6 +57,8 @@ func TestHelperProcess(*testing.T) {
 			return
 		case "merge":
 			return
+		case "reset":
+			return
 		}
 	}
 	os.Exit(255)
@@ -59,15 +66,15 @@ func TestHelperProcess(*testing.T) {
 
 func TestGetPath(t *testing.T) {
 	testRepo := repo{
-		ScmURL: "test.com",
-		Path:   "test/path",
-		Branch: "testBranch",
+		scmURL: "test.com",
+		path:   "test/path",
+		branch: "testBranch",
 		logger: os.Stderr,
 	}
 
 	wantPath := "test/path"
 
-	if path := testRepo.GetPath(); path != wantPath {
+	if path := testRepo.Path(); path != wantPath {
 		t.Errorf("path = %q, want %q", path, wantPath)
 	}
 }
@@ -89,9 +96,9 @@ func TestMergePR(t *testing.T) {
 	}{
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   currDir,
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   currDir,
+				branch: "master",
 				logger: os.Stderr,
 			},
 			pr:  "1",
@@ -100,9 +107,9 @@ func TestMergePR(t *testing.T) {
 		},
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   "bad path",
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   "bad path",
+				branch: "master",
 				logger: os.Stderr,
 			},
 			pr:  "1",
@@ -159,28 +166,28 @@ func TestCheckout(t *testing.T) {
 	tests := []struct {
 		r   repo
 		sha string
-		err error
+		err string
 	}{
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   currDir,
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   currDir,
+				branch: "master",
+				sha:    testSHA,
 				logger: os.Stderr,
 			},
 			sha: "abc123",
-			err: nil,
+			err: "",
 		},
 		{
 			r: repo{
-				ScmURL: "https://github.com/screwdriver-cd/launcher.git",
-				Path:   "bad path",
-				Branch: "master",
+				scmURL: "https://github.com/screwdriver-cd/launcher.git",
+				path:   "bad path",
+				branch: "master",
 				logger: os.Stderr,
 			},
 			sha: "abc123",
-			err: errors.New("setting user name: starting git command: " +
-				"chdir bad path: no such file or directory"),
+			err: "chdir bad path: no such file or directory",
 		},
 	}
 
@@ -198,7 +205,7 @@ func TestCheckout(t *testing.T) {
 			switch args[0] {
 			case "clone":
 				wantArgs = []string{"--quiet", "--progress", "--branch",
-					test.r.Branch, test.r.ScmURL, test.r.Path}
+					test.r.branch, test.r.scmURL, test.r.path}
 			case "config":
 				switch args[1] {
 				case "user.name":
@@ -208,8 +215,10 @@ func TestCheckout(t *testing.T) {
 				default:
 					t.Errorf("incorrect argument for git config %v", args[1])
 				}
+			case "reset":
+				wantArgs = []string{"--hard", test.r.sha}
 			default:
-				t.Errorf("incorrect git command: %v", args[0])
+				t.Errorf("unexpected git command: %v", args[0])
 			}
 
 			if !reflect.DeepEqual(args[1:], wantArgs) {
@@ -220,8 +229,33 @@ func TestCheckout(t *testing.T) {
 
 		err := test.r.Checkout()
 
-		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Error = %v, want %v", err, test.err)
+		if test.err == "" {
+			if err != nil {
+				t.Errorf("Unexpected error from Checkout() for test %v: %v", test, err)
+			}
+		} else {
+			if !strings.Contains(err.Error(), test.err) {
+				t.Errorf("Want error %s, got %s for test %v", test.err, err.Error(), test)
+			}
 		}
+	}
+}
+
+func TestNewRepo(t *testing.T) {
+	testRepo := repo{
+		scmURL: "test.com/org/repo",
+		path:   "test/path",
+		branch: "testBranch",
+		sha:    testSHA,
+		logger: os.Stderr,
+	}
+	testURL := fmt.Sprintf("%s#%s", testRepo.scmURL, testRepo.branch)
+	r, err := New(testURL, testRepo.sha, testRepo.path, testRepo.logger)
+	if err != nil {
+		t.Fatalf("Error creating a new repo: %v", err)
+	}
+
+	if !reflect.DeepEqual(r, testRepo) {
+		t.Errorf("repo=%v, want %v", r, testRepo)
 	}
 }

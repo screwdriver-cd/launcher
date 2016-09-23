@@ -197,7 +197,14 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		j.Name = "main"
 	}
 
-	repo, err := newRepo(scm.httpsString(), w.Src, emitter)
+	// For PRs, we are fine with merging to the latest version of the branch.
+	// The SHA that we get from the Build is the SHA of the commit that we are building.
+	checkoutSHA := b.SHA
+	if pr != "" {
+		checkoutSHA = scm.Branch
+	}
+
+	repo, err := newRepo(scm.httpsString(), checkoutSHA, w.Src, emitter)
 	if err != nil {
 		return err
 	}
@@ -256,7 +263,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PULL_REQUEST":        pr,
-		"SD_SOURCE_DIR":          repo.GetPath(),
+		"SD_SOURCE_DIR":          repo.Path(),
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 	}
 
@@ -271,7 +278,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("updating sd-setup stop: %v", err)
 	}
 
-	if err := executorRun(repo.GetPath(), env, emitter, currentJob, api, buildID); err != nil {
+	if err := executorRun(repo.Path(), env, emitter, currentJob, api, buildID); err != nil {
 		return err
 	}
 
