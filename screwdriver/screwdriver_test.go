@@ -93,7 +93,7 @@ func TestBuildFromID(t *testing.T) {
 		{
 			build:      Build{},
 			statusCode: 500,
-			err: errors.New("timeout on request: after 5 attempts, last error: " +
+			err: errors.New("after 5 attempts, last error: " +
 				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/builds/"),
 		},
 		{
@@ -129,7 +129,7 @@ func TestBuildFromID(t *testing.T) {
 		build, err := testAPI.BuildFromID(test.build.ID)
 
 		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Unexpected error from BuildFromID: %v, want %v", err, test.err)
+			t.Errorf("Unexpected error from BuildFromID: \n%v\n want \n%v", err.Error(), test.err.Error())
 		}
 
 		if !reflect.DeepEqual(build, test.build) {
@@ -156,7 +156,7 @@ func TestJobFromID(t *testing.T) {
 		{
 			job:        Job{},
 			statusCode: 500,
-			err: errors.New("timeout on request: after 5 attempts, last error: " +
+			err: errors.New("after 5 attempts, last error: " +
 				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/jobs/"),
 		},
 		{
@@ -218,7 +218,7 @@ func TestPipelineFromID(t *testing.T) {
 		{
 			pipeline:   Pipeline{},
 			statusCode: 500,
-			err: errors.New("timeout on request: after 5 attempts, last error: " +
+			err: errors.New("after 5 attempts, last error: " +
 				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/pipelines/"),
 		},
 		{
@@ -323,7 +323,7 @@ func TestPipelineDefFromYaml(t *testing.T) {
 			json:       "",
 			jobs:       map[string][]JobDef{},
 			statusCode: 500,
-			err: errors.New("posting to Validator: timeout on request after 5 attempts, " +
+			err: errors.New("posting to Validator: after 5 attempts, " +
 				"last error: retries exhausted: 500 returned from http://fakeurl/v4/validator"),
 		},
 	}
@@ -363,7 +363,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		{Aborted, 200, nil},
 		{Running, 200, nil},
 		{"NOTASTATUS", 200, errors.New("invalid build status: NOTASTATUS")},
-		{Success, 500, errors.New("posting to Build Status: timeout on request after 5 attempts, " +
+		{Success, 500, errors.New("posting to Build Status: after 5 attempts, " +
 			"last error: retries exhausted: 500 returned from http://fakeurl/v4/builds/15")},
 	}
 
