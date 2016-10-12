@@ -33,6 +33,7 @@ RUN set -x \
       | wget --base=http://github.com/ -i - -O tini-static.asc \
    && gpg --keyserver ha.pool.sks-keyservers.net --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
    && gpg --verify tini-static.asc \
+   && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
    # Create FIFO
