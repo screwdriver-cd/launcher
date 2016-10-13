@@ -21,7 +21,7 @@ jobs:
             - get: go get -t ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - build: go build -a -o launch
-            - tag: ./ci/git-tag
+            - tag: ./ci/git-tag.sh
             - release: ./ci/git-release.sh
         secrets:
             # Pushing tags to Git
