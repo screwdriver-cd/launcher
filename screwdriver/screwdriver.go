@@ -96,7 +96,13 @@ type Validator struct {
 // Pipeline is a Screwdriver Pipeline definition.
 type Pipeline struct {
 	ID     string `json:"id"`
-	ScmURL string `json:"scmUrl"`
+	ScmRepo ScmRepo `json:"scmRepo"`
+	ScmUri string `json:"scmUri"`
+}
+
+// ScmRepo contains the full name of the repository for a Pipeline, e.g. "screwdriver-cd/launcher"
+type ScmRepo struct {
+	Name string `json:"name"`
 }
 
 // PipelineDef contains the step definitions and jobs for a Pipeline.
