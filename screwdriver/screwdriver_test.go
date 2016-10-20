@@ -210,7 +210,10 @@ func TestPipelineFromID(t *testing.T) {
 		{
 			pipeline: Pipeline{
 				ID:     "testId",
-				ScmURL: "testScmURL",
+				ScmUri: "github.com:123456:master",
+				ScmRepo: ScmRepo{
+					Name: "screwdriver-cd/launcher",
+				},
 			},
 			statusCode: 200,
 			err:        nil,

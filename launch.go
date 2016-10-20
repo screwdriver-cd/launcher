@@ -54,27 +54,24 @@ type scmPath struct {
 	Branch string
 }
 
-func (s scmPath) String() string {
-	return fmt.Sprintf("git@%s:%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
-}
-
 func (s scmPath) httpsString() string {
 	return fmt.Sprintf("https://%s/%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
 }
 
-// e.g. "git@github.com:screwdriver-cd/launch.git#master"
-func parseScmURL(url string) (scmPath, error) {
-	r := regexp.MustCompile("^git@(.*):(.*)/(.*?)(?:\\.git)?#(.*)$")
-	matched := r.FindStringSubmatch(url)
-	if matched == nil || len(matched) != 5 {
-		return scmPath{}, fmt.Errorf("unable to parse SCM URL %v, match: %q", url, matched)
+// e.g. scmUri: "github:123456:master", scmName: "screwdriver-cd/launcher"
+func parseScmUri(scmUri, scmName string) (scmPath, error) {
+	uri := strings.Split(scmUri, ":")
+	orgRepo := strings.Split(scmName, "/")
+
+	if len(uri) != 3 || len(orgRepo) != 2 {
+		return scmPath{}, fmt.Errorf("unable to parse scmUri %v and scmName %v", scmUri, scmName)
 	}
 
 	return scmPath{
-		Host:   matched[1],
-		Org:    matched[2],
-		Repo:   matched[3],
-		Branch: matched[4],
+		Host:   uri[0],
+		Org:    orgRepo[0],
+		Repo:   orgRepo[1],
+		Branch: uri[2],
 	}, nil
 }
 
@@ -180,7 +177,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
-	scm, err := parseScmURL(p.ScmURL)
+	scm, err := parseScmUri(p.ScmUri, p.ScmRepo.Name)
 	if err != nil {
 		return err
 	}

@@ -23,14 +23,19 @@ const (
 	TestJobID      = "JOBID"
 	TestPipelineID = "PIPELINEID"
 
-	TestSCMURL = "git@github.com:screwdriver-cd/launcher.git#master"
+	TestScmUri = "github.com:123456:master"
 	TestSHA    = "abc123"
 )
+
+var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
+	Name: "screwdriver-cd/launcher",
+})
 
 type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 type FakePipelineDef screwdriver.PipelineDef
+type FakeScmRepo screwdriver.ScmRepo
 
 type MockRepo struct {
 	checkout func() error
@@ -78,7 +83,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testSt
 				// Panic to get the stacktrace
 				panic(true)
 			}
-			return screwdriver.Pipeline(FakePipeline{ScmURL: "git@github.com:screwdriver-cd/launcher.git#master"}), nil
+			return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 		},
 		updateBuildStatus: func(status screwdriver.BuildStatus, buildID string) error {
 			if buildID != testBuildID {
@@ -309,17 +314,18 @@ func TestPipelineFromIdError(t *testing.T) {
 	}
 }
 
-func TestParseScmURL(t *testing.T) {
+func TestParseScmUri(t *testing.T) {
 	wantHost := "github.com"
 	wantOrg := "screwdriver-cd"
 	wantRepo := "launcher"
 	wantBranch := "master"
 
-	scmURL := "git@github.com:screwdriver-cd/launcher#master"
-	parsedURL, err := parseScmURL(scmURL)
+	scmUri := "github.com:123456:master"
+	scmName := "screwdriver-cd/launcher"
+	parsedURL, err := parseScmUri(scmUri, scmName)
 	host, org, repo, branch := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch
 	if err != nil {
-		t.Errorf("Unexpected error parsing SCM URL %q: %v", scmURL, err)
+		t.Errorf("Unexpected error parsing SCM URI %q: %v", scmUri, err)
 	}
 
 	if host != wantHost {
@@ -336,10 +342,6 @@ func TestParseScmURL(t *testing.T) {
 
 	if branch != wantBranch {
 		t.Errorf("branch = %q, want %q", branch, wantBranch)
-	}
-
-	if parsedURL.String() != scmURL {
-		t.Errorf("parsedURL.String() == %q, want %q", parsedURL.String(), scmURL)
 	}
 }
 
@@ -422,7 +424,7 @@ func TestNonPR(t *testing.T) {
 		return screwdriver.Job(FakeJob{Name: "main"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 	}
 
 	newrepoCalled := false
@@ -432,6 +434,7 @@ func TestNonPR(t *testing.T) {
 		if scmURL != wantSCMUrl {
 			t.Errorf("scmURL = %s, want %s", scmURL, wantSCMUrl)
 		}
+
 
 		if sha != TestSHA {
 			t.Errorf("sha = %s, want %s", sha, TestSHA)
@@ -469,7 +472,7 @@ func TestPR(t *testing.T) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 	}
 	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
 		if sha != "master" {
@@ -501,7 +504,7 @@ func TestCreateWorkspaceError(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 	}
 	mkdirAll = func(path string, perm os.FileMode) (err error) {
 		return fmt.Errorf("Spooky error")
@@ -846,7 +849,7 @@ func TestNewRepoError(t *testing.T) {
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 	}
 	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
 		return nil, fmt.Errorf("Spooky error")
@@ -868,7 +871,7 @@ func TestCheckoutError(t *testing.T) {
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 	}
 	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
 		repo := MockRepo{}
@@ -896,7 +899,7 @@ func TestMergePRError(t *testing.T) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
 	}
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURL: TestSCMURL}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
 	}
 
 	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
