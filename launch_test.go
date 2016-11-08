@@ -34,7 +34,6 @@ var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 type FakeBuild screwdriver.Build
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
-type FakePipelineDef screwdriver.PipelineDef
 type FakeScmRepo screwdriver.ScmRepo
 
 type MockRepo struct {
@@ -106,7 +105,6 @@ type MockAPI struct {
 	jobFromID           func(string) (screwdriver.Job, error)
 	pipelineFromID      func(string) (screwdriver.Pipeline, error)
 	updateBuildStatus   func(screwdriver.BuildStatus, string) error
-	pipelineDefFromYaml func(io.Reader) (screwdriver.PipelineDef, error)
 	updateStepStart     func(buildID, stepName string) error
 	updateStepStop      func(buildID, stepName string, exitCode int) error
 	secretsForBuild     func(build screwdriver.Build) (screwdriver.Secrets, error)
@@ -159,33 +157,6 @@ func (f MockAPI) UpdateStepStop(buildID, stepName string, exitCode int) error {
 		return f.updateStepStop(buildID, stepName, exitCode)
 	}
 	return nil
-}
-
-func fakePipelineDef() screwdriver.PipelineDef {
-	jobDef := screwdriver.JobDef{
-		Commands: []screwdriver.CommandDef{
-			{
-				Name: "testcmd",
-				Cmd:  "cmd",
-			},
-		},
-	}
-	def := FakePipelineDef{
-		Jobs: map[string][]screwdriver.JobDef{
-			"main": {
-				jobDef,
-			},
-		},
-	}
-
-	return screwdriver.PipelineDef(def)
-}
-
-func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, error) {
-	if f.pipelineDefFromYaml != nil {
-		return f.pipelineDefFromYaml(yaml)
-	}
-	return screwdriver.PipelineDef(fakePipelineDef()), nil
 }
 
 type MockEmitter struct {
@@ -244,7 +215,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -552,84 +523,6 @@ func TestUpdateBuildStatusError(t *testing.T) {
 	}
 }
 
-func TestPipelineDefFromYaml(t *testing.T) {
-	testPath := "test/path"
-
-	mainJob := screwdriver.JobDef{
-		Image: "node:4",
-		Commands: []screwdriver.CommandDef{
-			{
-				Name: "install",
-				Cmd:  "npm install",
-			},
-		},
-		Environment: map[string]string{
-			"NUMBER": "3",
-		},
-	}
-	wantJobs := map[string][]screwdriver.JobDef{
-		"main": {
-			mainJob,
-		},
-	}
-
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		repo := MockRepo{}
-		repo.path = func() string {
-			return "test/path"
-		}
-		return repo, nil
-	}
-
-	oldOpen := open
-	defer func() { open = oldOpen }()
-	open = func(f string) (*os.File, error) {
-		if f != "/sd/workspace/src/github.com/screwdriver-cd/launcher/screwdriver.yaml" {
-			t.Errorf("File name not correct: %q", f)
-		}
-
-		return os.Open("data/screwdriver.yaml")
-	}
-
-	tmp, cleanup := setupTempDirectoryAndSocket(t)
-	defer cleanup()
-
-	api := mockAPI(t, TestBuildID, TestJobID, "", screwdriver.Running)
-
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "main"}), nil
-	}
-	api.pipelineDefFromYaml = func(yaml io.Reader) (screwdriver.PipelineDef, error) {
-		return screwdriver.PipelineDef(FakePipelineDef{
-			Jobs: wantJobs,
-		}), nil
-	}
-
-	oldRun := executorRun
-	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, env []string, out screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
-		cmdDefs := jobDef.Commands
-		jobEnv := jobDef.Environment
-		if path != testPath {
-			t.Errorf("Executor run path = %v, want %v", path, testPath)
-		}
-		if !reflect.DeepEqual(cmdDefs, wantJobs["main"][0].Commands) {
-			t.Errorf("Executor run jobDef = %+v, \n want %+v", cmdDefs, wantJobs["main"])
-		}
-		if !reflect.DeepEqual(jobEnv, wantJobs["main"][0].Environment) {
-			t.Errorf("Executor run env = %+v, \n want %+v", env, wantJobs["main"][0].Environment)
-		}
-		return nil
-	}
-
-	if err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, path.Join(tmp, "socket")); err != nil {
-		t.Errorf("Launch returned error: %v", err)
-	}
-}
-
 func TestUpdateBuildStatusSuccess(t *testing.T) {
 	wantStatuses := []screwdriver.BuildStatus{
 		screwdriver.Running,
@@ -683,7 +576,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, env []string, out screwdriver.Emitter, jobDef screwdriver.JobDef, a screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID string) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
@@ -975,7 +868,7 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	foundEnv := map[string]string{}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
@@ -1024,7 +917,7 @@ func TestEnvSecrets(t *testing.T) {
 	foundEnv := map[string]string{}
 	oldExecutorRun := executorRun
 	defer func() { executorRun = oldExecutorRun }()
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, jobDef screwdriver.JobDef, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}

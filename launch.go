@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -218,43 +217,12 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		}
 	}
 
-	// var yaml io.ReadCloser
-	//
-	// yaml, err = open(path.Join(w.Src, "screwdriver.yaml"))
-	// if err != nil {
-	// 	return fmt.Errorf("opening screwdriver.yaml: %v", err)
-	// }
-	// defer yaml.Close()
-	//
-	// pipelineDef, err := api.PipelineDefFromYaml(yaml)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// jobs := pipelineDef.Jobs[j.Name]
-	// if len(jobs) == 0 {
-	// 	log.Printf("ERROR: Launcher currently only supports 1 matrix job. 0 jobs are configured for %q\n", j.Name)
-	// 	exit(screwdriver.Failure, buildID, api)
-	// }
-	//
-	// if len(jobs) != 1 {
-	// 	log.Printf("WARNING: Launcher currently only supports 1 matrix job. %d jobs are configured for %q\n", len(jobs), j.Name)
-	// }
-	//
-	// // TODO: Select the specific child build by looking at the decimal value of the build number
-	// currentJob := pipelineDef.Jobs[j.Name][0]
-
-	currentBuild := api.ConfigForBuild(b)
-	if err != nil {
-		return fmt.Errorf("Fetching config for build %s", b.ID)
-	}
-
-	err = writeArtifact(w.Artifacts, "steps.json", currentBuild.Commands)
+	err = writeArtifact(w.Artifacts, "steps.json", b.Commands)
 	if err != nil {
 		return fmt.Errorf("creating steps.json artifact: %v", err)
 	}
 
-	err = writeArtifact(w.Artifacts, "environment.json", currentBuild.Environment)
+	err = writeArtifact(w.Artifacts, "environment.json", b.Environment)
 	if err != nil {
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
@@ -280,7 +248,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("updating sd-setup stop: %v", err)
 	}
 
-	if err := executorRun(repo.Path(), env, emitter, currentBuild, api, buildID); err != nil {
+	if err := executorRun(repo.Path(), env, emitter, b, api, buildID); err != nil {
 		return err
 	}
 

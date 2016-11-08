@@ -39,7 +39,6 @@ type API interface {
 	JobFromID(jobID string) (Job, error)
 	PipelineFromID(pipelineID string) (Pipeline, error)
 	UpdateBuildStatus(status BuildStatus, buildID string) error
-	PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error)
 	UpdateStepStart(buildID, stepName string) error
 	UpdateStepStop(buildID, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
@@ -88,34 +87,16 @@ type StepStopPayload struct {
 	ExitCode int       `json:"code"`
 }
 
-// Validator is a Screwdriver Validator payload.
-type Validator struct {
-	Yaml string `json:"yaml"`
-}
-
 // Pipeline is a Screwdriver Pipeline definition.
 type Pipeline struct {
-	ID     string `json:"id"`
+	ID      string  `json:"id"`
 	ScmRepo ScmRepo `json:"scmRepo"`
-	ScmUri string `json:"scmUri"`
+	ScmUri  string  `json:"scmUri"`
 }
 
 // ScmRepo contains the full name of the repository for a Pipeline, e.g. "screwdriver-cd/launcher"
 type ScmRepo struct {
 	Name string `json:"name"`
-}
-
-// PipelineDef contains the step definitions and jobs for a Pipeline.
-type PipelineDef struct {
-	Jobs     map[string][]JobDef `json:"jobs"`
-	Workflow []string            `json:"workflow"`
-}
-
-// BuildDef contains the step and environment definitions of a single Build.
-type BuildDef struct {
-	Image       string            `json:"image"`
-	Commands    []CommandDef      `json:"commands"`
-	Environment map[string]string `json:"environment"`
 }
 
 // Job is a Screwdriver Job.
@@ -133,9 +114,11 @@ type CommandDef struct {
 
 // Build is a Screwdriver Build
 type Build struct {
-	ID    string `json:"id"`
-	JobID string `json:"jobId"`
-	SHA   string `json:"sha"`
+	ID          string            `json:"id"`
+	JobID       string            `json:"jobId"`
+	SHA         string            `json:"sha"`
+	Commands    []CommandDef      `json:"steps"`
+	Environment map[string]string `json:"environment"`
 }
 
 // Secret is a Screwdriver build secret.
@@ -337,37 +320,6 @@ func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
 	return pipeline, nil
 }
 
-// func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
-// 	u, err := a.makeURL("validator")
-// 	if err != nil {
-// 		return PipelineDef{}, err
-// 	}
-//
-// 	y, err := ioutil.ReadAll(yaml)
-// 	if err != nil {
-// 		return PipelineDef{}, fmt.Errorf("reading Screwdriver YAML: %v", err)
-// 	}
-//
-// 	v := Validator{string(y)}
-// 	payload, err := json.Marshal(v)
-// 	if err != nil {
-// 		return PipelineDef{}, fmt.Errorf("marshaling JSON for Validator: %v", err)
-// 	}
-//
-// 	res, err := a.post(u, "application/json", bytes.NewReader(payload))
-// 	if err != nil {
-// 		return PipelineDef{}, fmt.Errorf("posting to Validator: %v", err)
-// 	}
-//
-// 	var pipelineDef PipelineDef
-// 	err = json.Unmarshal(res, &pipelineDef)
-// 	if err != nil {
-// 		return PipelineDef{}, fmt.Errorf("parsing JSON response from the Validator: %v", err)
-// 	}
-//
-// 	return pipelineDef, nil
-// }
-
 func (a api) UpdateBuildStatus(status BuildStatus, buildID string) error {
 	switch status {
 	case Running:
@@ -463,26 +415,4 @@ func (a api) SecretsForBuild(build Build) (Secrets, error) {
 	}
 
 	return secrets, nil
-}
-
-// TODO make sure works
-func (a api) ConfigForBuild(build Build) (Config, error) {
-	u, err := a.makeURL(fmt.Sprintf("builds/%s/config", build.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := a.get(u)
-	if err != nil {
-		return nil, err
-	}
-
-	config := Config{}
-
-	err = json.Unmarshal(body, &config)
-	if err != nil {
-		return config, fmt.Errorf("Parsing JSON response %q: %v", body, err)
-	}
-
-	return config, nil
 }
