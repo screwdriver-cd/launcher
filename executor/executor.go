@@ -57,10 +57,10 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, job screwdriver.JobDef, api screwdriver.API, buildID string) error {
-	cmds := job.Commands
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.BuildDef, api screwdriver.API, buildID string) error {
+	cmds := build.Commands
 
-	for k, v := range job.Environment {
+	for k, v := range build.Environment {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 

@@ -111,8 +111,8 @@ type PipelineDef struct {
 	Workflow []string            `json:"workflow"`
 }
 
-// JobDef contains the step and environment definitions of a single Job.
-type JobDef struct {
+// BuildDef contains the step and environment definitions of a single Build.
+type BuildDef struct {
 	Image       string            `json:"image"`
 	Commands    []CommandDef      `json:"commands"`
 	Environment map[string]string `json:"environment"`
@@ -337,36 +337,36 @@ func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
 	return pipeline, nil
 }
 
-func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
-	u, err := a.makeURL("validator")
-	if err != nil {
-		return PipelineDef{}, err
-	}
-
-	y, err := ioutil.ReadAll(yaml)
-	if err != nil {
-		return PipelineDef{}, fmt.Errorf("reading Screwdriver YAML: %v", err)
-	}
-
-	v := Validator{string(y)}
-	payload, err := json.Marshal(v)
-	if err != nil {
-		return PipelineDef{}, fmt.Errorf("marshaling JSON for Validator: %v", err)
-	}
-
-	res, err := a.post(u, "application/json", bytes.NewReader(payload))
-	if err != nil {
-		return PipelineDef{}, fmt.Errorf("posting to Validator: %v", err)
-	}
-
-	var pipelineDef PipelineDef
-	err = json.Unmarshal(res, &pipelineDef)
-	if err != nil {
-		return PipelineDef{}, fmt.Errorf("parsing JSON response from the Validator: %v", err)
-	}
-
-	return pipelineDef, nil
-}
+// func (a api) PipelineDefFromYaml(yaml io.Reader) (PipelineDef, error) {
+// 	u, err := a.makeURL("validator")
+// 	if err != nil {
+// 		return PipelineDef{}, err
+// 	}
+//
+// 	y, err := ioutil.ReadAll(yaml)
+// 	if err != nil {
+// 		return PipelineDef{}, fmt.Errorf("reading Screwdriver YAML: %v", err)
+// 	}
+//
+// 	v := Validator{string(y)}
+// 	payload, err := json.Marshal(v)
+// 	if err != nil {
+// 		return PipelineDef{}, fmt.Errorf("marshaling JSON for Validator: %v", err)
+// 	}
+//
+// 	res, err := a.post(u, "application/json", bytes.NewReader(payload))
+// 	if err != nil {
+// 		return PipelineDef{}, fmt.Errorf("posting to Validator: %v", err)
+// 	}
+//
+// 	var pipelineDef PipelineDef
+// 	err = json.Unmarshal(res, &pipelineDef)
+// 	if err != nil {
+// 		return PipelineDef{}, fmt.Errorf("parsing JSON response from the Validator: %v", err)
+// 	}
+//
+// 	return pipelineDef, nil
+// }
 
 func (a api) UpdateBuildStatus(status BuildStatus, buildID string) error {
 	switch status {
@@ -463,4 +463,26 @@ func (a api) SecretsForBuild(build Build) (Secrets, error) {
 	}
 
 	return secrets, nil
+}
+
+// TODO make sure works
+func (a api) ConfigForBuild(build Build) (Config, error) {
+	u, err := a.makeURL(fmt.Sprintf("builds/%s/config", build.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := a.get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	config := Config{}
+
+	err = json.Unmarshal(body, &config)
+	if err != nil {
+		return config, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+
+	return config, nil
 }
