@@ -76,6 +76,28 @@ func TestMain(m *testing.M) {
 }
 
 func TestBuildFromID(t *testing.T) {
+	var commands = []struct {
+		command string
+		err     error
+	}{
+		{"make", nil},
+		{"npm install", nil},
+		{"failer", fmt.Errorf("exit 7")},
+		{"neverexecuted", nil},
+	}
+
+	testEnv := map[string]string{
+		"foo": "bar",
+		"baz": "bah",
+	}
+
+	testCmds := []CommandDef{}
+	for _, test := range commands {
+		testCmds = append(testCmds, CommandDef{
+			Name: "test",
+			Cmd:  test.command,
+		})
+	}
 	tests := []struct {
 		build      Build
 		statusCode int
@@ -86,6 +108,8 @@ func TestBuildFromID(t *testing.T) {
 				ID:    "testId",
 				JobID: "testJob",
 				SHA:   "testSHA",
+				Commands: testCmds,
+				Environment: testEnv,
 			},
 			statusCode: 200,
 			err:        nil,
@@ -262,95 +286,6 @@ func TestPipelineFromID(t *testing.T) {
 
 		if !reflect.DeepEqual(pipeline, test.pipeline) {
 			t.Errorf("pipeline == %#v, want %#v", pipeline, test.pipeline)
-		}
-	}
-}
-
-func TestPipelineDefFromYaml(t *testing.T) {
-	tests := []struct {
-		json       string
-		jobs       map[string][]JobDef
-		statusCode int
-		err        error
-	}{
-		{
-			json: `{
-		    "jobs": {
-		      "main": [
-		        {
-		          "image": "node:4",
-		          "commands": [
-		            {
-		              "name": "install",
-		              "command": "npm install"
-		            }
-		          ],
-		          "environment": {
-		            "ARRAY": "[\"a\",\"b\"]",
-		            "BOOL": "true",
-		            "OBJECT": "{\"a\":\"cat\",\"b\":\"dog\"}",
-		            "NUMBER": "3",
-		            "DECIMAL": "3.1415927",
-		            "STRING": "test"
-		          }
-		        }
-		      ]
-		    },
-		    "workflow": []
-		  }`,
-			jobs: map[string][]JobDef{
-				"main": []JobDef{
-					{
-						Image: "node:4",
-						Commands: []CommandDef{
-							{
-								Name: "install",
-								Cmd:  "npm install",
-							},
-						},
-						Environment: map[string]string{
-							"ARRAY":   `["a","b"]`,
-							"BOOL":    "true",
-							"OBJECT":  `{"a":"cat","b":"dog"}`,
-							"NUMBER":  "3",
-							"DECIMAL": "3.1415927",
-							"STRING":  "test",
-						},
-					},
-				},
-			},
-			statusCode: 200,
-			err:        nil,
-		},
-		{
-			json:       "",
-			jobs:       map[string][]JobDef{},
-			statusCode: 500,
-			err: errors.New("posting to Validator: after 5 attempts, " +
-				"last error: retries exhausted: 500 returned from http://fakeurl/v4/validator"),
-		},
-	}
-
-	for _, test := range tests {
-		yaml := bytes.NewBufferString("")
-		http := makeValidatedFakeHTTPClient(t, test.statusCode, test.json, func(r *http.Request) {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(r.Body)
-			want := `{"yaml":""}`
-			if buf.String() != want {
-				t.Errorf("buf.String() = %q, want %q", buf.String(), want)
-			}
-		})
-		testAPI := api{"http://fakeurl", "faketoken", http}
-
-		p, err := testAPI.PipelineDefFromYaml(yaml)
-
-		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Unexpected error from PipelineDefFromYaml: %v, want %v", err, test.err)
-		}
-
-		if !reflect.DeepEqual(p.Jobs, test.jobs) && len(p.Jobs) != len(test.jobs) {
-			t.Errorf("PipelineDef.Jobs = %+v, \n want %+v", p.Jobs, test.jobs)
 		}
 	}
 }

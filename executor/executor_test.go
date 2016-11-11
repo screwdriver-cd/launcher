@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"reflect"
@@ -38,10 +37,6 @@ type MockAPI struct {
 
 func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
 	return screwdriver.Build{}, nil
-}
-
-func (f MockAPI) PipelineDefFromYaml(yaml io.Reader) (screwdriver.PipelineDef, error) {
-	return screwdriver.PipelineDef{}, nil
 }
 
 func (f MockAPI) JobFromID(jobID string) (screwdriver.Job, error) {
@@ -181,15 +176,15 @@ func TestRunSingle(t *testing.T) {
 			}
 		})
 
-		testJob := screwdriver.JobDef{
+		testBuild := screwdriver.Build{
+			ID: "build",
 			Commands:    testCmds,
 			Environment: map[string]string{},
 		}
-		testBuild := "build"
 		testAPI := screwdriver.API(MockAPI{
 			updateStepStart: func(buildID, stepName string) error {
-				if buildID != testBuild {
-					t.Errorf("wrong build id got %v, want %v", buildID, testBuild)
+				if buildID != testBuild.ID {
+					t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 				}
 				if stepName != "test" {
 					t.Errorf("wrong step name got %v, want %v", stepName, "test")
@@ -197,7 +192,7 @@ func TestRunSingle(t *testing.T) {
 				return nil
 			},
 		})
-		err := Run("", nil, &MockEmitter{}, testJob, testAPI, testBuild)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
@@ -238,15 +233,15 @@ func TestRunMulti(t *testing.T) {
 		called = append(called, args[2:]...)
 	})
 
-	testJob := screwdriver.JobDef{
+	testBuild := screwdriver.Build{
+		ID: "build",
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
-	testBuild := "build"
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID, stepName string) error {
-			if buildID != testBuild {
-				t.Errorf("wrong build id got %v, want %v", buildID, testBuild)
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
 			if stepName != "test" {
 				t.Errorf("wrong step name got %v, want %v", stepName, "test")
@@ -254,7 +249,7 @@ func TestRunMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testJob, testAPI, testBuild)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
@@ -286,23 +281,22 @@ func TestUnmocked(t *testing.T) {
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", ErrStatus{5}},
 	}
 
-	var testEnv map[string]string
 	for _, test := range tests {
 		cmd := screwdriver.CommandDef{
 			Cmd:  test.command,
 			Name: "test",
 		}
-		testJob := screwdriver.JobDef{
+		testBuild := screwdriver.Build{
+			ID: "build",
 			Commands: []screwdriver.CommandDef{
 				cmd,
 			},
-			Environment: testEnv,
+			Environment: map[string]string{},
 		}
-		testBuild := "build"
 		testAPI := screwdriver.API(MockAPI{
 			updateStepStart: func(buildID, stepName string) error {
-				if buildID != testBuild {
-					t.Errorf("wrong build id got %v, want %v", buildID, testBuild)
+				if buildID != testBuild.ID {
+					t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 				}
 				if stepName != "test" {
 					t.Errorf("wrong step name got %v, want %v", stepName, "test")
@@ -310,7 +304,7 @@ func TestUnmocked(t *testing.T) {
 				return nil
 			},
 		})
-		err := Run("", nil, &MockEmitter{}, testJob, testAPI, testBuild)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error: %v, want %v", err, test.err)
@@ -319,7 +313,7 @@ func TestUnmocked(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
-	jobEnv := map[string]string{
+	buildEnv := map[string]string{
 		"GOPATH": "/go/path",
 	}
 
@@ -343,18 +337,18 @@ func TestEnv(t *testing.T) {
 		},
 	}
 
-	job := screwdriver.JobDef{
+	testBuild := screwdriver.Build{
+		ID: "build",
 		Commands:    cmds,
-		Environment: jobEnv,
+		Environment: buildEnv,
 	}
 
 	execCommand = exec.Command
 	output := MockEmitter{}
-	testBuild := "build"
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID, stepName string) error {
-			if buildID != testBuild {
-				t.Errorf("wrong build id got %v, want %v", buildID, testBuild)
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
 			if stepName != "test" {
 				t.Errorf("wrong step name got %v, want %v", stepName, "test")
@@ -366,7 +360,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, job, testAPI, testBuild)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -406,11 +400,12 @@ func TestEmitter(t *testing.T) {
 		{"ls && ls", "name2"},
 	}
 
-	testJob := screwdriver.JobDef{
+	testBuild := screwdriver.Build{
+		ID: "build",
 		Commands: []screwdriver.CommandDef{},
 	}
 	for _, test := range tests {
-		testJob.Commands = append(testJob.Commands, screwdriver.CommandDef{
+		testBuild.Commands = append(testBuild.Commands, screwdriver.CommandDef{
 			Name: test.name,
 			Cmd:  test.command,
 		})
@@ -422,11 +417,10 @@ func TestEmitter(t *testing.T) {
 			found = append(found, cmd.Name)
 		},
 	}
-	testBuild := "build"
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID, stepName string) error {
-			if buildID != testBuild {
-				t.Errorf("wrong build id got %v, want %v", buildID, testBuild)
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
 			if (stepName != "name1") && (stepName != "name2") {
 				t.Errorf("wrong step name got %v", stepName)
@@ -435,7 +429,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testJob, testAPI, testBuild)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
