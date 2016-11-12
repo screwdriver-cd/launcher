@@ -91,7 +91,7 @@ type StepStopPayload struct {
 type Pipeline struct {
 	ID      string  `json:"id"`
 	ScmRepo ScmRepo `json:"scmRepo"`
-	ScmUri  string  `json:"scmUri"`
+	ScmURI  string  `json:"scmUri"`
 }
 
 // ScmRepo contains the full name of the repository for a Pipeline, e.g. "screwdriver-cd/launcher"

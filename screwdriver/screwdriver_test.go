@@ -105,10 +105,10 @@ func TestBuildFromID(t *testing.T) {
 	}{
 		{
 			build: Build{
-				ID:    "testId",
-				JobID: "testJob",
-				SHA:   "testSHA",
-				Commands: testCmds,
+				ID:          "testId",
+				JobID:       "testJob",
+				SHA:         "testSHA",
+				Commands:    testCmds,
 				Environment: testEnv,
 			},
 			statusCode: 200,
@@ -234,7 +234,7 @@ func TestPipelineFromID(t *testing.T) {
 		{
 			pipeline: Pipeline{
 				ID:     "testId",
-				ScmUri: "github.com:123456:master",
+				ScmURI: "github.com:123456:master",
 				ScmRepo: ScmRepo{
 					Name: "screwdriver-cd/launcher",
 				},

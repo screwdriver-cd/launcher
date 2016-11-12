@@ -28,6 +28,7 @@ func (e ErrStatus) Error() string {
 	return fmt.Sprintf("exit %d", e.Status)
 }
 
+// doRun executes the command
 func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	shargs = append(shargs, cmd.Cmd)
