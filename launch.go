@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/screwdriver-cd/launcher/executor"
-	"github.com/screwdriver-cd/launcher/git"
 	"github.com/screwdriver-cd/launcher/screwdriver"
 	"github.com/urfave/cli"
 )
@@ -24,7 +23,6 @@ var VERSION string
 
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
-var newRepo = git.New
 var open = os.Open
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
@@ -53,17 +51,13 @@ type scmPath struct {
 	Branch string
 }
 
-func (s scmPath) httpsString() string {
-	return fmt.Sprintf("https://%s/%s/%s#%s", s.Host, s.Org, s.Repo, s.Branch)
-}
-
 // e.g. scmUri: "github:123456:master", scmName: "screwdriver-cd/launcher"
-func parseScmUri(scmUri, scmName string) (scmPath, error) {
-	uri := strings.Split(scmUri, ":")
+func parseScmURI(scmURI, scmName string) (scmPath, error) {
+	uri := strings.Split(scmURI, ":")
 	orgRepo := strings.Split(scmName, "/")
 
 	if len(uri) != 3 || len(orgRepo) != 2 {
-		return scmPath{}, fmt.Errorf("unable to parse scmUri %v and scmName %v", scmUri, scmName)
+		return scmPath{}, fmt.Errorf("unable to parse scmUri %v and scmName %v", scmURI, scmName)
 	}
 
 	return scmPath{
@@ -176,7 +170,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
 	}
 
-	scm, err := parseScmUri(p.ScmUri, p.ScmRepo.Name)
+	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
 	if err != nil {
 		return err
 	}
@@ -187,34 +181,14 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return err
 	}
 
+	fmt.Fprintf(emitter, "Workspace created in %s\n", rootDir)
+	fmt.Fprintf(emitter, "Source Dir: %s\n", w.Src)
+	fmt.Fprintf(emitter, "Artifacts Dir: %s\n", w.Artifacts)
+
 	oldJobName := j.Name
 	pr := prNumber(j.Name)
 	if pr != "" {
 		j.Name = "main"
-	}
-
-	// For PRs, we are fine with merging to the latest version of the branch.
-	// The SHA that we get from the Build is the SHA of the commit that we are building.
-	checkoutSHA := b.SHA
-	if pr != "" {
-		checkoutSHA = scm.Branch
-	}
-
-	repo, err := newRepo(scm.httpsString(), checkoutSHA, w.Src, emitter)
-	if err != nil {
-		return err
-	}
-
-	err = repo.Checkout()
-	if err != nil {
-		return err
-	}
-
-	if pr != "" {
-		err = repo.MergePR(pr, b.SHA)
-		if err != nil {
-			return err
-		}
 	}
 
 	err = writeArtifact(w.Artifacts, "steps.json", b.Commands)
@@ -233,7 +207,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PULL_REQUEST":        pr,
-		"SD_SOURCE_DIR":          repo.Path(),
+		"SD_SOURCE_DIR":          w.Src,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 	}
 
@@ -248,7 +222,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("updating sd-setup stop: %v", err)
 	}
 
-	if err := executorRun(repo.Path(), env, emitter, b, api, buildID); err != nil {
+	if err := executorRun(w.Src, env, emitter, b, api, buildID); err != nil {
 		return err
 	}
 

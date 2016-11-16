@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -12,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/screwdriver-cd/launcher/executor"
-	"github.com/screwdriver-cd/launcher/git"
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
@@ -23,7 +21,7 @@ const (
 	TestJobID      = "JOBID"
 	TestPipelineID = "PIPELINEID"
 
-	TestScmUri = "github.com:123456:master"
+	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
 )
 
@@ -82,7 +80,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testSt
 				// Panic to get the stacktrace
 				panic(true)
 			}
-			return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
+			return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		},
 		updateBuildStatus: func(status screwdriver.BuildStatus, buildID string) error {
 			if buildID != testBuildID {
@@ -101,13 +99,13 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testSt
 }
 
 type MockAPI struct {
-	buildFromID         func(string) (screwdriver.Build, error)
-	jobFromID           func(string) (screwdriver.Job, error)
-	pipelineFromID      func(string) (screwdriver.Pipeline, error)
-	updateBuildStatus   func(screwdriver.BuildStatus, string) error
-	updateStepStart     func(buildID, stepName string) error
-	updateStepStop      func(buildID, stepName string, exitCode int) error
-	secretsForBuild     func(build screwdriver.Build) (screwdriver.Secrets, error)
+	buildFromID       func(string) (screwdriver.Build, error)
+	jobFromID         func(string) (screwdriver.Job, error)
+	pipelineFromID    func(string) (screwdriver.Pipeline, error)
+	updateBuildStatus func(screwdriver.BuildStatus, string) error
+	updateStepStart   func(buildID, stepName string) error
+	updateStepStop    func(buildID, stepName string, exitCode int) error
+	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
 }
 
 func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, error) {
@@ -208,10 +206,6 @@ func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
 func TestMain(m *testing.M) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		repo := MockRepo{}
-		return git.Repo(repo), nil
-	}
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
@@ -285,18 +279,18 @@ func TestPipelineFromIdError(t *testing.T) {
 	}
 }
 
-func TestParseScmUri(t *testing.T) {
+func TestParseScmURI(t *testing.T) {
 	wantHost := "github.com"
 	wantOrg := "screwdriver-cd"
 	wantRepo := "launcher"
 	wantBranch := "master"
 
-	scmUri := "github.com:123456:master"
+	scmURI := "github.com:123456:master"
 	scmName := "screwdriver-cd/launcher"
-	parsedURL, err := parseScmUri(scmUri, scmName)
+	parsedURL, err := parseScmURI(scmURI, scmName)
 	host, org, repo, branch := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch
 	if err != nil {
-		t.Errorf("Unexpected error parsing SCM URI %q: %v", scmUri, err)
+		t.Errorf("Unexpected error parsing SCM URI %q: %v", scmURI, err)
 	}
 
 	if host != wantHost {
@@ -326,7 +320,7 @@ func TestCreateWorkspace(t *testing.T) {
 		return nil
 	}
 
-	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher.git")
+	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
 
 	if err != nil {
 		t.Errorf("Unexpected error creating workspace: %v", err)
@@ -334,7 +328,7 @@ func TestCreateWorkspace(t *testing.T) {
 
 	wantWorkspace := Workspace{
 		Root:      TestWorkspace,
-		Src:       "/sd/workspace/src/screwdriver-cd/launcher.git",
+		Src:       "/sd/workspace/src/screwdriver-cd/launcher",
 		Artifacts: "/sd/workspace/artifacts",
 	}
 	if workspace != wantWorkspace {
@@ -342,8 +336,8 @@ func TestCreateWorkspace(t *testing.T) {
 	}
 
 	wantDirs := map[string]os.FileMode{
-		"/sd/workspace/src/screwdriver-cd/launcher.git": 0777,
-		"/sd/workspace/artifacts":                       0777,
+		"/sd/workspace/src/screwdriver-cd/launcher": 0777,
+		"/sd/workspace/artifacts":                   0777,
 	}
 	for d, p := range wantDirs {
 		if _, ok := madeDirs[d]; !ok {
@@ -353,23 +347,6 @@ func TestCreateWorkspace(t *testing.T) {
 				t.Errorf("Directory %s permissions %v, want %v", d, perm, p)
 			}
 		}
-	}
-}
-
-func TestHttpsString(t *testing.T) {
-	testScmPath := scmPath{
-		Host:   "github.com",
-		Org:    "screwdriver-cd",
-		Repo:   "launcher.git",
-		Branch: "master",
-	}
-
-	wantHTTPSString := "https://github.com/screwdriver-cd/launcher.git#master"
-
-	httpsString := testScmPath.httpsString()
-
-	if httpsString != wantHTTPSString {
-		t.Errorf("httpsString == %q, want %q", httpsString, wantHTTPSString)
 	}
 }
 
@@ -383,99 +360,13 @@ func TestPRNumber(t *testing.T) {
 	}
 }
 
-func TestNonPR(t *testing.T) {
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
-	}
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "main"}), nil
-	}
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
-	}
-
-	newrepoCalled := false
-	newRepo = func(scmURL, sha, repoPath string, logger io.Writer) (git.Repo, error) {
-		newrepoCalled = true
-		wantSCMUrl := "https://github.com/screwdriver-cd/launcher#master"
-		if scmURL != wantSCMUrl {
-			t.Errorf("scmURL = %s, want %s", scmURL, wantSCMUrl)
-		}
-
-
-		if sha != TestSHA {
-			t.Errorf("sha = %s, want %s", sha, TestSHA)
-		}
-
-		wantPath := path.Join(TestWorkspace, "src", "github.com/screwdriver-cd/launcher")
-		if repoPath != wantPath {
-			t.Errorf("repoPath = %s, want %s", repoPath, wantPath)
-		}
-
-		repo := MockRepo{}
-		return repo, nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	if err != nil {
-		t.Errorf("Unexpected error from launch: %v", err)
-	}
-
-	if !newrepoCalled {
-		t.Errorf("Never called newRepo")
-	}
-}
-
-func TestPR(t *testing.T) {
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	testPrNumber := "1"
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
-	}
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
-	}
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
-	}
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		if sha != "master" {
-			t.Errorf("PR builds should just reset to <branchname>, got %s", sha)
-		}
-
-		repo := MockRepo{}
-		repo.mergePR = func(prNumber, sha string) error {
-			if prNumber != testPrNumber {
-				t.Errorf("pr number is %q, want %q", prNumber, testPrNumber)
-			}
-			if sha != TestSHA {
-				t.Errorf("sha is %q, want %q", sha, TestSHA)
-			}
-			return nil
-		}
-		return repo, nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	if err != nil {
-		t.Errorf("Unexpected error from launc: %v", err)
-	}
-}
-
 func TestCreateWorkspaceError(t *testing.T) {
 	oldMkdir := mkdirAll
 	defer func() { mkdirAll = oldMkdir }()
 
 	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
+		return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
 	mkdirAll = func(path string, perm os.FileMode) (err error) {
 		return fmt.Errorf("Spooky error")
@@ -498,9 +389,9 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 
 	wantWorkspace := Workspace{}
 
-	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher.git")
+	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
 
-	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher.git\", path already exists." {
+	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher\", path already exists." {
 		t.Errorf("Error is wrong, got %v", err)
 	}
 
@@ -733,82 +624,6 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 	}
 }
 
-func TestNewRepoError(t *testing.T) {
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
-	}
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
-	}
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		return nil, fmt.Errorf("Spooky error")
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	wantErr := "Spooky error"
-	if err.Error() != wantErr {
-		t.Errorf("Error is wrong, got %v. want %v", err, wantErr)
-	}
-}
-
-func TestCheckoutError(t *testing.T) {
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
-	}
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
-	}
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		repo := MockRepo{}
-		repo.checkout = func() error {
-			return fmt.Errorf("Spooky error")
-		}
-		return repo, nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	if err.Error() != "Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestMergePRError(t *testing.T) {
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.buildFromID = func(buildID string) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, SHA: TestSHA}), nil
-	}
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
-	}
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmUri: TestScmUri, ScmRepo: TestScmRepo}), nil
-	}
-
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		repo := MockRepo{}
-		repo.mergePR = func(prNumber, sha string) error {
-			return fmt.Errorf("Spooky error")
-		}
-		return repo, nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	if err.Error() != "Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
 func TestEmitterClose(t *testing.T) {
 	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
 	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
@@ -845,26 +660,13 @@ func TestSetEnv(t *testing.T) {
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
 		"SD_PULL_REQUEST":        "1",
-		"SD_SOURCE_DIR":          "test/path",
+		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 	}
-
-	testPath := "test/path"
 
 	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
 	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
 		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
-	}
-
-	oldNewRepo := newRepo
-	defer func() { newRepo = oldNewRepo }()
-
-	newRepo = func(scmURL, sha, path string, logger io.Writer) (git.Repo, error) {
-		repo := MockRepo{}
-		repo.path = func() string {
-			return testPath
-		}
-		return repo, nil
 	}
 
 	foundEnv := map[string]string{}
