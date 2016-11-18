@@ -216,7 +216,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("Fetching secrets for build %s", b.ID)
 	}
 
-	env := createEnvironment(defaultEnv, secrets)
+	env := createEnvironment(defaultEnv, secrets, b)
 
 	if err := api.UpdateStepStop(buildID, "sd-setup", 0); err != nil {
 		return fmt.Errorf("updating sd-setup stop: %v", err)
@@ -229,7 +229,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	return nil
 }
 
-func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []string {
+func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
 	combined := map[string]string{}
 
 	// Start with the current environment
@@ -246,7 +246,7 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []st
 		combined[k] = v
 	}
 
-	// Add the base environment values
+	// Add the default environment values
 	for k, v := range base {
 		combined[k] = v
 	}
@@ -268,6 +268,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []st
 	for k, v := range combined {
 		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
 	}
+
+	for k, v := range build.Environment {
+		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
+	}
+
 	return envStrings
 }
 

@@ -34,33 +34,6 @@ type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 type FakeScmRepo screwdriver.ScmRepo
 
-type MockRepo struct {
-	checkout func() error
-	mergePR  func(string, string) error
-	path     func() string
-}
-
-func (r MockRepo) Checkout() error {
-	if r.checkout != nil {
-		return r.checkout()
-	}
-	return nil
-}
-
-func (r MockRepo) MergePR(prNumber, sha string) error {
-	if r.mergePR != nil {
-		return r.mergePR(prNumber, sha)
-	}
-	return nil
-}
-
-func (r MockRepo) Path() string {
-	if r.path != nil {
-		return r.path()
-	}
-	return ""
-}
-
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID string) (screwdriver.Build, error) {
@@ -757,7 +730,16 @@ func TestCreateEnvironment(t *testing.T) {
 		{Name: "secret1", Value: "secret1value"},
 		{Name: "GETSOVERRIDDEN", Value: "override"},
 	}
-	env := createEnvironment(base, secrets)
+
+	buildEnv := map[string]string{
+		"GOPATH": "/go/path",
+	}
+
+	testBuild := screwdriver.Build{
+		ID:          "build",
+		Environment: buildEnv,
+	}
+	env := createEnvironment(base, secrets, testBuild)
 
 	foundEnv := map[string]bool{}
 	for _, i := range env {
@@ -770,6 +752,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"secret1=secret1value",
 		"GETSOVERRIDDEN=override",
 		"OSENVWITHEQUALS=foo=bar=",
+		"GOPATH=/go/path",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
