@@ -40,27 +40,6 @@ type MockRepo struct {
 	path     func() string
 }
 
-func (r MockRepo) Checkout() error {
-	if r.checkout != nil {
-		return r.checkout()
-	}
-	return nil
-}
-
-func (r MockRepo) MergePR(prNumber, sha string) error {
-	if r.mergePR != nil {
-		return r.mergePR(prNumber, sha)
-	}
-	return nil
-}
-
-func (r MockRepo) Path() string {
-	if r.path != nil {
-		return r.path()
-	}
-	return ""
-}
-
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID string) (screwdriver.Build, error) {
@@ -260,96 +239,6 @@ func TestJobFromIdError(t *testing.T) {
 	}
 }
 
-func TestPipelineFromIdError(t *testing.T) {
-	testPipelineID := "PIPELINEID"
-	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		err := fmt.Errorf("testing error returns")
-		return screwdriver.Pipeline(FakePipeline{}), err
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-	if err == nil {
-		t.Fatalf("err should not be nil")
-	}
-
-	expected := fmt.Sprintf(`fetching Pipeline ID %q`, testPipelineID)
-	if !strings.Contains(err.Error(), expected) {
-		t.Errorf("err == %q, want %q", err, expected)
-	}
-}
-
-func TestParseScmURI(t *testing.T) {
-	wantHost := "github.com"
-	wantOrg := "screwdriver-cd"
-	wantRepo := "launcher"
-	wantBranch := "master"
-
-	scmURI := "github.com:123456:master"
-	scmName := "screwdriver-cd/launcher"
-	parsedURL, err := parseScmURI(scmURI, scmName)
-	host, org, repo, branch := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch
-	if err != nil {
-		t.Errorf("Unexpected error parsing SCM URI %q: %v", scmURI, err)
-	}
-
-	if host != wantHost {
-		t.Errorf("host = %q, want %q", host, wantHost)
-	}
-
-	if org != wantOrg {
-		t.Errorf("org = %q, want %q", org, wantOrg)
-	}
-
-	if repo != wantRepo {
-		t.Errorf("repo = %q, want %q", repo, wantRepo)
-	}
-
-	if branch != wantBranch {
-		t.Errorf("branch = %q, want %q", branch, wantBranch)
-	}
-}
-
-func TestCreateWorkspace(t *testing.T) {
-	oldMkdir := mkdirAll
-	defer func() { mkdirAll = oldMkdir }()
-
-	madeDirs := map[string]os.FileMode{}
-	mkdirAll = func(path string, perm os.FileMode) (err error) {
-		madeDirs[path] = perm
-		return nil
-	}
-
-	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
-
-	if err != nil {
-		t.Errorf("Unexpected error creating workspace: %v", err)
-	}
-
-	wantWorkspace := Workspace{
-		Root:      TestWorkspace,
-		Src:       "/sd/workspace/src/screwdriver-cd/launcher",
-		Artifacts: "/sd/workspace/artifacts",
-	}
-	if workspace != wantWorkspace {
-		t.Errorf("workspace = %q, want %q", workspace, wantWorkspace)
-	}
-
-	wantDirs := map[string]os.FileMode{
-		"/sd/workspace/src/screwdriver-cd/launcher": 0777,
-		"/sd/workspace/artifacts":                   0777,
-	}
-	for d, p := range wantDirs {
-		if _, ok := madeDirs[d]; !ok {
-			t.Errorf("Directory %s not created. Made: %v", d, madeDirs)
-		} else {
-			if perm := madeDirs[d]; perm != p {
-				t.Errorf("Directory %s permissions %v, want %v", d, perm, p)
-			}
-		}
-	}
-}
-
 func TestPRNumber(t *testing.T) {
 	testJobName := "PR-1"
 	wantPrNumber := "1"
@@ -357,46 +246,6 @@ func TestPRNumber(t *testing.T) {
 	prNumber := prNumber(testJobName)
 	if prNumber != wantPrNumber {
 		t.Errorf("prNumber == %q, want %q", prNumber, wantPrNumber)
-	}
-}
-
-func TestCreateWorkspaceError(t *testing.T) {
-	oldMkdir := mkdirAll
-	defer func() { mkdirAll = oldMkdir }()
-
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
-	}
-	mkdirAll = func(path string, perm os.FileMode) (err error) {
-		return fmt.Errorf("Spooky error")
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
-
-	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher\": Spooky error" {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-}
-
-func TestCreateWorkspaceBadStat(t *testing.T) {
-	oldStat := stat
-	defer func() { stat = oldStat }()
-
-	stat = func(path string) (info os.FileInfo, err error) {
-		return nil, nil
-	}
-
-	wantWorkspace := Workspace{}
-
-	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
-
-	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher\", path already exists." {
-		t.Errorf("Error is wrong, got %v", err)
-	}
-
-	if workspace != wantWorkspace {
-		t.Errorf("Workspace == %q, want %q", workspace, wantWorkspace)
 	}
 }
 
@@ -660,8 +509,6 @@ func TestSetEnv(t *testing.T) {
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
 		"SD_PULL_REQUEST":        "1",
-		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
-		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
@@ -757,7 +604,17 @@ func TestCreateEnvironment(t *testing.T) {
 		{Name: "secret1", Value: "secret1value"},
 		{Name: "GETSOVERRIDDEN", Value: "override"},
 	}
-	env := createEnvironment(base, secrets)
+
+	buildEnv := map[string]string{
+		"GOPATH": "/go/path",
+	}
+
+	testBuild := screwdriver.Build{
+		ID:          "build",
+		Environment: buildEnv,
+	}
+
+	env := createEnvironment(base, secrets, testBuild)
 
 	foundEnv := map[string]bool{}
 	for _, i := range env {
@@ -770,6 +627,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"secret1=secret1value",
 		"GETSOVERRIDDEN=override",
 		"OSENVWITHEQUALS=foo=bar=",
+		"GOPATH=/go/path",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)

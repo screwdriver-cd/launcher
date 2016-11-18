@@ -44,72 +44,6 @@ func exit(status screwdriver.BuildStatus, buildID string, api screwdriver.API) {
 	cleanExit()
 }
 
-type scmPath struct {
-	Host   string
-	Org    string
-	Repo   string
-	Branch string
-}
-
-// e.g. scmUri: "github:123456:master", scmName: "screwdriver-cd/launcher"
-func parseScmURI(scmURI, scmName string) (scmPath, error) {
-	uri := strings.Split(scmURI, ":")
-	orgRepo := strings.Split(scmName, "/")
-
-	if len(uri) != 3 || len(orgRepo) != 2 {
-		return scmPath{}, fmt.Errorf("unable to parse scmUri %v and scmName %v", scmURI, scmName)
-	}
-
-	return scmPath{
-		Host:   uri[0],
-		Org:    orgRepo[0],
-		Repo:   orgRepo[1],
-		Branch: uri[2],
-	}, nil
-}
-
-// A Workspace is a description of the paths available to a Screwdriver build
-type Workspace struct {
-	Root      string
-	Src       string
-	Artifacts string
-}
-
-// createWorkspace makes a Scrwedriver workspace from path components
-// e.g. ["github.com", "screwdriver-cd" "screwdriver"] creates
-//     /sd/workspace/src/github.com/screwdriver-cd/screwdriver
-//     /sd/workspace/artifacts
-func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
-	srcPaths = append([]string{"src"}, srcPaths...)
-	src := path.Join(srcPaths...)
-
-	src = path.Join(rootDir, src)
-	artifacts := path.Join(rootDir, "artifacts")
-
-	paths := []string{
-		src,
-		artifacts,
-	}
-	for _, p := range paths {
-		_, err := stat(p)
-		if err == nil {
-			msg := "Cannot create workspace path %q, path already exists."
-			return Workspace{}, fmt.Errorf(msg, p)
-		}
-		err = mkdirAll(p, 0777)
-		if err != nil {
-			return Workspace{}, fmt.Errorf("Cannot create workspace path %q: %v", p, err)
-		}
-	}
-
-	w := Workspace{
-		Root:      rootDir,
-		Src:       src,
-		Artifacts: artifacts,
-	}
-	return w, nil
-}
-
 func writeArtifact(aDir string, fName string, artifact interface{}) error {
 	data, err := json.MarshalIndent(artifact, "", strings.Repeat(" ", 4))
 	if err != nil {
@@ -164,41 +98,10 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("fetching Job ID %q: %v", b.JobID, err)
 	}
 
-	log.Printf("Fetching Pipeline %v", j.PipelineID)
-	p, err := api.PipelineFromID(j.PipelineID)
-	if err != nil {
-		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
-	}
-
-	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Creating Workspace in %v", rootDir)
-	w, err := createWorkspace(rootDir, scm.Host, scm.Org, scm.Repo)
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintf(emitter, "Workspace created in %s\n", rootDir)
-	fmt.Fprintf(emitter, "Source Dir: %s\n", w.Src)
-	fmt.Fprintf(emitter, "Artifacts Dir: %s\n", w.Artifacts)
-
 	oldJobName := j.Name
 	pr := prNumber(j.Name)
 	if pr != "" {
 		j.Name = "main"
-	}
-
-	err = writeArtifact(w.Artifacts, "steps.json", b.Commands)
-	if err != nil {
-		return fmt.Errorf("creating steps.json artifact: %v", err)
-	}
-
-	err = writeArtifact(w.Artifacts, "environment.json", b.Environment)
-	if err != nil {
-		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
 
 	defaultEnv := map[string]string{
@@ -207,8 +110,6 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PULL_REQUEST":        pr,
-		"SD_SOURCE_DIR":          w.Src,
-		"SD_ARTIFACTS_DIR":       w.Artifacts,
 	}
 
 	secrets, err := api.SecretsForBuild(b)
@@ -216,20 +117,31 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("Fetching secrets for build %s", b.ID)
 	}
 
-	env := createEnvironment(defaultEnv, secrets)
+	env := createEnvironment(defaultEnv, secrets, b)
+
+	srcDir := os.Getenv("SD_SOURCE_DIR")
+	artifactsDir := os.Getenv("SD_ARTIFACTS_DIR")
+
+	if err := writeArtifact(artifactsDir, "steps.json", b.Commands); err != nil {
+		return fmt.Errorf("creating steps.json artifact: %v", err)
+	}
+
+	if err := writeArtifact(artifactsDir, "environment.json", b.Environment); err != nil {
+		return fmt.Errorf("creating environment.json artifact: %v", err)
+	}
 
 	if err := api.UpdateStepStop(buildID, "sd-setup", 0); err != nil {
 		return fmt.Errorf("updating sd-setup stop: %v", err)
 	}
 
-	if err := executorRun(w.Src, env, emitter, b, api, buildID); err != nil {
+	if err := executorRun(srcDir, env, emitter, b, api, buildID); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []string {
+func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
 	combined := map[string]string{}
 
 	// Start with the current environment
@@ -246,7 +158,7 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []st
 		combined[k] = v
 	}
 
-	// Add the base environment values
+	// Add the default environment values
 	for k, v := range base {
 		combined[k] = v
 	}
@@ -268,6 +180,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets) []st
 	for k, v := range combined {
 		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
 	}
+
+	for k, v := range build.Environment {
+		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
+	}
+
 	return envStrings
 }
 

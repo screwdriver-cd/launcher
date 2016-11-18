@@ -177,7 +177,7 @@ func TestRunSingle(t *testing.T) {
 		})
 
 		testBuild := screwdriver.Build{
-			ID: "build",
+			ID:          "build",
 			Commands:    testCmds,
 			Environment: map[string]string{},
 		}
@@ -234,7 +234,7 @@ func TestRunMulti(t *testing.T) {
 	})
 
 	testBuild := screwdriver.Build{
-		ID: "build",
+		ID:          "build",
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
@@ -313,10 +313,6 @@ func TestUnmocked(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
-	buildEnv := map[string]string{
-		"GOPATH": "/go/path",
-	}
-
 	baseEnv := []string{
 		"var1=foo",
 		"var2=bar",
@@ -324,10 +320,9 @@ func TestEnv(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"var1":   "foo",
-		"var2":   "bar",
-		"VAR3":   "baz",
-		"GOPATH": "/go/path",
+		"var1": "foo",
+		"var2": "bar",
+		"VAR3": "baz",
 	}
 
 	cmds := []screwdriver.CommandDef{
@@ -338,9 +333,8 @@ func TestEnv(t *testing.T) {
 	}
 
 	testBuild := screwdriver.Build{
-		ID: "build",
-		Commands:    cmds,
-		Environment: buildEnv,
+		ID:       "build",
+		Commands: cmds,
 	}
 
 	execCommand = exec.Command
@@ -401,7 +395,7 @@ func TestEmitter(t *testing.T) {
 	}
 
 	testBuild := screwdriver.Build{
-		ID: "build",
+		ID:       "build",
 		Commands: []screwdriver.CommandDef{},
 	}
 	for _, test := range tests {
