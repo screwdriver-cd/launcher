@@ -1,10 +1,8 @@
 FROM alpine:3.4
 MAINTAINER The Screwdrivers <screwdriver.cd>
 
-WORKDIR /opt/screwdriver
-
 # Download Launcher, Log Service, and Tini setup
-WORKDIR /opt/screwdriver
+WORKDIR /opt/sd
 RUN set -x \
    # Alpine ships with musl instead of glibc (this fixes the symlink)
    && mkdir /lib64 \
@@ -41,7 +39,7 @@ RUN set -x \
    # Cleanup packages
    && apk del --purge .build-dependencies
 
-VOLUME /opt/screwdriver
+VOLUME /opt/sd
 
 # Set Entrypoint
-ENTRYPOINT ["/opt/screwdriver/tini", "--", "/opt/screwdriver/launch"]
+ENTRYPOINT ["/opt/sd/tini", "--", "/opt/sd/launch"]
