@@ -49,7 +49,7 @@ func TestEmitter(t *testing.T) {
 		{"line4", "step2"},
 	}
 
-	fmt.Fprintln(emitter, "running sd-setup step")
+	fmt.Fprintln(emitter, "running sd-setup-launcher step")
 	time.Sleep(1 * time.Millisecond)
 	for _, test := range tests {
 		emitter.StartCmd(fakeCmd(test.step))
@@ -58,7 +58,7 @@ func TestEmitter(t *testing.T) {
 	}
 	emitter.Write([]byte("This should not be processed. It has no newline."))
 
-	tests = append(testlist{{"running sd-setup step", "sd-setup"}}, tests...)
+	tests = append(testlist{{"running sd-setup-launcher step", "sd-setup-launcher"}}, tests...)
 
 	f, err := os.Open(emitterpath)
 	if err != nil {
