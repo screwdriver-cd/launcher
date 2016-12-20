@@ -71,7 +71,7 @@ func NewEmitter(path string) (Emitter, error) {
 	}
 
 	cmd := CommandDef{
-		Name: "sd-setup",
+		Name: "sd-setup-launcher",
 	}
 
 	e := &emitter{

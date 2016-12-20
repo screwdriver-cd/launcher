@@ -143,8 +143,8 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 	}
 	defer emitter.Close()
 
-	if err = api.UpdateStepStart(buildID, "sd-setup"); err != nil {
-		return fmt.Errorf("updating sd-setup start: %v", err)
+	if err = api.UpdateStepStart(buildID, "sd-setup-launcher"); err != nil {
+		return fmt.Errorf("updating sd-setup-launcher start: %v", err)
 	}
 
 	log.Print("Setting Build Status to RUNNING")
@@ -218,8 +218,8 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 
 	env := createEnvironment(defaultEnv, secrets, b)
 
-	if err := api.UpdateStepStop(buildID, "sd-setup", 0); err != nil {
-		return fmt.Errorf("updating sd-setup stop: %v", err)
+	if err := api.UpdateStepStop(buildID, "sd-setup-launcher", 0); err != nil {
+		return fmt.Errorf("updating sd-setup-launcher stop: %v", err)
 	}
 
 	if err := executorRun(w.Src, env, emitter, b, api, buildID); err != nil {
