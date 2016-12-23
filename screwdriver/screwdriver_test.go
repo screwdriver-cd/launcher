@@ -105,8 +105,8 @@ func TestBuildFromID(t *testing.T) {
 	}{
 		{
 			build: Build{
-				ID:          "testId",
-				JobID:       "testJob",
+				ID:          1555,
+				JobID:       3777,
 				SHA:         "testSHA",
 				Commands:    testCmds,
 				Environment: testEnv,
@@ -118,7 +118,7 @@ func TestBuildFromID(t *testing.T) {
 			build:      Build{},
 			statusCode: 500,
 			err: errors.New("after 5 attempts, last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/builds/"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/builds/0"),
 		},
 		{
 			build:      Build{},
@@ -170,8 +170,8 @@ func TestJobFromID(t *testing.T) {
 	}{
 		{
 			job: Job{
-				ID:         "testId",
-				PipelineID: "testPipeline",
+				ID:         1555,
+				PipelineID: 2666,
 				Name:       "testName",
 			},
 			statusCode: 200,
@@ -181,7 +181,7 @@ func TestJobFromID(t *testing.T) {
 			job:        Job{},
 			statusCode: 500,
 			err: errors.New("after 5 attempts, last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/jobs/"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/jobs/0"),
 		},
 		{
 			job:        Job{},
@@ -233,7 +233,7 @@ func TestPipelineFromID(t *testing.T) {
 	}{
 		{
 			pipeline: Pipeline{
-				ID:     "testId",
+				ID:     1555,
 				ScmURI: "github.com:123456:master",
 				ScmRepo: ScmRepo{
 					Name: "screwdriver-cd/launcher",
@@ -246,7 +246,7 @@ func TestPipelineFromID(t *testing.T) {
 			pipeline:   Pipeline{},
 			statusCode: 500,
 			err: errors.New("after 5 attempts, last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/pipelines/"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/pipelines/0"),
 		},
 		{
 			pipeline:   Pipeline{},
@@ -309,7 +309,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		http := makeFakeHTTPClient(t, test.statusCode, "{}")
 		testAPI := api{"http://fakeurl", "faketoken", http}
 
-		err := testAPI.UpdateBuildStatus(test.status, "15")
+		err := testAPI.UpdateBuildStatus(test.status, 15)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from UpdateBuildStatus: %v, want %v", err, test.err)
@@ -328,7 +328,7 @@ func TestUpdateStepStart(t *testing.T) {
 	})
 	testAPI := api{"http://fakeurl", "faketoken", http}
 
-	err := testAPI.UpdateStepStart("step1", "build1")
+	err := testAPI.UpdateStepStart(999, "step1")
 
 	if err != nil {
 		t.Errorf("Unexpected error from UpdateStepStart: %v", err)
@@ -346,7 +346,7 @@ func TestUpdateStepStop(t *testing.T) {
 	})
 	testAPI := api{"http://fakeurl", "faketoken", http}
 
-	err := testAPI.UpdateStepStop("step1", "build1", 10)
+	err := testAPI.UpdateStepStop(999, "step1", 10)
 
 	if err != nil {
 		t.Errorf("Unexpected error from UpdateStepStop: %v", err)
@@ -355,8 +355,8 @@ func TestUpdateStepStop(t *testing.T) {
 
 func TestSecretsForBuild(t *testing.T) {
 	testBuild := Build{
-		ID:    "testId",
-		JobID: "testJob",
+		ID:    1555,
+		JobID: 3777,
 		SHA:   "testSHA",
 	}
 	testResponse := `[{"name": "foo", "value": "bar"}]`
@@ -365,7 +365,7 @@ func TestSecretsForBuild(t *testing.T) {
 	}
 
 	http := makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
-		wantURL, _ := url.Parse("http://fakeurl/v4/builds/testId/secrets")
+		wantURL, _ := url.Parse("http://fakeurl/v4/builds/1555/secrets")
 		if r.URL.String() != wantURL.String() {
 			t.Errorf("Secrets URL=%q, want %q", r.URL, wantURL)
 		}

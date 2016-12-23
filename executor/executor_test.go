@@ -31,23 +31,23 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 }
 
 type MockAPI struct {
-	updateStepStart func(buildID, stepName string) error
-	updateStepStop  func(buildID, stepName string, exitCode int) error
+	updateStepStart func(buildID int, stepName string) error
+	updateStepStop  func(buildID int, stepName string, exitCode int) error
 }
 
-func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
+func (f MockAPI) BuildFromID(buildID int) (screwdriver.Build, error) {
 	return screwdriver.Build{}, nil
 }
 
-func (f MockAPI) JobFromID(jobID string) (screwdriver.Job, error) {
+func (f MockAPI) JobFromID(jobID int) (screwdriver.Job, error) {
 	return screwdriver.Job{}, nil
 }
 
-func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error) {
+func (f MockAPI) PipelineFromID(pipelineID int) (screwdriver.Pipeline, error) {
 	return screwdriver.Pipeline{}, nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID string) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID int) error {
 	return nil
 }
 
@@ -55,14 +55,14 @@ func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, 
 	return nil, nil
 }
 
-func (f MockAPI) UpdateStepStart(buildID, stepName string) error {
+func (f MockAPI) UpdateStepStart(buildID int, stepName string) error {
 	if f.updateStepStart != nil {
 		return f.updateStepStart(buildID, stepName)
 	}
 	return nil
 }
 
-func (f MockAPI) UpdateStepStop(buildID, stepName string, exitCode int) error {
+func (f MockAPI) UpdateStepStop(buildID int, stepName string, exitCode int) error {
 	if f.updateStepStop != nil {
 		return f.updateStepStop(buildID, stepName, exitCode)
 	}
@@ -177,12 +177,12 @@ func TestRunSingle(t *testing.T) {
 		})
 
 		testBuild := screwdriver.Build{
-			ID:          "build",
+			ID:          1234,
 			Commands:    testCmds,
 			Environment: map[string]string{},
 		}
 		testAPI := screwdriver.API(MockAPI{
-			updateStepStart: func(buildID, stepName string) error {
+			updateStepStart: func(buildID int, stepName string) error {
 				if buildID != testBuild.ID {
 					t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 				}
@@ -234,12 +234,12 @@ func TestRunMulti(t *testing.T) {
 	})
 
 	testBuild := screwdriver.Build{
-		ID:          "build",
+		ID:          12345,
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
 	testAPI := screwdriver.API(MockAPI{
-		updateStepStart: func(buildID, stepName string) error {
+		updateStepStart: func(buildID int, stepName string) error {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
@@ -287,14 +287,14 @@ func TestUnmocked(t *testing.T) {
 			Name: "test",
 		}
 		testBuild := screwdriver.Build{
-			ID: "build",
+			ID: 12345,
 			Commands: []screwdriver.CommandDef{
 				cmd,
 			},
 			Environment: map[string]string{},
 		}
 		testAPI := screwdriver.API(MockAPI{
-			updateStepStart: func(buildID, stepName string) error {
+			updateStepStart: func(buildID int, stepName string) error {
 				if buildID != testBuild.ID {
 					t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 				}
@@ -333,14 +333,14 @@ func TestEnv(t *testing.T) {
 	}
 
 	testBuild := screwdriver.Build{
-		ID:       "build",
+		ID:       9999,
 		Commands: cmds,
 	}
 
 	execCommand = exec.Command
 	output := MockEmitter{}
 	testAPI := screwdriver.API(MockAPI{
-		updateStepStart: func(buildID, stepName string) error {
+		updateStepStart: func(buildID int, stepName string) error {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
@@ -395,7 +395,7 @@ func TestEmitter(t *testing.T) {
 	}
 
 	testBuild := screwdriver.Build{
-		ID:       "build",
+		ID:       9999,
 		Commands: []screwdriver.CommandDef{},
 	}
 	for _, test := range tests {
@@ -412,7 +412,7 @@ func TestEmitter(t *testing.T) {
 		},
 	}
 	testAPI := screwdriver.API(MockAPI{
-		updateStepStart: func(buildID, stepName string) error {
+		updateStepStart: func(buildID int, stepName string) error {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
