@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ var cleanExit = func() {
 }
 
 // exit sets the build status and exits successfully
-func exit(status screwdriver.BuildStatus, buildID string, api screwdriver.API) {
+func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API) {
 	if api != nil {
 		log.Printf("Setting build status to %s", status)
 		if err := api.UpdateBuildStatus(status, buildID); err != nil {
@@ -136,7 +137,7 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
-func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error {
 	emitter, err := newEmitter(emitterPath)
 	if err != nil {
 		return err
@@ -152,22 +153,22 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
 
-	log.Printf("Fetching Build %v", buildID)
+	log.Printf("Fetching Build %d", buildID)
 	b, err := api.BuildFromID(buildID)
 	if err != nil {
-		return fmt.Errorf("fetching build ID %q: %v", buildID, err)
+		return fmt.Errorf("fetching Build ID %d: %v", buildID, err)
 	}
 
-	log.Printf("Fetching Job %v", b.JobID)
+	log.Printf("Fetching Job %d", b.JobID)
 	j, err := api.JobFromID(b.JobID)
 	if err != nil {
-		return fmt.Errorf("fetching Job ID %q: %v", b.JobID, err)
+		return fmt.Errorf("fetching Job ID %d: %v", b.JobID, err)
 	}
 
-	log.Printf("Fetching Pipeline %v", j.PipelineID)
+	log.Printf("Fetching Pipeline %d", j.PipelineID)
 	p, err := api.PipelineFromID(j.PipelineID)
 	if err != nil {
-		return fmt.Errorf("fetching Pipeline ID %q: %v", j.PipelineID, err)
+		return fmt.Errorf("fetching Pipeline ID %d: %v", j.PipelineID, err)
 	}
 
 	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
@@ -213,7 +214,7 @@ func launch(api screwdriver.API, buildID, rootDir, emitterPath string) error {
 
 	secrets, err := api.SecretsForBuild(b)
 	if err != nil {
-		return fmt.Errorf("Fetching secrets for build %s", b.ID)
+		return fmt.Errorf("Fetching secrets for build %v", b.ID)
 	}
 
 	env := createEnvironment(defaultEnv, secrets, b)
@@ -277,7 +278,7 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID, rootDir, emitterPath string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
 	if err := launch(api, buildID, rootDir, emitterPath); err != nil {
@@ -295,7 +296,7 @@ func launchAction(api screwdriver.API, buildID, rootDir, emitterPath string) err
 	return nil
 }
 
-func recoverPanic(buildID string, api screwdriver.API) {
+func recoverPanic(buildID int, api screwdriver.API) {
 	if p := recover(); p != nil {
 		filename := fmt.Sprintf("launcher-stacktrace-%s", time.Now().Format(time.RFC3339))
 		tracefile := filepath.Join(os.TempDir(), filename)
@@ -323,7 +324,7 @@ func finalRecover() {
 
 func main() {
 	defer finalRecover()
-	defer recoverPanic("", nil)
+	defer recoverPanic(0, nil)
 
 	app := cli.NewApp()
 	app.Name = "launcher"
@@ -364,9 +365,9 @@ func main() {
 		token := c.String("token")
 		workspace := c.String("workspace")
 		emitterPath := c.String("emitter")
-		buildID := c.Args().Get(0)
+		buildID, err := strconv.Atoi(c.Args().Get(0))
 
-		if buildID == "" {
+		if err != nil {
 			return cli.ShowAppHelp(c)
 		}
 

@@ -35,12 +35,12 @@ func (b BuildStatus) String() string {
 
 // API is a Screwdriver API endpoint
 type API interface {
-	BuildFromID(buildID string) (Build, error)
-	JobFromID(jobID string) (Job, error)
-	PipelineFromID(pipelineID string) (Pipeline, error)
-	UpdateBuildStatus(status BuildStatus, buildID string) error
-	UpdateStepStart(buildID, stepName string) error
-	UpdateStepStop(buildID, stepName string, exitCode int) error
+	BuildFromID(buildID int) (Build, error)
+	JobFromID(jobID int) (Job, error)
+	PipelineFromID(pipelineID int) (Pipeline, error)
+	UpdateBuildStatus(status BuildStatus, buildID int) error
+	UpdateStepStart(buildID int, stepName string) error
+	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 }
 
@@ -89,7 +89,7 @@ type StepStopPayload struct {
 
 // Pipeline is a Screwdriver Pipeline definition.
 type Pipeline struct {
-	ID      string  `json:"id"`
+	ID      int     `json:"id"`
 	ScmRepo ScmRepo `json:"scmRepo"`
 	ScmURI  string  `json:"scmUri"`
 }
@@ -101,8 +101,8 @@ type ScmRepo struct {
 
 // Job is a Screwdriver Job.
 type Job struct {
-	ID         string `json:"id"`
-	PipelineID string `json:"pipelineId"`
+	ID         int    `json:"id"`
+	PipelineID int    `json:"pipelineId"`
 	Name       string `json:"name"`
 }
 
@@ -114,8 +114,8 @@ type CommandDef struct {
 
 // Build is a Screwdriver Build
 type Build struct {
-	ID          string            `json:"id"`
-	JobID       string            `json:"jobId"`
+	ID          int               `json:"id"`
+	JobID       int               `json:"jobId"`
 	SHA         string            `json:"sha"`
 	Commands    []CommandDef      `json:"steps"`
 	Environment map[string]string `json:"environment"`
@@ -268,8 +268,8 @@ func (a api) put(url *url.URL, bodyType string, payload io.Reader) ([]byte, erro
 }
 
 // BuildFromID fetches and returns a Build object from its ID
-func (a api) BuildFromID(buildID string) (build Build, err error) {
-	u, err := a.makeURL(fmt.Sprintf("builds/%s", buildID))
+func (a api) BuildFromID(buildID int) (build Build, err error) {
+	u, err := a.makeURL(fmt.Sprintf("builds/%d", buildID))
 	body, err := a.get(u)
 	if err != nil {
 		return build, err
@@ -283,10 +283,10 @@ func (a api) BuildFromID(buildID string) (build Build, err error) {
 }
 
 // JobFromID fetches and returns a Job object from its ID
-func (a api) JobFromID(jobID string) (job Job, err error) {
-	u, err := a.makeURL(fmt.Sprintf("jobs/%s", jobID))
+func (a api) JobFromID(jobID int) (job Job, err error) {
+	u, err := a.makeURL(fmt.Sprintf("jobs/%d", jobID))
 	if err != nil {
-		return job, fmt.Errorf("generating Screwdriver url for Job %s: %v", jobID, err)
+		return job, fmt.Errorf("generating Screwdriver url for Job %d: %v", jobID, err)
 	}
 
 	body, err := a.get(u)
@@ -302,8 +302,8 @@ func (a api) JobFromID(jobID string) (job Job, err error) {
 }
 
 // PipelineFromID fetches and returns a Pipeline object from its ID
-func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
-	u, err := a.makeURL(fmt.Sprintf("pipelines/%s", pipelineID))
+func (a api) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
+	u, err := a.makeURL(fmt.Sprintf("pipelines/%d", pipelineID))
 	if err != nil {
 		return pipeline, err
 	}
@@ -320,7 +320,7 @@ func (a api) PipelineFromID(pipelineID string) (pipeline Pipeline, err error) {
 	return pipeline, nil
 }
 
-func (a api) UpdateBuildStatus(status BuildStatus, buildID string) error {
+func (a api) UpdateBuildStatus(status BuildStatus, buildID int) error {
 	switch status {
 	case Running:
 	case Success:
@@ -330,7 +330,7 @@ func (a api) UpdateBuildStatus(status BuildStatus, buildID string) error {
 		return fmt.Errorf("invalid build status: %s", status)
 	}
 
-	u, err := a.makeURL(fmt.Sprintf("builds/%s", buildID))
+	u, err := a.makeURL(fmt.Sprintf("builds/%d", buildID))
 	if err != nil {
 		return fmt.Errorf("creating url: %v", err)
 	}
@@ -351,8 +351,8 @@ func (a api) UpdateBuildStatus(status BuildStatus, buildID string) error {
 	return nil
 }
 
-func (a api) UpdateStepStart(buildID, stepName string) error {
-	u, err := a.makeURL(fmt.Sprintf("builds/%s/steps/%s", buildID, stepName))
+func (a api) UpdateStepStart(buildID int, stepName string) error {
+	u, err := a.makeURL(fmt.Sprintf("builds/%d/steps/%s", buildID, stepName))
 	if err != nil {
 		return fmt.Errorf("creating url: %v", err)
 	}
@@ -373,8 +373,8 @@ func (a api) UpdateStepStart(buildID, stepName string) error {
 	return nil
 }
 
-func (a api) UpdateStepStop(buildID, stepName string, exitCode int) error {
-	u, err := a.makeURL(fmt.Sprintf("builds/%s/steps/%s", buildID, stepName))
+func (a api) UpdateStepStop(buildID int, stepName string, exitCode int) error {
+	u, err := a.makeURL(fmt.Sprintf("builds/%d/steps/%s", buildID, stepName))
 	if err != nil {
 		return fmt.Errorf("creating url: %v", err)
 	}
@@ -397,7 +397,7 @@ func (a api) UpdateStepStop(buildID, stepName string, exitCode int) error {
 }
 
 func (a api) SecretsForBuild(build Build) (Secrets, error) {
-	u, err := a.makeURL(fmt.Sprintf("builds/%s/secrets", build.ID))
+	u, err := a.makeURL(fmt.Sprintf("builds/%d/secrets", build.ID))
 	if err != nil {
 		return nil, err
 	}

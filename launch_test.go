@@ -17,9 +17,9 @@ import (
 const (
 	TestWorkspace  = "/sd/workspace"
 	TestEmitter    = "./data/emitter"
-	TestBuildID    = "BUILDID"
-	TestJobID      = "JOBID"
-	TestPipelineID = "PIPELINEID"
+	TestBuildID    = 1234
+	TestJobID      = 2345
+	TestPipelineID = 3456
 
 	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
@@ -34,28 +34,28 @@ type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 type FakeScmRepo screwdriver.ScmRepo
 
-func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testStatus screwdriver.BuildStatus) MockAPI {
+func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
+		buildFromID: func(buildID int) (screwdriver.Build, error) {
 			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
 		},
-		jobFromID: func(jobID string) (screwdriver.Job, error) {
+		jobFromID: func(jobID int) (screwdriver.Job, error) {
 			if jobID != testJobID {
-				t.Errorf("jobID == %s, want %s", jobID, testJobID)
+				t.Errorf("jobID == %d, want %d", jobID, testJobID)
 				// Panic to get the stacktrace
 				panic(true)
 			}
 			return screwdriver.Job(FakeJob{ID: testJobID, PipelineID: testPipelineID, Name: "main"}), nil
 		},
-		pipelineFromID: func(pipelineID string) (screwdriver.Pipeline, error) {
+		pipelineFromID: func(pipelineID int) (screwdriver.Pipeline, error) {
 			if pipelineID != testPipelineID {
-				t.Errorf("pipelineID == %s, want %s", pipelineID, testPipelineID)
+				t.Errorf("pipelineID == %d, want %d", pipelineID, testPipelineID)
 				// Panic to get the stacktrace
 				panic(true)
 			}
 			return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		},
-		updateBuildStatus: func(status screwdriver.BuildStatus, buildID string) error {
+		updateBuildStatus: func(status screwdriver.BuildStatus, buildID int) error {
 			if buildID != testBuildID {
 				t.Errorf("status == %s, want %s", status, testStatus)
 				// Panic to get the stacktrace
@@ -72,12 +72,12 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID string, testSt
 }
 
 type MockAPI struct {
-	buildFromID       func(string) (screwdriver.Build, error)
-	jobFromID         func(string) (screwdriver.Job, error)
-	pipelineFromID    func(string) (screwdriver.Pipeline, error)
-	updateBuildStatus func(screwdriver.BuildStatus, string) error
-	updateStepStart   func(buildID, stepName string) error
-	updateStepStop    func(buildID, stepName string, exitCode int) error
+	buildFromID       func(int) (screwdriver.Build, error)
+	jobFromID         func(int) (screwdriver.Job, error)
+	pipelineFromID    func(int) (screwdriver.Pipeline, error)
+	updateBuildStatus func(screwdriver.BuildStatus, int) error
+	updateStepStart   func(buildID int, stepName string) error
+	updateStepStop    func(buildID int, stepName string, exitCode int) error
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
 }
 
@@ -88,42 +88,42 @@ func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, 
 	return nil, nil
 }
 
-func (f MockAPI) BuildFromID(buildID string) (screwdriver.Build, error) {
+func (f MockAPI) BuildFromID(buildID int) (screwdriver.Build, error) {
 	if f.buildFromID != nil {
 		return f.buildFromID(buildID)
 	}
 	return screwdriver.Build(FakeBuild{}), nil
 }
 
-func (f MockAPI) JobFromID(jobID string) (screwdriver.Job, error) {
+func (f MockAPI) JobFromID(jobID int) (screwdriver.Job, error) {
 	if f.jobFromID != nil {
 		return f.jobFromID(jobID)
 	}
 	return screwdriver.Job(FakeJob{}), nil
 }
 
-func (f MockAPI) PipelineFromID(pipelineID string) (screwdriver.Pipeline, error) {
+func (f MockAPI) PipelineFromID(pipelineID int) (screwdriver.Pipeline, error) {
 	if f.pipelineFromID != nil {
 		return f.pipelineFromID(pipelineID)
 	}
 	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID string) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID int) error {
 	if f.updateBuildStatus != nil {
 		return f.updateBuildStatus(status, buildID)
 	}
 	return nil
 }
 
-func (f MockAPI) UpdateStepStart(buildID, stepName string) error {
+func (f MockAPI) UpdateStepStart(buildID int, stepName string) error {
 	if f.updateStepStart != nil {
 		return f.updateStepStart(buildID, stepName)
 	}
 	return nil
 }
 
-func (f MockAPI) UpdateStepStop(buildID, stepName string, exitCode int) error {
+func (f MockAPI) UpdateStepStop(buildID int, stepName string, exitCode int) error {
 	if f.updateStepStop != nil {
 		return f.updateStepStop(buildID, stepName, exitCode)
 	}
@@ -182,7 +182,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -191,33 +191,33 @@ func TestMain(m *testing.M) {
 }
 
 func TestBuildJobPipelineFromID(t *testing.T) {
-	testPipelineID := "PIPELINEID"
+	testPipelineID := 9999
 	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
 	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
 }
 
 func TestBuildFromIdError(t *testing.T) {
 	api := MockAPI{
-		buildFromID: func(buildID string) (screwdriver.Build, error) {
+		buildFromID: func(buildID int) (screwdriver.Build, error) {
 			err := fmt.Errorf("testing error returns")
 			return screwdriver.Build(FakeBuild{}), err
 		},
 	}
 
-	err := launch(screwdriver.API(api), "shoulderror", TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
 
-	expected := `fetching build ID "shoulderror"`
+	expected := `fetching Build ID 0`
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
 }
 
 func TestJobFromIdError(t *testing.T) {
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Job(FakeJob{}), err
 	}
@@ -227,16 +227,16 @@ func TestJobFromIdError(t *testing.T) {
 		t.Errorf("err should not be nil")
 	}
 
-	expected := fmt.Sprintf(`fetching Job ID %q`, TestJobID)
+	expected := fmt.Sprintf(`fetching Job ID %d`, TestJobID)
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
 }
 
 func TestPipelineFromIdError(t *testing.T) {
-	testPipelineID := "PIPELINEID"
+	testPipelineID := 9999
 	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		err := fmt.Errorf("testing error returns")
 		return screwdriver.Pipeline(FakePipeline{}), err
 	}
@@ -246,7 +246,7 @@ func TestPipelineFromIdError(t *testing.T) {
 		t.Fatalf("err should not be nil")
 	}
 
-	expected := fmt.Sprintf(`fetching Pipeline ID %q`, testPipelineID)
+	expected := fmt.Sprintf(`fetching Pipeline ID %d`, testPipelineID)
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
@@ -337,8 +337,8 @@ func TestCreateWorkspaceError(t *testing.T) {
 	oldMkdir := mkdirAll
 	defer func() { mkdirAll = oldMkdir }()
 
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.pipelineFromID = func(pipelineID string) (screwdriver.Pipeline, error) {
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
 	mkdirAll = func(path string, perm os.FileMode) (err error) {
@@ -374,8 +374,8 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 }
 
 func TestUpdateBuildStatusError(t *testing.T) {
-	api := mockAPI(t, TestBuildID, "", "", screwdriver.Running)
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
+	api := mockAPI(t, TestBuildID, 0, 0, screwdriver.Running)
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
 		return fmt.Errorf("Spooky error")
 	}
 
@@ -394,8 +394,8 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	}
 
 	var gotStatuses []screwdriver.BuildStatus
-	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
+	api := mockAPI(t, 1, 2, 3, "")
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -407,7 +407,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	tmp, cleanup := setupTempDirectoryAndSocket(t)
 	defer cleanup()
 
-	if err := launchAction(screwdriver.API(api), "TestBuildID", tmp, path.Join(tmp, "socket")); err != nil {
+	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket")); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -423,8 +423,8 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 	}
 
 	var gotStatuses []screwdriver.BuildStatus
-	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
+	api := mockAPI(t, 1, 2, 3, "")
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -440,11 +440,11 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, env []string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
-	err = launchAction(screwdriver.API(api), "TestBuildID", tmp, TestEmitter)
+	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter)
 	if err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
@@ -550,10 +550,10 @@ func TestWriteEnvironmentArtifact(t *testing.T) {
 }
 
 func TestRecoverPanic(t *testing.T) {
-	api := mockAPI(t, "TestBuildID", "", "", screwdriver.Running)
+	api := mockAPI(t, 1, 2, 3, screwdriver.Running)
 
 	updCalled := false
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
 		updCalled = true
 		fmt.Printf("Status set: %v\n", status)
 		if status != screwdriver.Failure {
@@ -568,7 +568,7 @@ func TestRecoverPanic(t *testing.T) {
 	}
 
 	func() {
-		defer recoverPanic("", api)
+		defer recoverPanic(0, api)
 		panic("OH NOES!")
 	}()
 
@@ -588,7 +588,7 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 	}
 
 	func() {
-		defer recoverPanic("", nil)
+		defer recoverPanic(0, nil)
 		panic("OH NOES!")
 	}()
 
@@ -598,8 +598,8 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 }
 
 func TestEmitterClose(t *testing.T) {
-	api := mockAPI(t, "TestBuildID", "TestJobID", "testPipelineID", "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID string) error {
+	api := mockAPI(t, 1, 2, 3, "")
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
 		return nil
 	}
 
@@ -614,7 +614,7 @@ func TestEmitterClose(t *testing.T) {
 		}, nil
 	}
 
-	if err := launchAction(screwdriver.API(api), "TestBuildID", TestWorkspace, TestEmitter); err != nil {
+	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -637,13 +637,13 @@ func TestSetEnv(t *testing.T) {
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 	}
 
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
+	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID}), nil
 	}
 
 	foundEnv := map[string]string{}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
@@ -672,15 +672,15 @@ func TestSetEnv(t *testing.T) {
 }
 
 func TestEnvSecrets(t *testing.T) {
-	api := mockAPI(t, TestBuildID, TestJobID, "", "RUNNING")
-	api.jobFromID = func(jobID string) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1"}), nil
+	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID}), nil
 	}
 
 	testBuild := FakeBuild{ID: TestBuildID, JobID: TestJobID}
 	api.secretsForBuild = func(build screwdriver.Build) (screwdriver.Secrets, error) {
 		if !reflect.DeepEqual(build.ID, testBuild.ID) {
-			t.Errorf("build.ID = %v, want %v", build.ID, testBuild.ID)
+			t.Errorf("build.ID = %d, want %d", build.ID, testBuild.ID)
 		}
 
 		testSecrets := screwdriver.Secrets{
@@ -692,7 +692,7 @@ func TestEnvSecrets(t *testing.T) {
 	foundEnv := map[string]string{}
 	oldExecutorRun := executorRun
 	defer func() { executorRun = oldExecutorRun }()
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
@@ -736,7 +736,7 @@ func TestCreateEnvironment(t *testing.T) {
 	}
 
 	testBuild := screwdriver.Build{
-		ID:          "build",
+		ID:          12345,
 		Environment: buildEnv,
 	}
 	env := createEnvironment(base, secrets, testBuild)

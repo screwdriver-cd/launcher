@@ -58,7 +58,7 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID string) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int) error {
 	cmds := build.Commands
 
 	for _, cmd := range cmds {
