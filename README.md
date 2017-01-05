@@ -1,5 +1,6 @@
 # Screwdriver Job Launcher
 [![Build Status][build-image]][build-url]
+[![Open Issues][issues-image]][issues-url]
 [![Latest Release][version-image]][version-url]
 [![Go Report Card][goreport-image]][goreport-url]
 
@@ -25,7 +26,9 @@ Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 
 [version-image]: https://img.shields.io/github/tag/screwdriver-cd/launcher.svg
 [version-url]: https://github.com/screwdriver-cd/launcher/releases
-[build-image]: https://cd.screwdriver.cd/pipelines/6172e25fa190fe5e23b3685f6e211bd9d066e578/badge
-[build-url]: https://cd.screwdriver.cd/pipelines/6172e25fa190fe5e23b3685f6e211bd9d066e578
+[issues-image]: https://img.shields.io/github/issues/screwdriver-cd/screwdriver.svg
+[issues-url]: https://github.com/screwdriver-cd/screwdriver/issues
+[build-image]: https://cd.screwdriver.cd/pipelines/21/badge
+[build-url]: https://cd.screwdriver.cd/pipelines/21
 [goreport-image]: https://goreportcard.com/badge/github.com/Screwdriver-cd/launcher
 [goreport-url]: https://goreportcard.com/report/github.com/Screwdriver-cd/launcher
