@@ -180,6 +180,14 @@ func TestRunSingle(t *testing.T) {
 			if executionCommand[0] != "source" {
 				t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
 			}
+
+      if executionCommand[2] != ";echo" {
+        t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
+      }
+
+      if executionCommand[4] != "$?" {
+        t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
+      }
 		})
 
 		testBuild := screwdriver.Build{

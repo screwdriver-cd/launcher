@@ -43,6 +43,9 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
 	executionCommand := []string{
 		"source",
 		"output.sh",
+    ";echo",
+    "output.sh", // ?? might need quotes
+    "$?",
 	}
 	shargs = append(shargs, strings.Join(executionCommand, " "))
 	c := execCommand("sh", shargs...)
