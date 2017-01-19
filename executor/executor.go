@@ -6,6 +6,7 @@ import (
 	"syscall"
   "io/ioutil"
   "path/filepath"
+	"strings"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
@@ -38,10 +39,12 @@ func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string
       panic(err)
   }
 
-  shargs := []string{"-e", "-c", "source"}
-	// shargs = append(shargs, file)
-	// shargs := []string{"-e", "-c"}
-  shargs = append(shargs, []string{cmd.Cmd, "echo $?"}...)
+  shargs := []string{"-e", "-c"}
+	executionCommand := []string{
+		"source",
+		"output.sh",
+	}
+	shargs = append(shargs, strings.Join(executionCommand, " "))
 	c := execCommand("sh", shargs...)
 
 	emitter.StartCmd(cmd)

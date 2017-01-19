@@ -164,7 +164,7 @@ func TestRunSingle(t *testing.T) {
 				t.Errorf("Run() ran %v, want 'sh'", cmd)
 			}
 
-			if len(args) != 5 {
+			if len(args) != 3 {
 				t.Errorf("Expected 5 arguments to exec, got %d: %v", len(args), args)
 			}
 
@@ -176,9 +176,10 @@ func TestRunSingle(t *testing.T) {
 				t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
 			}
 
-      if args[2] != "source" {
-        t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
-      }
+			executionCommand := strings.Split(args[2], " ")
+			if executionCommand[0] != "source" {
+				t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
+			}
 		})
 
 		testBuild := screwdriver.Build{
