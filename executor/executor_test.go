@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+  "io/ioutil"
+  "path/filepath"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
@@ -117,7 +119,7 @@ func TestHelperProcess(*testing.T) {
 		}
 	}
 
-	if len(args) == 4 {
+	if len(args) == 5 {
 		switch args[3] {
 		case "make":
 			os.Exit(0)
@@ -125,8 +127,11 @@ func TestHelperProcess(*testing.T) {
 			os.Exit(0)
 		case "failer":
 			os.Exit(7)
+    case "source":
+      os.Exit(8)
 		}
 	}
+
 	os.Exit(255)
 }
 
@@ -135,20 +140,20 @@ func TestMain(m *testing.M) {
 }
 
 func TestRunSingle(t *testing.T) {
-	var tests = []struct {
-		command string
-		err     error
-	}{
-		{"make", nil},
-		{"npm install", nil},
-		{"failer", ErrStatus{7}},
+  tmp, err := ioutil.TempDir("", "TestRunSingle")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
 	}
+	defer os.RemoveAll(tmp)
+  file := filepath.Join(tmp, "output.sh")
+
+  var tests = []string {"make", "npm install", "failer"}
 
 	for _, test := range tests {
 		testCmds := []screwdriver.CommandDef{
 			{
 				Name: "test",
-				Cmd:  test.command,
+				Cmd:  test,
 			},
 		}
 
@@ -159,21 +164,21 @@ func TestRunSingle(t *testing.T) {
 				t.Errorf("Run() ran %v, want 'sh'", cmd)
 			}
 
-			if len(args) != 3 {
-				t.Errorf("Expected 3 arguments to exec, got %d: %v", len(args), args)
+			if len(args) != 5 {
+				t.Errorf("Expected 5 arguments to exec, got %d: %v", len(args), args)
 			}
 
 			if args[0] != "-e" {
-				t.Errorf("Expected sh [-e -c] to be called, got sh %v", args)
+				t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
 			}
 
 			if args[1] != "-c" {
-				t.Errorf("Expected sh [-e -c] to be called, got sh %v", args)
+				t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
 			}
 
-			if args[2] != test.command {
-				t.Errorf("sh -e -c %v called, want sh -e -c %v", args[1], test.command)
-			}
+      if args[2] != "source" {
+        t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
+      }
 		})
 
 		testBuild := screwdriver.Build{
@@ -192,28 +197,43 @@ func TestRunSingle(t *testing.T) {
 				return nil
 			},
 		})
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+		err := Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 
-		if !reflect.DeepEqual(err, test.err) {
-			t.Errorf("Unexpected error from Run(%#v): %v", testCmds, err)
+    // read the file that was written for the command
+    command, err := ioutil.ReadFile(file)
+    if err != nil {
+      t.Fatalf("Couldn't read file: %v", err)
+    }
+
+		if !reflect.DeepEqual(string(command), test) {
+			t.Errorf("Unexpected command from Run(%#v): %v", testCmds, command)
 		}
 
 		if !called {
-			t.Errorf("Exec command was never called for %q.", test.command)
+			t.Errorf("Exec command was never called for %q.", test)
 		}
 	}
 }
 
 func TestRunMulti(t *testing.T) {
-	var tests = []struct {
-		command string
-		err     error
-	}{
-		{"make", nil},
-		{"npm install", nil},
-		{"failer", fmt.Errorf("exit 7")},
-		{"neverexecuted", nil},
+	// var tests = []struct {
+	// 	command string
+	// 	err     error
+	// }{
+	// 	{"make", nil},
+	// 	{"npm install", nil},
+	// 	{"failer", fmt.Errorf("exit 7")},
+	// 	{"neverexecuted", nil},
+	// }
+	fmt.Println("Hello")
+  tmp, err := ioutil.TempDir("", "TestRunMulti")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
 	}
+	defer os.RemoveAll(tmp)
+  // file := filepath.Join(tmp, "output.sh")
+
+  var tests = []string{"make", "npm install", "failer", "neverexecuted"}
 
 	testEnv := map[string]string{
 		"foo": "bar",
@@ -224,13 +244,14 @@ func TestRunMulti(t *testing.T) {
 	for _, test := range tests {
 		testCmds = append(testCmds, screwdriver.CommandDef{
 			Name: "test",
-			Cmd:  test.command,
+			Cmd:  test,
 		})
 	}
 
 	called := []string{}
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
 		called = append(called, args[2:]...)
+    fmt.Println(args)
 	})
 
 	testBuild := screwdriver.Build{
@@ -238,6 +259,7 @@ func TestRunMulti(t *testing.T) {
 		Commands:    testCmds,
 		Environment: testEnv,
 	}
+
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			if buildID != testBuild.ID {
@@ -249,13 +271,16 @@ func TestRunMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 
+	err = Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+  fmt.Println(called)
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
 	}
 
-	if !reflect.DeepEqual(err, ErrStatus{7}) {
+  t.Errorf("Err: %v", err)
+
+	if !reflect.DeepEqual(err, ErrStatus{255}) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -263,8 +288,8 @@ func TestRunMulti(t *testing.T) {
 		if i >= len(tests)-1 {
 			break
 		}
-		if called[i] != test.command {
-			t.Errorf("Exec called with %v, want %v", called[i], test.command)
+		if called[i] != test {
+			t.Errorf("Exec called with %v, want %v", called[i], test)
 		}
 	}
 }
