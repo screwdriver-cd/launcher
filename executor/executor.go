@@ -2,11 +2,11 @@ package executor
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os/exec"
-	"syscall"
-  "io/ioutil"
-  "path/filepath"
+	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
@@ -33,19 +33,19 @@ func (e ErrStatus) Error() string {
 
 // doRun executes the command
 func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
-  file := filepath.Join(path, "output.sh")
-  err := ioutil.WriteFile(file, []byte(cmd.Cmd), 0644)
-  if err != nil {
-      panic(err)
-  }
+	file := filepath.Join(path, "output.sh")
+	err := ioutil.WriteFile(file, []byte(cmd.Cmd), 0644)
+	if err != nil {
+		panic(err)
+	}
 
-  shargs := []string{"-e", "-c"}
+	shargs := []string{"-e", "-c"}
 	executionCommand := []string{
 		"source",
 		"output.sh",
-    ";echo",
-    "output.sh", // ?? might need quotes
-    "$?",
+		";echo",
+		"output.sh", // ?? might need quotes
+		"$?",
 	}
 	shargs = append(shargs, strings.Join(executionCommand, " "))
 	c := execCommand("sh", shargs...)
