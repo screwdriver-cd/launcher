@@ -203,6 +203,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error
 	}
 
 	defaultEnv := map[string]string{
+		"PS1": "",
 		"SCREWDRIVER": "true",
 		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
