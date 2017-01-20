@@ -127,7 +127,7 @@ func TestHelperProcess(*testing.T) {
 		}
 	}
 
-	if strings.HasPrefix(args[3], "source") {
+	if strings.HasPrefix(args[2], "source") {
 		os.Exit(0)
 	}
 
@@ -169,29 +169,29 @@ func TestRunSingle(t *testing.T) {
 				t.Errorf("Run() ran %v, want 'sh'", cmd)
 			}
 
-			if len(args) != 3 {
-				t.Errorf("Expected 5 arguments to exec, got %d: %v", len(args), args)
+			if len(args) != 2 {
+				t.Errorf("Expected 2 arguments to exec, got %d: %v", len(args), args)
 			}
 
-			if args[0] != "-e" {
+			// if args[0] != "-e" {
+			// 	t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
+			// }
+
+			if args[0] != "-c" {
 				t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
 			}
 
-			if args[1] != "-c" {
-				t.Errorf("Expected sh [-e -c source] to be called, got sh %v", args)
-			}
-
-			executionCommand := strings.Split(args[2], " ")
+			executionCommand := strings.Split(args[1], " ")
 			if executionCommand[0] != "source" {
-				t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
+				t.Errorf("Expected sh [-c 'source <file>; echo file $?'] to be called, got sh %v", args)
 			}
 
 			if executionCommand[2] != ";echo" {
-				t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
+				t.Errorf("Expected sh [-c 'source <file>; echo file $?'] to be called, got sh %v", args)
 			}
 
 			if executionCommand[4] != "$?" {
-				t.Errorf("Expected sh [-e -c 'source <file>; echo file $?'] to be called, got sh %v", args)
+				t.Errorf("Expected sh [-c 'source <file>; echo file $?'] to be called, got sh %v", args)
 			}
 		})
 
@@ -246,7 +246,8 @@ func TestRunMulti(t *testing.T) {
 
 	called := []string{}
 	execCommand = getFakeExecCommand(func(cmd string, args ...string) {
-		called = append(called, args[2:]...)
+    fmt.Fprintf(os.Stderr, "Called %v\n", args[1:])
+		called = append(called, args[1:]...)
 	})
 
 	testBuild := screwdriver.Build{
