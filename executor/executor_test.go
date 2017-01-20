@@ -3,9 +3,11 @@ package executor
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -102,6 +104,14 @@ func (e *MockEmitter) Close() error {
 	return nil
 }
 
+func CreateTempDir(directory string, prefix string) string {
+	tmp, err := ioutil.TempDir(directory, prefix)
+	if err != nil {
+		panic(fmt.Errorf("Couldn't create temp dir: %v", err))
+	}
+	return tmp
+}
+
 func TestHelperProcess(*testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
@@ -117,17 +127,8 @@ func TestHelperProcess(*testing.T) {
 		}
 	}
 
-	if len(args) == 5 {
-		switch args[3] {
-		case "make":
-			os.Exit(0)
-		case "npm install":
-			os.Exit(0)
-		case "failer":
-			os.Exit(7)
-		case "source":
-			os.Exit(8)
-		}
+	if strings.HasPrefix(args[3], "source") {
+		os.Exit(0)
 	}
 
 	os.Exit(255)
@@ -137,13 +138,19 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestRunSingle(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "TestRunSingle")
+func ReadCommand(file string) string {
+	// read the file that was written for the command
+	fileread, err := ioutil.ReadFile(file)
 	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
+		panic(fmt.Errorf("Couldn't read file: %v", err))
 	}
+	return strings.Split(string(fileread), "\n")[1] // expected input: "#!/bin/sh -e\n<COMMAND>"
+}
+
+func TestRunSingle(t *testing.T) {
+	tmp := CreateTempDir("", "TestRunSingle")
 	defer os.RemoveAll(tmp)
-	// file := filepath.Join(tmp, "output.sh")
+	file := filepath.Join(tmp, "output.sh")
 
 	var tests = []string{"make", "npm install", "failer"}
 
@@ -205,16 +212,11 @@ func TestRunSingle(t *testing.T) {
 			},
 		})
 		Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+		command := ReadCommand(file)
 
-		// read the file that was written for the command
-		// command, err := ioutil.ReadFile(file)
-		// if err != nil {
-		// 	t.Fatalf("Couldn't read file: %v", err)
-		// }
-		//
-		// if !reflect.DeepEqual(string(command), test) {
-		// 	t.Errorf("Unexpected command from Run(%#v): %v", testCmds, command)
-		// }
+		if !reflect.DeepEqual(command, test) {
+			t.Errorf("Unexpected command from Run(%#v): %v", testCmds, command)
+		}
 
 		if !called {
 			t.Errorf("Exec command was never called for %q.", test)
@@ -223,20 +225,9 @@ func TestRunSingle(t *testing.T) {
 }
 
 func TestRunMulti(t *testing.T) {
-	// var tests = []struct {
-	// 	command string
-	// 	err     error
-	// }{
-	// 	{"make", nil},
-	// 	{"npm install", nil},
-	// 	{"failer", fmt.Errorf("exit 7")},
-	// 	{"neverexecuted", nil},
-	// }
-	tmp, err := ioutil.TempDir("", "TestRunMulti")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
+	tmp := CreateTempDir("", "TestRunMulti")
 	defer os.RemoveAll(tmp)
+	file := filepath.Join(tmp, "output.sh")
 
 	var tests = []string{"make", "npm install", "failer", "neverexecuted"}
 
@@ -276,26 +267,20 @@ func TestRunMulti(t *testing.T) {
 		},
 	})
 
-	err = Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+	err := Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+	command := ReadCommand(file)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if command != "neverexecuted" {
+		t.Errorf("Exec called with %v, want neverexecuted", command)
+	}
 
 	if len(called) < len(tests)-1 {
 		t.Fatalf("%d commands called, want %d", len(called), len(tests)-1)
 	}
-
-	// t.Errorf("Err: %v", err)
-
-	if !reflect.DeepEqual(err, ErrStatus{255}) {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	// for i, test := range tests {
-	// 	if i >= len(tests)-1 {
-	// 		break
-	// 	}
-	// 	if called[i] != test {
-	// 		t.Errorf("Exec called with %v, want %v", command, test)
-	// 	}
-	// }
 }
 
 func TestUnmocked(t *testing.T) {
@@ -310,11 +295,9 @@ func TestUnmocked(t *testing.T) {
 	// 	{"ls && sh -c 'exit 5' && sh -c 'exit 2'", ErrStatus{5}},
 	// }
 
-	tmp, err := ioutil.TempDir("", "TestUnmocked")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
+	tmp := CreateTempDir("", "TestUnmocked")
 	defer os.RemoveAll(tmp)
+	file := filepath.Join(tmp, "output.sh")
 
 	var tests = []string{"ls", "doesntexist", "ls && ls", "ls && sh -c 'exit 5' && sh -c 'exit 2'"}
 
@@ -341,11 +324,16 @@ func TestUnmocked(t *testing.T) {
 				return nil
 			},
 		})
-		Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+		err := Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+		command := ReadCommand(file)
 
-		// if !reflect.DeepEqual(err, test.err) {
-		// 	t.Errorf("Unexpected error: %v, want %v", err, test.err)
-		// }
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if !reflect.DeepEqual(command, test) {
+			t.Errorf("Unexpected command from Run(%#v): %v", tests, command)
+		}
 	}
 }
 
@@ -415,9 +403,8 @@ func TestEnv(t *testing.T) {
 		}
 		found[split[0]] = split[1]
 	}
-
-	if foundCmd != "$ env" {
-		t.Errorf("foundCmd = %q, want %q", foundCmd, "env")
+	if !strings.Contains(foundCmd, "output.sh") {
+		t.Errorf("foundCmd = %q, want %q", foundCmd, "<TMP FILEPATH>/output.sh 0")
 	}
 
 	for k, v := range want {
@@ -428,6 +415,12 @@ func TestEnv(t *testing.T) {
 }
 
 func TestEmitter(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "TestEmitter")
+	if err != nil {
+		t.Fatalf("Couldn't create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
 	execCommand = exec.Command
 	var tests = []struct {
 		command string
@@ -466,7 +459,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID)
+	Run(tmp, nil, &emitter, testBuild, testAPI, testBuild.ID)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

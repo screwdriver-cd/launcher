@@ -33,18 +33,20 @@ func (e ErrStatus) Error() string {
 
 // doRun executes the command
 func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
+	fmt.Println(cmd.Cmd)
 	file := filepath.Join(path, "output.sh")
-	err := ioutil.WriteFile(file, []byte(cmd.Cmd), 0644)
+	defaultStart := "#!/bin/sh -e"
+	err := ioutil.WriteFile(file, []byte(defaultStart+"\n"+cmd.Cmd), 0644)
 	if err != nil {
-		panic(err)
+		return ExitUnknown, fmt.Errorf("Unexpected error with writing temporary output file: %v", err)
 	}
 
 	shargs := []string{"-e", "-c"}
 	executionCommand := []string{
 		"source",
-		"output.sh",
+		file,
 		";echo",
-		"output.sh", // ?? might need quotes
+		file, // ?? this is actually identifier
 		"$?",
 	}
 	shargs = append(shargs, strings.Join(executionCommand, " "))
@@ -88,9 +90,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 
 		if cmdErr != nil {
+			// panic(fmt.Errorf("no: %v", cmdErr))
 			return cmdErr
 		}
 	}
+
+	fmt.Println("\nNEXT")
 
 	return nil
 }
