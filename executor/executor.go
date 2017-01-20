@@ -33,7 +33,6 @@ func (e ErrStatus) Error() string {
 
 // doRun executes the command
 func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
-	fmt.Println(cmd.Cmd)
 	file := filepath.Join(path, "output.sh")
 	defaultStart := "#!/bin/sh -e"
 	err := ioutil.WriteFile(file, []byte(defaultStart+"\n"+cmd.Cmd), 0644)
@@ -90,12 +89,9 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 
 		if cmdErr != nil {
-			// panic(fmt.Errorf("no: %v", cmdErr))
 			return cmdErr
 		}
 	}
-
-	fmt.Println("\nNEXT")
 
 	return nil
 }

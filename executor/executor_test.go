@@ -285,25 +285,23 @@ func TestRunMulti(t *testing.T) {
 
 func TestUnmocked(t *testing.T) {
 	execCommand = exec.Command
-	// var tests = []struct {
-	// 	command string
-	// 	err     error
-	// }{
-	// 	{"ls", nil},
-	// 	{"doesntexist", ErrStatus{127}},
-	// 	{"ls && ls", nil},
-	// 	{"ls && sh -c 'exit 5' && sh -c 'exit 2'", ErrStatus{5}},
-	// }
+	var tests = []struct {
+		command string
+		err     error
+	}{
+		{"ls", nil},
+		{"doesntexist", ErrStatus{127}},
+		{"ls && ls", nil},
+		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", ErrStatus{5}},
+	}
 
 	tmp := CreateTempDir("", "TestUnmocked")
 	defer os.RemoveAll(tmp)
 	file := filepath.Join(tmp, "output.sh")
 
-	var tests = []string{"ls", "doesntexist", "ls && ls", "ls && sh -c 'exit 5' && sh -c 'exit 2'"}
-
 	for _, test := range tests {
 		cmd := screwdriver.CommandDef{
-			Cmd:  test,
+			Cmd:  test.command,
 			Name: "test",
 		}
 		testBuild := screwdriver.Build{
@@ -327,21 +325,18 @@ func TestUnmocked(t *testing.T) {
 		err := Run(tmp, nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 		command := ReadCommand(file)
 
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
+		if err != test.err {
+			t.Fatalf("Unexpected error: %v - should be %v", err, test.err)
 		}
 
-		if !reflect.DeepEqual(command, test) {
+		if !reflect.DeepEqual(command, test.command) {
 			t.Errorf("Unexpected command from Run(%#v): %v", tests, command)
 		}
 	}
 }
 
 func TestEnv(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "TestUnmocked")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
+	tmp := CreateTempDir("", "TestEnv")
 	defer os.RemoveAll(tmp)
 
 	baseEnv := []string{
@@ -385,7 +380,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err = Run(tmp, baseEnv, &output, testBuild, testAPI, testBuild.ID)
+	err := Run(tmp, baseEnv, &output, testBuild, testAPI, testBuild.ID)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -403,6 +398,7 @@ func TestEnv(t *testing.T) {
 		}
 		found[split[0]] = split[1]
 	}
+
 	if !strings.Contains(foundCmd, "output.sh") {
 		t.Errorf("foundCmd = %q, want %q", foundCmd, "<TMP FILEPATH>/output.sh 0")
 	}
@@ -415,10 +411,7 @@ func TestEnv(t *testing.T) {
 }
 
 func TestEmitter(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "TestEmitter")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
+	tmp := CreateTempDir("", "TestUnmocked")
 	defer os.RemoveAll(tmp)
 
 	execCommand = exec.Command
@@ -459,7 +452,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	Run(tmp, nil, &emitter, testBuild, testAPI, testBuild.ID)
+	err := Run(tmp, nil, &emitter, testBuild, testAPI, testBuild.ID)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
