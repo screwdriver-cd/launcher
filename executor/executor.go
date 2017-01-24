@@ -2,7 +2,11 @@ package executor
 
 import (
 	"fmt"
+	"io/ioutil"
+  "os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
@@ -30,8 +34,22 @@ func (e ErrStatus) Error() string {
 
 // doRun executes the command
 func doRun(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
-	shargs := []string{"-e", "-c"}
-	shargs = append(shargs, cmd.Cmd)
+	file := filepath.Join(path, "output.sh")
+	defaultStart := "#!/bin/sh -e"
+	err := ioutil.WriteFile(file, []byte(defaultStart+"\n"+cmd.Cmd), 0644)
+	if err != nil {
+		return ExitUnknown, fmt.Errorf("Unexpected error with writing temporary output file: %v", err)
+	}
+
+	shargs := []string{"-c"}
+	executionCommand := []string{
+		"source",
+		file,
+		";echo",
+		file, // ?? this is actually identifier
+		"$?",
+	}
+	shargs = append(shargs, strings.Join(executionCommand, " "))
 	c := execCommand("sh", shargs...)
 
 	emitter.StartCmd(cmd)
