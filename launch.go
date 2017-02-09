@@ -203,7 +203,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error
 	}
 
 	defaultEnv := map[string]string{
-		"PS1": "",
+		"PS1":         "",
 		"SCREWDRIVER": "true",
 		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
@@ -256,13 +256,6 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 	// Add secrets to the environment
 	for _, s := range secrets {
 		combined[s.Name] = s.Value
-	}
-
-	// Delete any environment variables that we don't want the user to accidentally dump
-	for _, k := range []string{
-		"SD_TOKEN",
-	} {
-		delete(combined, k)
 	}
 
 	// Create the final string slice
