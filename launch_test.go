@@ -721,6 +721,7 @@ func TestEnvSecrets(t *testing.T) {
 func TestCreateEnvironment(t *testing.T) {
 	os.Setenv("OSENVWITHEQUALS", "foo=bar=")
 	base := map[string]string{
+		"SD_TOKEN":        "1234",
 		"FOO":             "bar",
 		"THINGWITHEQUALS": "abc=def",
 		"GETSOVERRIDDEN":  "goesaway",
@@ -747,6 +748,7 @@ func TestCreateEnvironment(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"SD_TOKEN=1234",
 		"FOO=bar",
 		"THINGWITHEQUALS=abc=def",
 		"secret1=secret1value",
