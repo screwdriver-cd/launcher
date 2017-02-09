@@ -632,6 +632,7 @@ func TestSetEnv(t *testing.T) {
 		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
+		"SD_PIPELINE_ID":         "3456",
 		"SD_PULL_REQUEST":        "1",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
