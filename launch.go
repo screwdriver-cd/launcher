@@ -208,6 +208,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error
 		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
+		"SD_PIPELINE_ID":         strconv.Itoa(j.PipelineID),
 		"SD_PULL_REQUEST":        pr,
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
