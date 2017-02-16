@@ -35,7 +35,7 @@ RUN set -x \
    && mv tini-static tini \
    && chmod +x tini \
    # Create FIFO
-   && mkfifo emitter \
+   && mkfifo -m 666 emitter \
    # Cleanup packages
    && apk del --purge .build-dependencies
 
