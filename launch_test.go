@@ -636,6 +636,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PULL_REQUEST":        "1",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
+		"SD_BUILD_ID":            "1234",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
