@@ -212,6 +212,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error
 		"SD_PULL_REQUEST":        pr,
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
+		"SD_BUILD_ID":            strconv.Itoa(buildID),
 	}
 
 	secrets, err := api.SecretsForBuild(b)
