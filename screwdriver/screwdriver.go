@@ -38,7 +38,7 @@ type API interface {
 	BuildFromID(buildID int) (Build, error)
 	JobFromID(jobID int) (Job, error)
 	PipelineFromID(pipelineID int) (Pipeline, error)
-	UpdateBuildStatus(status BuildStatus, buildID int) error
+	UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error
 	UpdateStepStart(buildID int, stepName string) error
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
@@ -73,7 +73,8 @@ func New(url, token string) (API, error) {
 
 // BuildStatusPayload is a Screwdriver Build Status payload.
 type BuildStatusPayload struct {
-	Status string `json:"status"`
+	Status string                 `json:"status"`
+	Meta   map[string]interface{} `json:"meta"`
 }
 
 // StepStartPayload is a Screwdriver Step Start payload.
@@ -114,11 +115,13 @@ type CommandDef struct {
 
 // Build is a Screwdriver Build
 type Build struct {
-	ID          int               `json:"id"`
-	JobID       int               `json:"jobId"`
-	SHA         string            `json:"sha"`
-	Commands    []CommandDef      `json:"steps"`
-	Environment map[string]string `json:"environment"`
+	ID            int               `json:"id"`
+	JobID         int               `json:"jobId"`
+	SHA           string            `json:"sha"`
+	Commands      []CommandDef      `json:"steps"`
+	Environment   map[string]string `json:"environment"`
+	ParentBuildID string            `json:"parentBuildId"`
+	Meta          string            `json:"meta"`
 }
 
 // Secret is a Screwdriver build secret.
@@ -320,7 +323,7 @@ func (a api) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
 	return pipeline, nil
 }
 
-func (a api) UpdateBuildStatus(status BuildStatus, buildID int) error {
+func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error {
 	switch status {
 	case Running:
 	case Success:
@@ -337,6 +340,7 @@ func (a api) UpdateBuildStatus(status BuildStatus, buildID int) error {
 
 	bs := BuildStatusPayload{
 		Status: status.String(),
+		Meta:   meta,
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {

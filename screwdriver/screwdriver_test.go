@@ -291,17 +291,22 @@ func TestPipelineFromID(t *testing.T) {
 }
 
 func TestUpdateBuildStatus(t *testing.T) {
+	var meta map[string]interface{}
+	mockJson := []byte("{\"hoge\":\"fuga\"}")
+	_ = json.Unmarshal(mockJson, &meta)
+
 	tests := []struct {
 		status     BuildStatus
+		meta       map[string]interface{}
 		statusCode int
 		err        error
 	}{
-		{Success, 200, nil},
-		{Failure, 200, nil},
-		{Aborted, 200, nil},
-		{Running, 200, nil},
-		{"NOTASTATUS", 200, errors.New("invalid build status: NOTASTATUS")},
-		{Success, 500, errors.New("posting to Build Status: after 5 attempts, " +
+		{Success, meta, 200, nil},
+		{Failure, meta, 200, nil},
+		{Aborted, meta, 200, nil},
+		{Running, meta, 200, nil},
+		{"NOTASTATUS", meta, 200, errors.New("invalid build status: NOTASTATUS")},
+		{Success, meta, 500, errors.New("posting to Build Status: after 5 attempts, " +
 			"last error: retries exhausted: 500 returned from http://fakeurl/v4/builds/15")},
 	}
 
@@ -309,7 +314,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		http := makeFakeHTTPClient(t, test.statusCode, "{}")
 		testAPI := api{"http://fakeurl", "faketoken", http}
 
-		err := testAPI.UpdateBuildStatus(test.status, 15)
+		err := testAPI.UpdateBuildStatus(test.status, test.meta, 15)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from UpdateBuildStatus: %v, want %v", err, test.err)
