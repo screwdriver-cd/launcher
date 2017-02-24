@@ -27,17 +27,33 @@ var stat = os.Stat
 var open = os.Open
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
+var readFile = ioutil.ReadFile
 var newEmitter = screwdriver.NewEmitter
+var unmarshal = json.Unmarshal
 
 var cleanExit = func() {
 	os.Exit(0)
 }
 
 // exit sets the build status and exits successfully
-func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API) {
+func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
 	if api != nil {
+		var metaInterface map[string]interface{}
+
+		log.Printf("Loading meta from %q/meta.json", metaSpace)
+		metaJson, err := readFile(metaSpace + "/meta.json")
+		if err != nil {
+			log.Printf("Failed to load %q/meta.json: %v", metaSpace, err)
+			metaJson = nil
+		} else {
+			err = unmarshal(metaJson, &metaInterface)
+			if err != nil {
+				log.Printf("Failed to Load %q/meta.json: %v", metaSpace, err)
+			}
+			metaJson = nil
+		}
 		log.Printf("Setting build status to %s", status)
-		if err := api.UpdateBuildStatus(status, buildID); err != nil {
+		if err := api.UpdateBuildStatus(status, metaInterface, buildID); err != nil {
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
@@ -111,6 +127,14 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	return w, nil
 }
 
+var createMetaSpace = func(metaSpace string) error {
+	err := mkdirAll(metaSpace, 0777)
+	if err != nil {
+		return fmt.Errorf("Cannot create meta-space path %q: %v", metaSpace, err)
+	}
+	return nil
+}
+
 func writeArtifact(aDir string, fName string, artifact interface{}) error {
 	data, err := json.MarshalIndent(artifact, "", strings.Repeat(" ", 4))
 	if err != nil {
@@ -137,7 +161,7 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaSpace string) error {
 	emitter, err := newEmitter(emitterPath)
 	if err != nil {
 		return err
@@ -149,7 +173,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error
 	}
 
 	log.Print("Setting Build Status to RUNNING")
-	if err = api.UpdateBuildStatus(screwdriver.Running, buildID); err != nil {
+	if err = api.UpdateBuildStatus(screwdriver.Running, nil, buildID); err != nil {
 		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
 
@@ -169,6 +193,24 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string) error
 	p, err := api.PipelineFromID(j.PipelineID)
 	if err != nil {
 		return fmt.Errorf("fetching Pipeline ID %d: %v", j.PipelineID, err)
+	}
+
+	log.Printf("Fetching Parent Build %d for Meta", b.ParentBuildID)
+	pb, err := api.BuildFromID(b.ParentBuildID)
+	if err != nil {
+		return fmt.Errorf("fetching parent build ID %d: %v", pb.ParentBuildID, err)
+	}
+
+	log.Printf("Creating Meta Space in %v", metaSpace)
+	err = createMetaSpace(metaSpace)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Fetching Parent Build Meta JSON %v", pb.Meta)
+	err = writeFile(metaSpace+"/meta.json", []byte(pb.Meta), 0666)
+	if err != nil {
+		return fmt.Errorf("fetching Parent Build Meta JSON %d: %v", pb.ParentBuildID, err)
 	}
 
 	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
@@ -274,25 +316,25 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath string, metaSpace string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir, emitterPath); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
 			log.Printf("Error running launcher: %v\n", err)
 		}
 
-		exit(screwdriver.Failure, buildID, api)
+		exit(screwdriver.Failure, buildID, api, metaSpace)
 		return nil
 	}
 
-	exit(screwdriver.Success, buildID, api)
+	exit(screwdriver.Success, buildID, api, metaSpace)
 	return nil
 }
 
-func recoverPanic(buildID int, api screwdriver.API) {
+func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
 	if p := recover(); p != nil {
 		filename := fmt.Sprintf("launcher-stacktrace-%s", time.Now().Format(time.RFC3339))
 		tracefile := filepath.Join(os.TempDir(), filename)
@@ -304,7 +346,7 @@ func recoverPanic(buildID int, api screwdriver.API) {
 			log.Printf("ERROR: Unable to write stacktrace to file: %v", err)
 		}
 
-		exit(screwdriver.Failure, buildID, api)
+		exit(screwdriver.Failure, buildID, api, metaSpace)
 	}
 }
 
@@ -320,7 +362,7 @@ func finalRecover() {
 
 func main() {
 	defer finalRecover()
-	defer recoverPanic(0, nil)
+	defer recoverPanic(0, nil, "")
 
 	app := cli.NewApp()
 	app.Name = "launcher"
@@ -354,6 +396,11 @@ func main() {
 			Usage: "Location for writing log lines to",
 			Value: "/var/run/sd/emitter",
 		},
+		cli.StringFlag{
+			Name:  "meta-space",
+			Usage: "Location of meta temporarily",
+			Value: "/sd/meta",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -361,6 +408,7 @@ func main() {
 		token := c.String("token")
 		workspace := c.String("workspace")
 		emitterPath := c.String("emitter")
+		metaSpace := c.String("meta-space")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 
 		if err != nil {
@@ -370,16 +418,16 @@ func main() {
 		api, err := screwdriver.New(url, token)
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
-			exit(screwdriver.Failure, buildID, nil)
+			exit(screwdriver.Failure, buildID, nil, metaSpace)
 		}
 
-		defer recoverPanic(buildID, api)
+		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
-		exit(screwdriver.Failure, buildID, api)
+		exit(screwdriver.Failure, buildID, api, metaSpace)
 		return nil
 	}
 	app.Run(os.Args)

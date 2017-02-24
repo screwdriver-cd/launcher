@@ -21,6 +21,11 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/logservice' \
       | wget --base=http://github.com/ -i - -O logservice \
    && chmod +x logservice \
+   # Download Meta CLI
+   && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
+      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli' \
+      | wget --base=http://github.com/ -i - -O meta-cli\
+   && chmod +x meta-cli\
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \

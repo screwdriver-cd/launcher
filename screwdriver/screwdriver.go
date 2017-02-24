@@ -120,7 +120,7 @@ type Build struct {
 	SHA           string            `json:"sha"`
 	Commands      []CommandDef      `json:"steps"`
 	Environment   map[string]string `json:"environment"`
-	ParentBuildID string            `json:"parentBuildId"`
+	ParentBuildID int               `json:"parentBuildId"`
 	Meta          string            `json:"meta"`
 }
 
