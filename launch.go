@@ -195,22 +195,26 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		return fmt.Errorf("fetching Pipeline ID %d: %v", j.PipelineID, err)
 	}
 
-	log.Printf("Fetching Parent Build %d for Meta", b.ParentBuildID)
-	pb, err := api.BuildFromID(b.ParentBuildID)
-	if err != nil {
-		return fmt.Errorf("fetching parent build ID %d: %v", pb.ParentBuildID, err)
-	}
+	if b.ParentBuildID == 0 {
+		log.Printf("This build has no Parent Build, so fetching Meta is skiped")
+	} else {
+		log.Printf("Fetching Parent Build %d for Meta", b.ParentBuildID)
+		pb, err := api.BuildFromID(b.ParentBuildID)
+		if err != nil {
+			return fmt.Errorf("fetching parent build ID %d: %v", pb.ParentBuildID, err)
+		}
 
-	log.Printf("Creating Meta Space in %v", metaSpace)
-	err = createMetaSpace(metaSpace)
-	if err != nil {
-		return err
-	}
+		log.Printf("Creating Meta Space in %v", metaSpace)
+		err = createMetaSpace(metaSpace)
+		if err != nil {
+			return err
+		}
 
-	log.Printf("Fetching Parent Build Meta JSON %v", pb.Meta)
-	err = writeFile(metaSpace+"/meta.json", []byte(pb.Meta), 0666)
-	if err != nil {
-		return fmt.Errorf("fetching Parent Build Meta JSON %d: %v", pb.ParentBuildID, err)
+		log.Printf("Fetching Parent Build Meta JSON %v", pb.Meta)
+		err = writeFile(metaSpace+"/meta.json", []byte(pb.Meta), 0666)
+		if err != nil {
+			return fmt.Errorf("fetching Parent Build Meta JSON %d: %v", pb.ParentBuildID, err)
+		}
 	}
 
 	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
