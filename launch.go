@@ -44,20 +44,19 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 		metaJson, err := readFile(metaSpace + "/meta.json")
 		if err != nil {
 			log.Printf("Failed to load %q/meta.json: %v", metaSpace, err)
-			metaJson = nil
+			metaInterface = make(map[string]interface{})
 		} else {
 			err = unmarshal(metaJson, &metaInterface)
 			if err != nil {
 				log.Printf("Failed to Load %q/meta.json: %v", metaSpace, err)
+				metaInterface = make(map[string]interface{})
 			}
-			metaJson = nil
 		}
 		log.Printf("Setting build status to %s", status)
 		if err := api.UpdateBuildStatus(status, metaInterface, buildID); err != nil {
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
-
 	cleanExit()
 }
 
@@ -173,7 +172,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 	}
 
 	log.Print("Setting Build Status to RUNNING")
-	if err = api.UpdateBuildStatus(screwdriver.Running, nil, buildID); err != nil {
+	emptyMeta := make(map[string]interface{}) // {"meta":null} are not accepted. This will be {"meta":{}}
+	if err = api.UpdateBuildStatus(screwdriver.Running, emptyMeta, buildID); err != nil {
 		return fmt.Errorf("updating build status to RUNNING: %v", err)
 	}
 
