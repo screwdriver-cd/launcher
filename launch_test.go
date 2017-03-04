@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -15,11 +16,14 @@ import (
 )
 
 const (
-	TestWorkspace  = "/sd/workspace"
-	TestEmitter    = "./data/emitter"
-	TestBuildID    = 1234
-	TestJobID      = 2345
-	TestPipelineID = 3456
+	TestWorkspace     = "/sd/workspace"
+	TestEmitter       = "./data/emitter"
+	TestBuildID       = 1234
+	TestJobID         = 2345
+	TestPipelineID    = 3456
+	TestParentBuildID = 1111
+	TestMeta          = "{\"hoge\":\"fuga\"}"
+	TestMetaSpace     = "./data/meta"
 
 	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
@@ -55,7 +59,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			}
 			return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		},
-		updateBuildStatus: func(status screwdriver.BuildStatus, buildID int) error {
+		updateBuildStatus: func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 			if buildID != testBuildID {
 				t.Errorf("status == %s, want %s", status, testStatus)
 				// Panic to get the stacktrace
@@ -75,7 +79,7 @@ type MockAPI struct {
 	buildFromID       func(int) (screwdriver.Build, error)
 	jobFromID         func(int) (screwdriver.Job, error)
 	pipelineFromID    func(int) (screwdriver.Pipeline, error)
-	updateBuildStatus func(screwdriver.BuildStatus, int) error
+	updateBuildStatus func(screwdriver.BuildStatus, map[string]interface{}, int) error
 	updateStepStart   func(buildID int, stepName string) error
 	updateStepStop    func(buildID int, stepName string, exitCode int) error
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
@@ -109,9 +113,9 @@ func (f MockAPI) PipelineFromID(pipelineID int) (screwdriver.Pipeline, error) {
 	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, buildID int) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 	if f.updateBuildStatus != nil {
-		return f.updateBuildStatus(status, buildID)
+		return f.updateBuildStatus(status, nil, buildID)
 	}
 	return nil
 }
@@ -187,13 +191,16 @@ func TestMain(m *testing.M) {
 	}
 	cleanExit = func() {}
 	writeFile = func(string, []byte, os.FileMode) error { return nil }
+	createMetaSpace = func(metaspace string) (err error) { return nil }
+	readFile = func(filename string) (data []byte, err error) { return nil, nil }
+	unmarshal = func(data []byte, v interface{}) (err error) { return nil }
 	os.Exit(m.Run())
 }
 
 func TestBuildJobPipelineFromID(t *testing.T) {
 	testPipelineID := 9999
 	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
-	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 }
 
 func TestBuildFromIdError(t *testing.T) {
@@ -204,7 +211,7 @@ func TestBuildFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -222,7 +229,7 @@ func TestJobFromIdError(t *testing.T) {
 		return screwdriver.Job(FakeJob{}), err
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -241,7 +248,7 @@ func TestPipelineFromIdError(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{}), err
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 	if err == nil {
 		t.Fatalf("err should not be nil")
 	}
@@ -292,7 +299,6 @@ func TestCreateWorkspace(t *testing.T) {
 		madeDirs[path] = perm
 		return nil
 	}
-
 	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
 
 	if err != nil {
@@ -344,8 +350,12 @@ func TestCreateWorkspaceError(t *testing.T) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) {
 		return fmt.Errorf("Spooky error")
 	}
+	createMetaSpace = func(metaspace string) (err error) { return nil }
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		return nil
+	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 
 	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher\": Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
@@ -375,11 +385,11 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 
 func TestUpdateBuildStatusError(t *testing.T) {
 	api := mockAPI(t, TestBuildID, 0, 0, screwdriver.Running)
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 		return fmt.Errorf("Spooky error")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 
 	want := "updating build status to RUNNING: Spooky error"
 	if err.Error() != want {
@@ -395,7 +405,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 
 	var gotStatuses []screwdriver.BuildStatus
 	api := mockAPI(t, 1, 2, 3, "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -407,7 +417,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	tmp, cleanup := setupTempDirectoryAndSocket(t)
 	defer cleanup()
 
-	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket")); err != nil {
+	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket"), TestMetaSpace); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -424,7 +434,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	var gotStatuses []screwdriver.BuildStatus
 	api := mockAPI(t, 1, 2, 3, "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -444,7 +454,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 		return executor.ErrStatus{Status: 1}
 	}
 
-	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter)
+	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter, TestMetaSpace)
 	if err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
@@ -553,7 +563,7 @@ func TestRecoverPanic(t *testing.T) {
 	api := mockAPI(t, 1, 2, 3, screwdriver.Running)
 
 	updCalled := false
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 		updCalled = true
 		fmt.Printf("Status set: %v\n", status)
 		if status != screwdriver.Failure {
@@ -568,7 +578,7 @@ func TestRecoverPanic(t *testing.T) {
 	}
 
 	func() {
-		defer recoverPanic(0, api)
+		defer recoverPanic(0, api, TestMetaSpace)
 		panic("OH NOES!")
 	}()
 
@@ -588,7 +598,7 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 	}
 
 	func() {
-		defer recoverPanic(0, nil)
+		defer recoverPanic(0, nil, TestMetaSpace)
 		panic("OH NOES!")
 	}()
 
@@ -599,7 +609,7 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 
 func TestEmitterClose(t *testing.T) {
 	api := mockAPI(t, 1, 2, 3, "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
 		return nil
 	}
 
@@ -614,7 +624,7 @@ func TestEmitterClose(t *testing.T) {
 		}, nil
 	}
 
-	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter); err != nil {
+	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter, TestMetaSpace); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -661,7 +671,7 @@ func TestSetEnv(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -710,7 +720,7 @@ func TestEnvSecrets(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -765,5 +775,47 @@ func TestCreateEnvironment(t *testing.T) {
 
 	if foundEnv["GETSOVERRIDDEN=goesaway"] {
 		t.Errorf("Failed to override the base environment with a secret")
+	}
+}
+
+func TestFetchParentBuildMeta(t *testing.T) {
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var previousMeta []byte
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID, Meta: TestMeta}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		previousMeta = data
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	want := []byte("{\"hoge\":\"fuga\"}")
+
+	if err != nil || string(previousMeta) == string(want) {
+		t.Errorf("expected previousMeta is %v, but: %v", want, previousMeta)
+	}
+}
+
+func TestFetchParentBuildMetaError(t *testing.T) {
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		return fmt.Errorf("testing fetching parent build meta")
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	want := "fetching Parent Build Meta JSON " + strconv.Itoa(TestParentBuildID) + ": testing fetching parent build meta"
+
+	if err.Error() != want {
+		t.Errorf("Error is wrong, got %v", err)
 	}
 }
