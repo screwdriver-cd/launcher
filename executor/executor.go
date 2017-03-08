@@ -75,6 +75,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 	executionCommand := []string{
 		"export SD_STEP_ID=" + guid,
 		";. " + path,
+		";echo",
 		";echo " + guid + " $?\n",
 	}
 	shargs := strings.Join(executionCommand, " ")
