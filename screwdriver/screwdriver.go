@@ -115,13 +115,13 @@ type CommandDef struct {
 
 // Build is a Screwdriver Build
 type Build struct {
-	ID            int               `json:"id"`
-	JobID         int               `json:"jobId"`
-	SHA           string            `json:"sha"`
-	Commands      []CommandDef      `json:"steps"`
-	Environment   map[string]string `json:"environment"`
-	ParentBuildID int               `json:"parentBuildId"`
-	Meta          string            `json:"meta"`
+	ID            int                    `json:"id"`
+	JobID         int                    `json:"jobId"`
+	SHA           string                 `json:"sha"`
+	Commands      []CommandDef           `json:"steps"`
+	Environment   map[string]string      `json:"environment"`
+	ParentBuildID int                    `json:"parentBuildId"`
+	Meta          map[string]interface{} `json:"meta"`
 }
 
 // Secret is a Screwdriver build secret.

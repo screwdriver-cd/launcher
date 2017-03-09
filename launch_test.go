@@ -22,7 +22,6 @@ const (
 	TestJobID         = 2345
 	TestPipelineID    = 3456
 	TestParentBuildID = 1111
-	TestMeta          = "{\"hoge\":\"fuga\"}"
 	TestMetaSpace     = "./data/meta"
 
 	TestScmURI = "github.com:123456:master"
@@ -781,11 +780,14 @@ func TestCreateEnvironment(t *testing.T) {
 func TestFetchParentBuildMeta(t *testing.T) {
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
+	var mockMeta map[string]interface{}
+	mockMeta = make(map[string]interface{})
 	var previousMeta []byte
 
+	mockMeta["hoge"] = "fuga"
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID, Meta: TestMeta}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID, Meta: mockMeta}), nil
 	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
 		previousMeta = data
@@ -800,7 +802,27 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 }
 
-func TestFetchParentBuildMetaError(t *testing.T) {
+func TestFetchParentBuildMetaParseError(t *testing.T) {
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+	}
+	marshal = func(v interface{}) (result []byte, err error) {
+		return []byte("test"), fmt.Errorf("testing parsing parent build meta")
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	want := "parsing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: testing parsing parent build meta"
+
+	if err.Error() != want {
+		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	}
+}
+
+func TestFetchParentBuildMetaWriteError(t *testing.T) {
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
 
@@ -809,13 +831,13 @@ func TestFetchParentBuildMetaError(t *testing.T) {
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
 	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		return fmt.Errorf("testing fetching parent build meta")
+		return fmt.Errorf("testing writing parent build meta")
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
-	want := "fetching Parent Build Meta JSON " + strconv.Itoa(TestParentBuildID) + ": testing fetching parent build meta"
+	want := "writing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: testing writing parent build meta"
 
 	if err.Error() != want {
-		t.Errorf("Error is wrong, got %v", err)
+		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
 	}
 }

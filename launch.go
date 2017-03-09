@@ -29,6 +29,7 @@ var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
 var readFile = ioutil.ReadFile
 var newEmitter = screwdriver.NewEmitter
+var marshal = json.Marshal
 var unmarshal = json.Unmarshal
 
 var cleanExit = func() {
@@ -211,9 +212,13 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		}
 
 		log.Printf("Fetching Parent Build Meta JSON %v", pb.Meta)
-		err = writeFile(metaSpace+"/meta.json", []byte(pb.Meta), 0666)
+		pbMetaByte, err := marshal(pb.Meta)
 		if err != nil {
-			return fmt.Errorf("fetching Parent Build Meta JSON %d: %v", pb.ParentBuildID, err)
+			return fmt.Errorf("parsing Parent Build(%d) Meta JSON: %v", pb.ParentBuildID, err)
+		}
+		err = writeFile(metaSpace+"/meta.json", (pbMetaByte), 0666)
+		if err != nil {
+			return fmt.Errorf("writing Parent Build(%d) Meta JSON: %v", pb.ParentBuildID, err)
 		}
 	}
 
