@@ -790,14 +790,16 @@ func TestFetchParentBuildMeta(t *testing.T) {
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID, Meta: mockMeta}), nil
 	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		previousMeta = data
+		if path == "./data/meta/meta.json" {
+			previousMeta = data
+		}
 		return nil
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 	want := []byte("{\"hoge\":\"fuga\"}")
 
-	if err != nil || string(previousMeta) == string(want) {
+	if err != nil || string(previousMeta) != string(want) {
 		t.Errorf("expected previousMeta is %v, but: %v", want, previousMeta)
 	}
 }
