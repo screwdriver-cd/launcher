@@ -39,6 +39,19 @@ RUN set -x \
    && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
+   # Install Habitat
+   && wget 'https://api.bintray.com/content/habitat/stable/linux/x86_64/hab-$latest-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux' \
+   && tar -C . -ozxvf hab-\$latest-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux \
+   && mkdir /opt/sd/bin \
+   && mv /opt/sd/hab-*-x86_64-linux/hab /opt/sd/bin/hab \
+   && chmod +x /opt/sd/bin/hab \
+   && rm -rf hab-* \
+   # Download sd-step
+   && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
+      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step' \
+      | wget --base=http://github.com/ -i - -O sd-step\
+   && mv /opt/sd/sd-step /opt/sd/bin/sd-step \
+   && chmod +x /opt/sd/bin/sd-step \
    # Create FIFO
    && mkfifo -m 666 emitter \
    # Cleanup packages
