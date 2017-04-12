@@ -358,6 +358,23 @@ func TestUpdateStepStop(t *testing.T) {
 	}
 }
 
+func TestGetAPIURL(t *testing.T) {
+	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		want := regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.Z-]+","code":10}`)
+		if !want.MatchString(buf.String()) {
+			t.Errorf("buf.String() = %q", buf.String())
+		}
+	})
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	url, _ := testAPI.GetAPIURL()
+
+	if !reflect.DeepEqual(url, "http://fakeurl/v4/") {
+		t.Errorf(`api.GetAPIURL() expected to return: "%v", instead returned "%v"`, "http://fakeurl/v4/", url)
+	}
+}
+
 func TestSecretsForBuild(t *testing.T) {
 	testBuild := Build{
 		ID:    1555,

@@ -260,6 +260,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		return fmt.Errorf("creating environment.json artifact: %v", err)
 	}
 
+	apiURL, _ := api.GetAPIURL()
+
 	defaultEnv := map[string]string{
 		"PS1":         "",
 		"SCREWDRIVER": "true",
@@ -271,6 +273,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 		"SD_BUILD_ID":            strconv.Itoa(buildID),
+		"SD_API_URL":             apiURL,
 	}
 
 	secrets, err := api.SecretsForBuild(b)

@@ -42,6 +42,7 @@ type API interface {
 	UpdateStepStart(buildID int, stepName string) error
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
+	GetAPIURL() (string, error)
 }
 
 // SDError is an error response from the Screwdriver API
@@ -268,6 +269,11 @@ func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, err
 
 func (a api) put(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
 	return a.write(url, "PUT", bodyType, payload)
+}
+
+func (a api) GetAPIURL() (string, error) {
+	url, err := a.makeURL("")
+	return url.String(), err
 }
 
 // BuildFromID fetches and returns a Build object from its ID
