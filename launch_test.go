@@ -72,6 +72,9 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			}
 			return nil
 		},
+		getAPIURL: func() (string, error) {
+			return "http://foo.bar", nil
+		},
 	}
 }
 
@@ -83,6 +86,11 @@ type MockAPI struct {
 	updateStepStart   func(buildID int, stepName string) error
 	updateStepStop    func(buildID int, stepName string, exitCode int) error
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
+	getAPIURL         func() (string, error)
+}
+
+func (f MockAPI) GetAPIURL() (string, error) {
+	return f.getAPIURL()
 }
 
 func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, error) {

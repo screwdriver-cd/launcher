@@ -40,6 +40,10 @@ func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, 
 	return nil, nil
 }
 
+func (f MockAPI) GetAPIURL() (string, error) {
+	return "http://foo.bar", nil
+}
+
 func (f MockAPI) UpdateStepStart(buildID int, stepName string) error {
 	if f.updateStepStart != nil {
 		return f.updateStepStart(buildID, stepName)
