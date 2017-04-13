@@ -50,8 +50,7 @@ RUN set -x \
    && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
       | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step' \
       | wget --base=http://github.com/ -i - -O sd-step\
-   && mv /opt/sd/sd-step /opt/sd/bin/sd-step \
-   && chmod +x /opt/sd/bin/sd-step \
+   && chmod +x sd-step \
    # Create FIFO
    && mkfifo -m 666 emitter \
    # Cleanup packages
