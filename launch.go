@@ -25,7 +25,6 @@ var VERSION string
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var open = os.Open
-var symlink = os.Symlink
 var executorRun = executor.Run
 var writeFile = ioutil.WriteFile
 var readFile = ioutil.ReadFile
@@ -221,12 +220,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		if err != nil {
 			return fmt.Errorf("writing Parent Build(%d) Meta JSON: %v", pb.ParentBuildID, err)
 		}
-	}
-
-	log.Printf("Create symlink of meta binary to /usr/bin")
-	err = symlink("/opt/sd/meta", "/usr/bin/meta")
-	if err != nil {
-		return fmt.Errorf("create symlink of meta: %v", err)
 	}
 
 	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
