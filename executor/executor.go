@@ -100,6 +100,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Run setup commands
 	setupCommands := []string{
 		"set -e",
+		"PATH=$PATH:/opt/sd",
 		"finish() { echo $SD_STEP_ID $?; }",
 		"trap finish EXIT;\n",
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"reflect"
 	"strconv"
@@ -194,7 +193,6 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	symlink = func(oldname, newname string) (err error) { return nil }
 	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int) error {
 		return nil
 	}
@@ -851,32 +849,5 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 
 	if err.Error() != want {
 		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
-	}
-}
-
-func TestCreateMetaSymlink(t *testing.T) {
-	oldSymlink := symlink
-	defer func() {
-		os.Remove("/opt/sd/meta")
-		os.Remove("/usr/bin/meta")
-		symlink = oldSymlink
-	}()
-	symlink = func(oldname, newname string) error {
-		exec.Command("touch", "/opt/sd/meta").Run()
-		return os.Symlink(oldname, newname)
-	}
-	mockMeta := make(map[string]interface{})
-
-	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
-	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID, Meta: mockMeta}), nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
-
-	fi, err := os.Lstat("/usr/bin/meta")
-	if fi.Mode()&os.ModeSymlink == os.ModeSymlink && err == nil {
-	} else {
-		t.Errorf("expected created symlink")
 	}
 }
