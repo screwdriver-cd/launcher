@@ -109,52 +109,39 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	f.Write([]byte(shargs))
 
 	cmds := build.Commands
-	var exitErr error
 
 	for _, cmd := range cmds {
-		if exitErr == nil || cmd.AlwaysRun {
-			if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
-				if exitErr == nil {
-					exitErr = fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
-				}
-				continue
-			}
+		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
+		}
 
-			// Create step script file
-			stepFilePath := "/tmp/step.sh"
-			if err := createShFile(stepFilePath, cmd); err != nil {
-				exitErr = fmt.Errorf("Writing to step script file: %v", err)
-				continue
-			}
+		// Create step script file
+		stepFilePath := "/tmp/step.sh"
+		if err := createShFile(stepFilePath, cmd); err != nil {
+			return fmt.Errorf("Writing to step script file: %v", err)
+		}
 
-			// Generate guid for the step
-			guid := uuid.NewV4().String()
+		// Generate guid for the step
+		guid := uuid.NewV4().String()
 
-			// Set current running step in emitter
-			emitter.StartCmd(cmd)
-			fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
+		// Set current running step in emitter
+		emitter.StartCmd(cmd)
+		fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 
-			fReader := bufio.NewReader(f)
+		fReader := bufio.NewReader(f)
 
-			// Execute command
-			code, cmdErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
-			if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
-				if exitErr == nil {
-					exitErr = fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
-				}
-				continue
-			}
+		// Execute command
+		code, cmdErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
+		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+		}
 
-			if cmdErr != nil {
-				if exitErr == nil {
-					exitErr = cmdErr
-				}
-				continue
-			}
+		if cmdErr != nil {
+			return cmdErr
 		}
 	}
 
 	f.Write([]byte{4}) // EOT
 
-	return exitErr
+	return nil
 }

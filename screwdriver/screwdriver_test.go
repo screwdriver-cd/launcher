@@ -94,9 +94,8 @@ func TestBuildFromID(t *testing.T) {
 	testCmds := []CommandDef{}
 	for _, test := range commands {
 		testCmds = append(testCmds, CommandDef{
-			Name:      "test",
-			Cmd:       test.command,
-			AlwaysRun: false,
+			Name: "test",
+			Cmd:  test.command,
 		})
 	}
 	tests := []struct {
