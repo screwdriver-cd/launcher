@@ -205,33 +205,6 @@ func TestUnmockedMulti(t *testing.T) {
 	}
 }
 
-func TestAlwaysRun(t *testing.T) {
-	commands := []screwdriver.CommandDef{
-		{Cmd: "doesnotexit", Name: "test doesnotexit err"},
-		{Cmd: "sleep 1", Name: "test sleep 1", AlwaysRun: false},
-		{Cmd: "echo hello", Name: "test alwaysRun", AlwaysRun: true},
-	}
-	testBuild := screwdriver.Build{
-		ID:          12345,
-		Commands:    commands,
-		Environment: map[string]string{},
-	}
-	testAPI := screwdriver.API(MockAPI{
-		updateStepStart: func(buildID int, stepName string) error {
-			if stepName == "test sleep 1" {
-				t.Errorf("step should never execute: %v", stepName)
-			}
-			if stepName == "test alwaysRun" {
-				fmt.Printf("Testing alwaysRun: step \"%v\" successfully ran despite an earlier step failing.\n", stepName)
-				t.SkipNow()
-			}
-			return nil
-		},
-	})
-	Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
-	t.Fatalf("Always Run step did not run")
-}
-
 func TestEnv(t *testing.T) {
 	baseEnv := []string{
 		"var0=xxx",
@@ -248,9 +221,8 @@ func TestEnv(t *testing.T) {
 
 	cmds := []screwdriver.CommandDef{
 		{
-			Cmd:       "env",
-			Name:      "test",
-			AlwaysRun: false,
+			Cmd:  "env",
+			Name: "test",
 		},
 	}
 

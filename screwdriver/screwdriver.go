@@ -110,9 +110,8 @@ type Job struct {
 
 // CommandDef is the definition of a single executable command.
 type CommandDef struct {
-	Name      string `json:"name"`
-	Cmd       string `json:"command"`
-	AlwaysRun bool   `json:"alwaysRun"`
+	Name string `json:"name"`
+	Cmd  string `json:"command"`
 }
 
 // Build is a Screwdriver Build
