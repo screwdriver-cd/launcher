@@ -3,3 +3,12 @@ artifacts/
 .*.swp
 launcher
 data/emitter
+
+# Generated while deploying
+
+/ci/
+/VERSION
+
+# goreleaser
+
+/dist/
