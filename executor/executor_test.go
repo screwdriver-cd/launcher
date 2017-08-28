@@ -134,6 +134,8 @@ func TestUnmocked(t *testing.T) {
 		{"ls", nil},
 		{"sleep 1", nil},
 		{"ls && ls ", nil},
+		// Large single-line
+		{"openssl rand -hex 1000000", nil},
 		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127)},
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5)},
 	}

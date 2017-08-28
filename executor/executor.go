@@ -38,34 +38,57 @@ func createShFile(path string, cmd screwdriver.CommandDef) error {
 	return ioutil.WriteFile(path, []byte(defaultStart+"\n"+cmd.Cmd), 0755)
 }
 
+// Returns a single line (without the ending \n) from the input buffered reader
+// Pulled from https://stackoverflow.com/a/12206365
+func readln(r *bufio.Reader) (string, error) {
+	var (
+		isPrefix = true
+		err      error
+		line, ln []byte
+	)
+
+	for isPrefix && err == nil {
+		line, isPrefix, err = r.ReadLine()
+		ln = append(ln, line...)
+	}
+
+	return string(ln), err
+}
+
 // Copy lines until match string
 func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		t := scanner.Text()
+	var (
+		err    error
+		t      string
+		reader = bufio.NewReader(r)
 		// Match the guid and exitCode
-		regex := fmt.Sprintf("(%s) ([0-9]+)", match)
-		re := regexp.MustCompile(regex)
-		parts := re.FindStringSubmatch(t)
+		reExit = regexp.MustCompile(fmt.Sprintf("(%s) ([0-9]+)", match))
+		// Match the export SD_STEP_ID command
+		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
+	)
+	t, err = readln(reader)
+	for err == nil {
+		parts := reExit.FindStringSubmatch(t)
 		if len(parts) != 0 {
-			exitCode, err := strconv.Atoi(parts[2])
-			if err != nil {
-				return ExitUnknown, fmt.Errorf("Error converting the exit code to int: %v", err)
+			exitCode, rerr := strconv.Atoi(parts[2])
+			if rerr != nil {
+				return ExitUnknown, fmt.Errorf("Error converting the exit code to int: %v", rerr)
 			}
 			if exitCode != 0 {
 				return exitCode, fmt.Errorf("Launching command exit with code: %v", exitCode)
 			}
 			return ExitOk, nil
 		}
-		// Match the export SD_STEP_ID command and if not match print it to emitter
-		reExport := regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
+		// Filter out the export command from the output
 		exportCmd := reExport.FindStringSubmatch(t)
 		if len(exportCmd) == 0 {
 			fmt.Fprintln(w, t)
 		}
+
+		t, err = readln(reader)
 	}
-	if err := scanner.Err(); err != nil {
-		return ExitUnknown, fmt.Errorf("Error with scanner: %v", err)
+	if err != nil {
+		return ExitUnknown, fmt.Errorf("Error with reader: %v", err)
 	}
 	return ExitOk, nil
 }
