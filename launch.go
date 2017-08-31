@@ -267,6 +267,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 		"SD_BUILD_ID":            strconv.Itoa(buildID),
 		"SD_API_URL":             apiURL,
+		"SD_BUILD_URL":           apiURL + "/builds/" + strconv.Itoa(buildID),
 	}
 
 	secrets, err := api.SecretsForBuild(b)
