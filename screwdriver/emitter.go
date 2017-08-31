@@ -42,19 +42,47 @@ func (e *emitter) StartCmd(cmd CommandDef) {
 	e.cmd = cmd
 }
 
+// Returns a single line (without the ending \n) from the input buffered reader
+// Pulled from https://stackoverflow.com/a/12206365
+func readln(r *bufio.Reader) (string, error) {
+	var (
+		isPrefix = true
+		err      error
+		line, ln []byte
+	)
+
+	for isPrefix && err == nil {
+		line, isPrefix, err = r.ReadLine()
+		ln = append(ln, line...)
+	}
+
+	return string(ln), err
+}
+
 func (e *emitter) processPipe() {
-	scanner := bufio.NewScanner(e.reader)
+	var line string
+	var readErr error
+
+	reader := bufio.NewReader(e.reader)
 	encoder := json.NewEncoder(e.file)
 
-	for scanner.Scan() {
+	line, readErr = readln(reader)
+
+	for readErr == nil {
 		newLine := logLine{
 			Time:    time.Now().UnixNano() / int64(time.Millisecond),
-			Message: scanner.Text(),
+			Message: line,
 			Step:    e.cmd.Name,
 		}
 		if err := encoder.Encode(newLine); err != nil {
 			e.err = fmt.Errorf("encoding json: %v", err)
 		}
+
+		line, readErr = readln(reader)
+	}
+
+	if readErr != nil && readErr.Error() != "EOF" {
+		e.err = fmt.Errorf("piping log line to emiiter: %v", readErr)
 	}
 
 	if err := e.file.Close(); err != nil {

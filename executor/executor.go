@@ -82,7 +82,10 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		// Filter out the export command from the output
 		exportCmd := reExport.FindStringSubmatch(t)
 		if len(exportCmd) == 0 {
-			fmt.Fprintln(w, t)
+			_, werr := fmt.Fprintln(w, t)
+			if werr != nil {
+				return ExitUnknown, fmt.Errorf("Error pipling logs to emitter: %v", werr)
+			}
 		}
 
 		t, err = readln(reader)
