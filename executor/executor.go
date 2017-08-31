@@ -84,7 +84,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		if len(exportCmd) == 0 {
 			_, werr := fmt.Fprintln(w, t)
 			if werr != nil {
-				return ExitUnknown, fmt.Errorf("Error pipling logs to emitter: %v", werr)
+				return ExitUnknown, fmt.Errorf("Error piping logs to emitter: %v", werr)
 			}
 		}
 
