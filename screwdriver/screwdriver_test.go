@@ -107,6 +107,7 @@ func TestBuildFromID(t *testing.T) {
 			build: Build{
 				ID:          1555,
 				JobID:       3777,
+				EventID:     8765,
 				SHA:         "testSHA",
 				Commands:    testCmds,
 				Environment: testEnv,
@@ -377,9 +378,10 @@ func TestGetAPIURL(t *testing.T) {
 
 func TestSecretsForBuild(t *testing.T) {
 	testBuild := Build{
-		ID:    1555,
-		JobID: 3777,
-		SHA:   "testSHA",
+		ID:      1555,
+		JobID:   3777,
+		EventID: 8765,
+		SHA:     "testSHA",
 	}
 	testResponse := `[{"name": "foo", "value": "bar"}]`
 	wantSecrets := Secrets{

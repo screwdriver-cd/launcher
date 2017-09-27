@@ -123,6 +123,7 @@ type Build struct {
 	Environment   map[string]string      `json:"environment"`
 	ParentBuildID int                    `json:"parentBuildId"`
 	Meta          map[string]interface{} `json:"meta"`
+	EventID       int                    `json:"eventId"`
 }
 
 // Secret is a Screwdriver build secret.
