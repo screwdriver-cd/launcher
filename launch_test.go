@@ -337,7 +337,7 @@ func TestCreateWorkspace(t *testing.T) {
 }
 
 func TestPRNumber(t *testing.T) {
-	testJobName := "PR-1"
+	testJobName := "PR-1:main"
 	wantPrNumber := "1"
 
 	prNumber := prNumber(testJobName)

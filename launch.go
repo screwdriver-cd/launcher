@@ -152,7 +152,7 @@ func writeArtifact(aDir string, fName string, artifact interface{}) error {
 
 // prNumber checks to see if the job name is a pull request and returns its number
 func prNumber(jobName string) string {
-	r := regexp.MustCompile("^PR-([0-9]+)$")
+	r := regexp.MustCompile("^PR-([0-9]+)(?::[\\w-]+)?$")
 	matched := r.FindStringSubmatch(jobName)
 	if matched == nil || len(matched) != 2 {
 		return ""
