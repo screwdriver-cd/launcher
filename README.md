@@ -10,7 +10,7 @@
 
 ```bash
 $ go get github.com/screwdriver-cd/launcher
-$ launch --api-uri http://localhost:8080/v4 123456
+$ launch --api-uri http://localhost:8080/v4 buildId
 ```
 
 ## Testing
