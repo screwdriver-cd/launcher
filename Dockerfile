@@ -34,8 +34,13 @@ RUN set -x \
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static.asc' \
       | wget --base=http://github.com/ -i - -O tini-static.asc \
-   && gpg --keyserver ha.pool.sks-keyservers.net --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
-   && gpg --verify tini-static.asc \
+   && found=''; \
+      gpg --no-tty --keyserver pgp.mit.edu --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 || \
+      gpg --no-tty --keyserver keyserver.pgp.com --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 || \
+      gpg --no-tty --keyserver ha.pool.sks-keyservers.net --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 ; \
+   && found=yes && break; \
+      test -z "$found" && echo >&2 "error: failed to fetch GPG key 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7" && exit 1; \
+      gpg --verify tini-static.asc \
    && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
