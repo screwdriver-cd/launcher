@@ -75,14 +75,14 @@ func (e *emitter) processPipe() {
 			Step:    e.cmd.Name,
 		}
 		if err := encoder.Encode(newLine); err != nil {
-			e.err = fmt.Errorf("encoding json: %v", err)
+			e.err = fmt.Errorf("Encoding json: %v", err)
 		}
 
 		line, readErr = readln(reader)
 	}
 
 	if readErr != nil && readErr.Error() != "EOF" {
-		e.err = fmt.Errorf("piping log line to emiiter: %v", readErr)
+		e.err = fmt.Errorf("Piping log line to emitter: %v", readErr)
 	}
 
 	if err := e.file.Close(); err != nil {
@@ -95,7 +95,7 @@ func NewEmitter(path string) (Emitter, error) {
 	r, w := io.Pipe()
 	file, err := os.OpenFile(path, os.O_WRONLY, 0600)
 	if err != nil {
-		return nil, fmt.Errorf("failed opening emitter path %q: %v", path, err)
+		return nil, fmt.Errorf("Failed opening emitter path %q: %v", path, err)
 	}
 
 	cmd := CommandDef{
