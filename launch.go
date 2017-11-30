@@ -49,7 +49,7 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 		} else {
 			err = unmarshal(metaJson, &metaInterface)
 			if err != nil {
-				log.Printf("Failed to Load %q/meta.json: %v", metaSpace, err)
+				log.Printf("Failed to load %q/meta.json: %v", metaSpace, err)
 				metaInterface = make(map[string]interface{})
 			}
 		}
@@ -74,7 +74,7 @@ func parseScmURI(scmURI, scmName string) (scmPath, error) {
 	orgRepo := strings.Split(scmName, "/")
 
 	if len(uri) != 3 || len(orgRepo) != 2 {
-		return scmPath{}, fmt.Errorf("unable to parse scmUri %v and scmName %v", scmURI, scmName)
+		return scmPath{}, fmt.Errorf("Unable to parse scmUri %v and scmName %v", scmURI, scmName)
 	}
 
 	return scmPath{
@@ -138,13 +138,13 @@ var createMetaSpace = func(metaSpace string) error {
 func writeArtifact(aDir string, fName string, artifact interface{}) error {
 	data, err := json.MarshalIndent(artifact, "", strings.Repeat(" ", 4))
 	if err != nil {
-		return fmt.Errorf("marshaling artifact: %v ", err)
+		return fmt.Errorf("Marshaling artifact: %v ", err)
 	}
 
 	pathToCreate := path.Join(aDir, fName)
 	err = writeFile(pathToCreate, data, 0644)
 	if err != nil {
-		return fmt.Errorf("creating file %q : %v", pathToCreate, err)
+		return fmt.Errorf("Creating file %q : %v", pathToCreate, err)
 	}
 
 	return nil
@@ -169,40 +169,61 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 	defer emitter.Close()
 
 	if err = api.UpdateStepStart(buildID, "sd-setup-launcher"); err != nil {
-		return fmt.Errorf("updating sd-setup-launcher start: %v", err)
+		return fmt.Errorf("Updating sd-setup-launcher start: %v", err)
 	}
 
 	log.Print("Setting Build Status to RUNNING")
 	emptyMeta := make(map[string]interface{}) // {"meta":null} are not accepted. This will be {"meta":{}}
 	if err = api.UpdateBuildStatus(screwdriver.Running, emptyMeta, buildID); err != nil {
-		return fmt.Errorf("updating build status to RUNNING: %v", err)
+		return fmt.Errorf("Updating build status to RUNNING: %v", err)
 	}
 
 	log.Printf("Fetching Build %d", buildID)
 	b, err := api.BuildFromID(buildID)
 	if err != nil {
-		return fmt.Errorf("fetching Build ID %d: %v", buildID, err)
+		return fmt.Errorf("Fetching Build ID %d: %v", buildID, err)
 	}
 
 	log.Printf("Fetching Job %d", b.JobID)
 	j, err := api.JobFromID(b.JobID)
 	if err != nil {
-		return fmt.Errorf("fetching Job ID %d: %v", b.JobID, err)
+		return fmt.Errorf("Fetching Job ID %d: %v", b.JobID, err)
 	}
 
 	log.Printf("Fetching Pipeline %d", j.PipelineID)
 	p, err := api.PipelineFromID(j.PipelineID)
 	if err != nil {
-		return fmt.Errorf("fetching Pipeline ID %d: %v", j.PipelineID, err)
+		return fmt.Errorf("Fetching Pipeline ID %d: %v", j.PipelineID, err)
 	}
 
 	if b.ParentBuildID == 0 {
-		log.Printf("This build has no Parent Build, so fetching Meta is skiped")
+		log.Printf("This build has no Parent Build, so fetching Meta is skipped")
 	} else {
-		log.Printf("Fetching Parent Build %d for Meta", b.ParentBuildID)
+		log.Printf("Fetching Parent Build %d", b.ParentBuildID)
 		pb, err := api.BuildFromID(b.ParentBuildID)
 		if err != nil {
-			return fmt.Errorf("fetching parent build ID %d: %v", pb.ParentBuildID, err)
+			return fmt.Errorf("Fetching Parent Build ID %d: %v", b.ParentBuildID, err)
+		}
+
+		log.Printf("Fetching Parent Job %d", pb.JobID)
+		pj, err := api.JobFromID(pb.JobID)
+		if err != nil {
+			return fmt.Errorf("Fetching Job ID %d: %v", pb.JobID, err)
+		}
+
+		log.Printf("Fetching Parent Pipeline %d", pj.PipelineID)
+		pp, err := api.PipelineFromID(pj.PipelineID)
+		if err != nil {
+			return fmt.Errorf("Fetching Pipeline ID %d: %v", pj.PipelineID, err)
+		}
+
+		// If build is triggered from the same pipeline, write to the same "meta.json" file
+		metaFile := "meta.json"
+
+		// If build is triggered by an external pipeline, write to "sd@123:component.json"
+		// where sd@123:component is the triggering job
+		if p.ID != pp.ID {
+			metaFile = "sd@" + strconv.Itoa(pp.ID) + ":" + pj.Name + ".json"
 		}
 
 		log.Printf("Creating Meta Space in %v", metaSpace)
@@ -214,11 +235,12 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		log.Printf("Fetching Parent Build Meta JSON %v", pb.Meta)
 		pbMetaByte, err := marshal(pb.Meta)
 		if err != nil {
-			return fmt.Errorf("parsing Parent Build(%d) Meta JSON: %v", pb.ParentBuildID, err)
+			return fmt.Errorf("Parsing Parent Build(%d) Meta JSON: %v", pb.ID, err)
 		}
-		err = writeFile(metaSpace+"/meta.json", (pbMetaByte), 0666)
+
+		err = writeFile(metaSpace+"/"+metaFile, pbMetaByte, 0666)
 		if err != nil {
-			return fmt.Errorf("writing Parent Build(%d) Meta JSON: %v", pb.ParentBuildID, err)
+			return fmt.Errorf("Writing Parent Build(%d) Meta JSON: %v", pb.ID, err)
 		}
 	}
 
@@ -245,12 +267,12 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 
 	err = writeArtifact(w.Artifacts, "steps.json", b.Commands)
 	if err != nil {
-		return fmt.Errorf("creating steps.json artifact: %v", err)
+		return fmt.Errorf("Creating steps.json artifact: %v", err)
 	}
 
 	err = writeArtifact(w.Artifacts, "environment.json", b.Environment)
 	if err != nil {
-		return fmt.Errorf("creating environment.json artifact: %v", err)
+		return fmt.Errorf("Creating environment.json artifact: %v", err)
 	}
 
 	apiURL, _ := api.GetAPIURL()
@@ -279,7 +301,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 	env := createEnvironment(defaultEnv, secrets, b)
 
 	if err := api.UpdateStepStop(buildID, "sd-setup-launcher", 0); err != nil {
-		return fmt.Errorf("updating sd-setup-launcher stop: %v", err)
+		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
 	if err := executorRun(w.Src, env, emitter, b, api, buildID); err != nil {

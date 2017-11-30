@@ -148,14 +148,14 @@ func tokenHeader(token string) string {
 func handleResponse(res *http.Response) ([]byte, error) {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
+		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
 	}
 
 	if res.StatusCode/100 != 2 {
 		var err SDError
 		parserr := json.Unmarshal(body, &err)
 		if parserr != nil {
-			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parserr)
+			return nil, fmt.Errorf("Unparseable error response from Screwdriver: %v", parserr)
 		}
 		return nil, err
 	}
@@ -177,13 +177,13 @@ func retry(attempts int, callback func() error) (err error) {
 		duration := time.Duration(math.Pow(2, float64(i+1)))
 		sleep(duration * time.Second)
 	}
-	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
+	return fmt.Errorf("After %d attempts, Last error: %s", attempts, err)
 }
 
 func (a api) get(url *url.URL) ([]byte, error) {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("generating request to Screwdriver: %v", err)
+		return nil, fmt.Errorf("Generating request to Screwdriver: %v", err)
 	}
 	req.Header.Set("Authorization", tokenHeader(a.token))
 
@@ -296,7 +296,7 @@ func (a api) BuildFromID(buildID int) (build Build, err error) {
 func (a api) JobFromID(jobID int) (job Job, err error) {
 	u, err := a.makeURL(fmt.Sprintf("jobs/%d", jobID))
 	if err != nil {
-		return job, fmt.Errorf("generating Screwdriver url for Job %d: %v", jobID, err)
+		return job, fmt.Errorf("Generating Screwdriver url for Job %d: %v", jobID, err)
 	}
 
 	body, err := a.get(u)
@@ -337,7 +337,7 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 	case Failure:
 	case Aborted:
 	default:
-		return fmt.Errorf("invalid build status: %s", status)
+		return fmt.Errorf("Invalid build status: %s", status)
 	}
 
 	u, err := a.makeURL(fmt.Sprintf("builds/%d", buildID))
@@ -351,12 +351,12 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {
-		return fmt.Errorf("marshaling JSON for Build Status: %v", err)
+		return fmt.Errorf("Marshaling JSON for Build Status: %v", err)
 	}
 
 	_, err = a.put(u, "application/json", bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("posting to Build Status: %v", err)
+		return fmt.Errorf("Posting to Build Status: %v", err)
 	}
 
 	return nil
@@ -365,7 +365,7 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 func (a api) UpdateStepStart(buildID int, stepName string) error {
 	u, err := a.makeURL(fmt.Sprintf("builds/%d/steps/%s", buildID, stepName))
 	if err != nil {
-		return fmt.Errorf("creating url: %v", err)
+		return fmt.Errorf("Creating url: %v", err)
 	}
 
 	bs := StepStartPayload{
@@ -373,12 +373,12 @@ func (a api) UpdateStepStart(buildID int, stepName string) error {
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {
-		return fmt.Errorf("marshaling JSON for Step Start: %v", err)
+		return fmt.Errorf("Marshaling JSON for Step Start: %v", err)
 	}
 
 	_, err = a.put(u, "application/json", bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("posting to Step Start: %v", err)
+		return fmt.Errorf("Posting to Step Start: %v", err)
 	}
 
 	return nil
@@ -387,7 +387,7 @@ func (a api) UpdateStepStart(buildID int, stepName string) error {
 func (a api) UpdateStepStop(buildID int, stepName string, exitCode int) error {
 	u, err := a.makeURL(fmt.Sprintf("builds/%d/steps/%s", buildID, stepName))
 	if err != nil {
-		return fmt.Errorf("creating url: %v", err)
+		return fmt.Errorf("Creating url: %v", err)
 	}
 
 	bs := StepStopPayload{
@@ -396,12 +396,12 @@ func (a api) UpdateStepStop(buildID int, stepName string, exitCode int) error {
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {
-		return fmt.Errorf("marshaling JSON for Step Stop: %v", err)
+		return fmt.Errorf("Marshaling JSON for Step Stop: %v", err)
 	}
 
 	_, err = a.put(u, "application/json", bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("posting to Step Stop: %v", err)
+		return fmt.Errorf("Posting to Step Stop: %v", err)
 	}
 
 	return nil

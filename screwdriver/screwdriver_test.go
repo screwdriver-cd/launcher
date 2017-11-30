@@ -118,7 +118,7 @@ func TestBuildFromID(t *testing.T) {
 		{
 			build:      Build{},
 			statusCode: 500,
-			err: errors.New("after 5 attempts, last error: " +
+			err: errors.New("After 5 attempts, Last error: " +
 				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/builds/0"),
 		},
 		{
@@ -181,7 +181,7 @@ func TestJobFromID(t *testing.T) {
 		{
 			job:        Job{},
 			statusCode: 500,
-			err: errors.New("after 5 attempts, last error: " +
+			err: errors.New("After 5 attempts, Last error: " +
 				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/jobs/0"),
 		},
 		{
@@ -246,7 +246,7 @@ func TestPipelineFromID(t *testing.T) {
 		{
 			pipeline:   Pipeline{},
 			statusCode: 500,
-			err: errors.New("after 5 attempts, last error: " +
+			err: errors.New("After 5 attempts, Last error: " +
 				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/pipelines/0"),
 		},
 		{
@@ -306,9 +306,9 @@ func TestUpdateBuildStatus(t *testing.T) {
 		{Failure, meta, 200, nil},
 		{Aborted, meta, 200, nil},
 		{Running, meta, 200, nil},
-		{"NOTASTATUS", meta, 200, errors.New("invalid build status: NOTASTATUS")},
-		{Success, meta, 500, errors.New("posting to Build Status: after 5 attempts, " +
-			"last error: retries exhausted: 500 returned from http://fakeurl/v4/builds/15")},
+		{"NOTASTATUS", meta, 200, errors.New("Invalid build status: NOTASTATUS")},
+		{Success, meta, 500, errors.New("Posting to Build Status: After 5 attempts, " +
+			"Last error: retries exhausted: 500 returned from http://fakeurl/v4/builds/15")},
 	}
 
 	for _, test := range tests {

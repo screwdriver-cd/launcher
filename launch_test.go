@@ -16,13 +16,15 @@ import (
 )
 
 const (
-	TestWorkspace     = "/sd/workspace"
-	TestEmitter       = "./data/emitter"
-	TestBuildID       = 1234
-	TestJobID         = 2345
-	TestPipelineID    = 3456
-	TestParentBuildID = 1111
-	TestMetaSpace     = "./data/meta"
+	TestWorkspace        = "/sd/workspace"
+	TestEmitter          = "./data/emitter"
+	TestBuildID          = 1234
+	TestJobID            = 2345
+	TestPipelineID       = 3456
+	TestParentBuildID    = 1111
+	TestParentJobID      = 1112
+	TestParentPipelineID = 1113
+	TestMetaSpace        = "./data/meta"
 
 	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
@@ -223,7 +225,7 @@ func TestBuildFromIdError(t *testing.T) {
 		t.Errorf("err should not be nil")
 	}
 
-	expected := `fetching Build ID 0`
+	expected := `Fetching Build ID 0`
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
@@ -241,7 +243,7 @@ func TestJobFromIdError(t *testing.T) {
 		t.Errorf("err should not be nil")
 	}
 
-	expected := fmt.Sprintf(`fetching Job ID %d`, TestJobID)
+	expected := fmt.Sprintf(`Fetching Job ID %d`, TestJobID)
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
@@ -260,7 +262,7 @@ func TestPipelineFromIdError(t *testing.T) {
 		t.Fatalf("err should not be nil")
 	}
 
-	expected := fmt.Sprintf(`fetching Pipeline ID %d`, testPipelineID)
+	expected := fmt.Sprintf(`Fetching Pipeline ID %d`, testPipelineID)
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
@@ -398,7 +400,7 @@ func TestUpdateBuildStatusError(t *testing.T) {
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 
-	want := "updating build status to RUNNING: Spooky error"
+	want := "Updating build status to RUNNING: Spooky error"
 	if err.Error() != want {
 		t.Errorf("Error is wrong. got %v, want %v", err, want)
 	}
@@ -790,16 +792,31 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	defer func() { writeFile = oldWriteFile }()
 	var mockMeta map[string]interface{}
 	mockMeta = make(map[string]interface{})
-	var previousMeta []byte
+	var parentMeta []byte
 
 	mockMeta["hoge"] = "fuga"
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID, Meta: mockMeta}), nil
+		if buildID == TestParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID, Meta: mockMeta}), nil
+		}
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == TestParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestParentPipelineID, Name: "component"}), nil
+		}
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		if pipelineID == TestParentPipelineID {
+			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+		}
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		if path == "./data/meta/meta.json" {
-			previousMeta = data
+		if path == "./data/meta/sd@1113:component.json" {
+			parentMeta = data
 		}
 		return nil
 	}
@@ -807,8 +824,8 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
 	want := []byte("{\"hoge\":\"fuga\"}")
 
-	if err != nil || string(previousMeta) != string(want) {
-		t.Errorf("expected previousMeta is %v, but: %v", want, previousMeta)
+	if err != nil || string(parentMeta) != string(want) {
+		t.Errorf("Expected parentMeta is %v, but: %v", want, parentMeta)
 	}
 }
 
@@ -818,14 +835,29 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == TestParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID}), nil
+		}
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
 	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == TestParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestParentPipelineID, Name: "component"}), nil
+		}
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		if pipelineID == TestParentPipelineID {
+			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+		}
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
 	marshal = func(v interface{}) (result []byte, err error) {
-		return []byte("test"), fmt.Errorf("testing parsing parent build meta")
+		return []byte("test"), fmt.Errorf("Testing parsing parent build meta")
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
-	want := "parsing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: testing parsing parent build meta"
+	want := "Parsing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing parsing parent build meta"
 
 	if err.Error() != want {
 		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
@@ -838,14 +870,29 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == TestParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID}), nil
+		}
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
 	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == TestParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestParentPipelineID, Name: "component"}), nil
+		}
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		if pipelineID == TestParentPipelineID {
+			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+		}
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		return fmt.Errorf("testing writing parent build meta")
+		return fmt.Errorf("Testing writing parent build meta")
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
-	want := "writing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: testing writing parent build meta"
+	want := "Writing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing writing parent build meta"
 
 	if err.Error() != want {
 		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
