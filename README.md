@@ -1,4 +1,4 @@
-# Screwdriver Job Launcher
+# Screwdriver Launcher
 [![Build Status][build-image]][build-url]
 [![Open Issues][issues-image]][issues-url]
 [![Latest Release][version-image]][version-url]
