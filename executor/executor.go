@@ -113,7 +113,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 	return copyLinesUntil(fReader, emitter, guid)
 }
 
-// doRun executes the teardown commands
+// Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	shargs = append(shargs, cmd.Cmd)
@@ -128,15 +128,16 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	c.Env = append(env, c.Env...)
 
 	if err := c.Start(); err != nil {
-		return ExitLaunch, fmt.Errorf("launching command %q: %v", cmd.Cmd, err)
+		return ExitLaunch, fmt.Errorf("Launching command %q: %v", cmd.Cmd, err)
 	}
 
 	if err := c.Wait(); err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			waitStatus := exitError.Sys().(syscall.WaitStatus)
+
 			return waitStatus.ExitStatus(), ErrStatus{waitStatus.ExitStatus()}
 		}
-		return ExitUnknown, fmt.Errorf("running command %q: %v", cmd.Cmd, err)
+		return ExitUnknown, fmt.Errorf("Running command %q: %v", cmd.Cmd, err)
 	}
 
 	return ExitOk, nil
@@ -173,14 +174,20 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	cmds := build.Commands
 
 	for _, cmd := range cmds {
-		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
-			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
-		}
-
 		isTeardown, _ := regexp.MatchString("sd-teardown-*", cmd.Name)
 
-		// Start user step if !teardown and previous steps succeed
+		// Start set up & user steps if previous steps succeed
 		if (!isTeardown) && (firstError == nil) {
+			if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+				return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
+			}
+
+			// Create step script file
+			stepFilePath := "/tmp/step.sh"
+			if err := createShFile(stepFilePath, cmd); err != nil {
+				return fmt.Errorf("Writing to step script file: %v", err)
+			}
+
 			// Generate guid for the step
 			guid := uuid.NewV4().String()
 
@@ -190,19 +197,16 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 			fReader := bufio.NewReader(f)
 
-			// Create step script file
-			stepFilePath := "/tmp/step.sh"
-
-			if err := createShFile(stepFilePath, cmd); err != nil {
-				return fmt.Errorf("Writing to step script file: %v", err)
-			}
-
 			code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
-		} else {
+		} else if (isTeardown){
 			// Kill shell if first time switch to the teardown step
 			if !teardownFlag {
 				f.Write([]byte{4}) // EOT
 				teardownFlag = true
+			}
+
+			if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+				return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 			}
 
 			// Run teardown commands
