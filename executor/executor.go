@@ -198,7 +198,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			fReader := bufio.NewReader(f)
 
 			code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
-		} else if (isTeardown){
+		} else if isTeardown {
 			// Kill shell if first time switch to the teardown step
 			if !teardownFlag {
 				f.Write([]byte{4}) // EOT
@@ -224,7 +224,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	}
 
 	// Return the first error occured
-	if (firstError != nil) {
+	if firstError != nil {
 		return firstError
 	}
 
