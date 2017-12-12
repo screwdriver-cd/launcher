@@ -204,6 +204,18 @@ func TestUnmockedMulti(t *testing.T) {
 			}
 			return nil
 		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if stepName == "test sleep 1" {
+				t.Errorf("Should not update step that never run: %v", stepName)
+			}
+			if stepName == "sd-teardown-artifacts" {
+				runTeardown = true
+			}
+			return nil
+		},
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
