@@ -198,6 +198,10 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			fReader := bufio.NewReader(f)
 
 			code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
+
+			if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+				return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+			}
 		} else if isTeardown {
 			if !teardownFlag {
 				if firstError == nil {
@@ -212,10 +216,10 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 			// Run teardown commands
 			code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path)
-		}
 
-		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
-			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+			if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+				return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+			}
 		}
 
 		// Set first error flag
