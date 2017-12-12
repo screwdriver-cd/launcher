@@ -199,9 +199,10 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 			code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
 		} else if isTeardown {
-			// Kill shell if first time switch to the teardown step
 			if !teardownFlag {
-				f.Write([]byte{4}) // EOT
+				if firstError == nil {
+					f.Write([]byte{4}) // Exit shell only if previous user steps ran successfully
+				}
 				teardownFlag = true
 			}
 
