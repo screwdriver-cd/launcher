@@ -161,7 +161,7 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaSpace string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL string) error {
 	emitter, err := newEmitter(emitterPath)
 	if err != nil {
 		return err
@@ -294,6 +294,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath string, metaS
 		"SD_API_URL":             apiURL,
 		"SD_BUILD_URL":           apiURL + "builds/" + strconv.Itoa(buildID),
 		"SD_BUILD_SHA":           b.SHA,
+		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
 	}
 
 	secrets, err := api.SecretsForBuild(b)
@@ -355,10 +356,10 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath string, metaSpace string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath string, metaSpace string, storeURI string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -440,6 +441,11 @@ func main() {
 			Usage: "Location of meta temporarily",
 			Value: "/sd/meta",
 		},
+		cli.StringFlag{
+			Name:  "store-uri",
+			Usage: "API URI for Store",
+			Value: "http://localhost:8081",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -448,6 +454,7 @@ func main() {
 		workspace := c.String("workspace")
 		emitterPath := c.String("emitter")
 		metaSpace := c.String("meta-space")
+		storeURL := c.String("store-uri")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 
 		if err != nil {
@@ -462,7 +469,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
