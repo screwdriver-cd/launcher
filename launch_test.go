@@ -25,6 +25,7 @@ const (
 	TestParentJobID      = 1112
 	TestParentPipelineID = 1113
 	TestMetaSpace        = "./data/meta"
+	TestStoreURL         = "http://store.screwdriver.cd"
 
 	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
@@ -209,7 +210,7 @@ func TestMain(m *testing.M) {
 func TestBuildJobPipelineFromID(t *testing.T) {
 	testPipelineID := 9999
 	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
-	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 }
 
 func TestBuildFromIdError(t *testing.T) {
@@ -220,7 +221,7 @@ func TestBuildFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -238,7 +239,7 @@ func TestJobFromIdError(t *testing.T) {
 		return screwdriver.Job(FakeJob{}), err
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -257,7 +258,7 @@ func TestPipelineFromIdError(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{}), err
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	if err == nil {
 		t.Fatalf("err should not be nil")
 	}
@@ -364,7 +365,7 @@ func TestCreateWorkspaceError(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 
 	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher\": Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
@@ -398,7 +399,7 @@ func TestUpdateBuildStatusError(t *testing.T) {
 		return fmt.Errorf("Spooky error")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 
 	want := "Updating build status to RUNNING: Spooky error"
 	if err.Error() != want {
@@ -426,7 +427,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	tmp, cleanup := setupTempDirectoryAndSocket(t)
 	defer cleanup()
 
-	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket"), TestMetaSpace); err != nil {
+	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket"), TestMetaSpace, TestStoreURL); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -463,7 +464,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 		return executor.ErrStatus{Status: 1}
 	}
 
-	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter, TestMetaSpace)
+	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter, TestMetaSpace, TestStoreURL)
 	if err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
@@ -633,7 +634,7 @@ func TestEmitterClose(t *testing.T) {
 		}, nil
 	}
 
-	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter, TestMetaSpace); err != nil {
+	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -657,6 +658,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 		"SD_BUILD_ID":            "1234",
 		"SD_BUILD_SHA":           "abc123",
+		"SD_STORE_URL":           "http://store.screwdriver.cd/v1/",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
@@ -681,7 +683,7 @@ func TestSetEnv(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -730,7 +732,7 @@ func TestEnvSecrets(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -822,7 +824,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	want := []byte("{\"hoge\":\"fuga\"}")
 
 	if err != nil || string(parentMeta) != string(want) {
@@ -857,7 +859,7 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 		return []byte("test"), fmt.Errorf("Testing parsing parent build meta")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	want := "Parsing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing parsing parent build meta"
 
 	if err.Error() != want {
@@ -892,7 +894,7 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 		return fmt.Errorf("Testing writing parent build meta")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL)
 	want := "Writing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing writing parent build meta"
 
 	if err.Error() != want {
