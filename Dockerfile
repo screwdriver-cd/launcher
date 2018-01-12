@@ -13,7 +13,7 @@ RUN set -x \
    && apk add --virtual .build-dependencies gpgme \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
-      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launch_linux_amd64' \
+      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
       | wget --base=http://github.com/ -i - -O launch \
    && chmod +x launch \
    # Download Log Service
