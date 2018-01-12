@@ -43,7 +43,7 @@ type FakeScmRepo screwdriver.ScmRepo
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID int) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: TestSHA}), nil
+			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID}), nil
 		},
 		jobFromID: func(jobID int) (screwdriver.Job, error) {
 			if jobID != testJobID {
@@ -657,7 +657,6 @@ func TestSetEnv(t *testing.T) {
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 		"SD_BUILD_ID":            "1234",
-		"SD_BUILD_SHA":           "abc123",
 		"SD_STORE_URL":           "http://store.screwdriver.cd/v1/",
 	}
 
