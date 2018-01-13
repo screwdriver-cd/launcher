@@ -23,7 +23,7 @@ RUN set -x \
    && chmod +x logservice \
    # Download Meta CLI
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
-      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta_linux_amd64' \
+      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O meta\
    && chmod +x meta\
    # Download Tini Static
