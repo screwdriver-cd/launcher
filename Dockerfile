@@ -18,7 +18,7 @@ RUN set -x \
    && chmod +x launch \
    # Download Log Service
    && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
-      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/logservice_linux_amd64' \
+      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
       | wget --base=http://github.com/ -i - -O logservice \
    && chmod +x logservice \
    # Download Meta CLI
