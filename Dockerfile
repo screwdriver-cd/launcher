@@ -13,17 +13,17 @@ RUN set -x \
    && apk add --virtual .build-dependencies gpgme \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
-      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launch_linux_amd64' \
+      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
       | wget --base=http://github.com/ -i - -O launch \
    && chmod +x launch \
    # Download Log Service
    && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
-      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/logservice_linux_amd64' \
+      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
       | wget --base=http://github.com/ -i - -O logservice \
    && chmod +x logservice \
    # Download Meta CLI
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
-      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta_linux_amd64' \
+      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O meta\
    && chmod +x meta\
    # Download Tini Static
