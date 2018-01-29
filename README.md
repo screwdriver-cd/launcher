@@ -13,6 +13,13 @@ $ go get github.com/screwdriver-cd/launcher
 $ launch --api-uri http://localhost:8080/v4 buildId
 ```
 
+If you want to use an alternative shell (instead of `/bin/sh`) you can set the environment variable
+`SD_SHELL_BIN` to what you want to use.
+
+```bash
+$ SD_SHELL_BIN=/bin/bash launch --api-url http://localhost:8080/v4 buildId
+```
+
 ## Testing
 
 ```bash

@@ -117,27 +117,31 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func ReadCommand(file string) string {
+func ReadCommand(file string) []string {
 	// read the file that was written for the command
 	fileread, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(fmt.Errorf("Couldn't read file: %v", err))
 	}
-	return strings.Split(string(fileread), "\n")[1] // expected input: "#!/bin/sh -e\n<COMMAND>"
+
+	return strings.Split(string(fileread), "\n")
 }
 
 func TestUnmocked(t *testing.T) {
 	var tests = []struct {
 		command string
 		err     error
+		shell   string
 	}{
-		{"ls", nil},
-		{"sleep 1", nil},
-		{"ls && ls ", nil},
+		{"ls", nil, ""},
+		{"sleep 1", nil, ""},
+		{"ls && ls ", nil, ""},
 		// Large single-line
-		{"openssl rand -hex 1000000", nil},
-		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127)},
-		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5)},
+		{"openssl rand -hex 1000000", nil, ""},
+		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), ""},
+		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), ""},
+		// Custom shell
+		{"ls", nil, "/bin/bash"},
 	}
 
 	for _, test := range tests {
@@ -163,15 +167,27 @@ func TestUnmocked(t *testing.T) {
 				return nil
 			},
 		})
+		osGetEnv = func(s string) string {
+			return test.shell
+		}
+
 		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
-		command := ReadCommand(stepFilePath)
+		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Fatalf("Unexpected error: (%v) - should be (%v)", err, test.err)
 		}
 
-		if !reflect.DeepEqual(command, test.command) {
-			t.Errorf("Unexpected command from Run(%#v): %v", tests, command)
+		if test.shell == "" {
+			test.shell = "/bin/sh"
+		}
+
+		if !reflect.DeepEqual(commands[0], "#!"+test.shell+" -e") {
+			t.Errorf("Unexpected shell from Run(%#v): %v", test, commands[0])
+		}
+
+		if !reflect.DeepEqual(commands[1], test.command) {
+			t.Errorf("Unexpected command from Run(%#v): %v", test, commands[1])
 		}
 	}
 }
