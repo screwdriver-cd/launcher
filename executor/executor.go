@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/kr/pty"
-	"github.com/myesui/uuid"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"gopkg.in/kr/pty.v1"
+	"gopkg.in/myesui/uuid.v1"
 )
 
 var osGetEnv = os.Getenv
