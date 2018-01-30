@@ -12,10 +12,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/kr/pty"
-	"github.com/myesui/uuid"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"gopkg.in/kr/pty.v1"
+	"gopkg.in/myesui/uuid.v1"
 )
+
+var osGetEnv = os.Getenv
 
 const (
 	// ExitLaunch is the exit code when a step fails to launch
@@ -37,8 +39,14 @@ func (e ErrStatus) Error() string {
 
 // Create a sh file
 func createShFile(path string, cmd screwdriver.CommandDef) error {
-	defaultStart := "#!/bin/sh -e"
-	return ioutil.WriteFile(path, []byte(defaultStart+"\n"+cmd.Cmd), 0755)
+	defaultShell := osGetEnv("SD_SHELL_BIN")
+
+	// Default to /bin/sh if we don't have an injected path
+	if defaultShell == "" {
+		defaultShell = "/bin/sh"
+	}
+
+	return ioutil.WriteFile(path, []byte("#!"+defaultShell+" -e\n"+cmd.Cmd), 0755)
 }
 
 // Returns a single line (without the ending \n) from the input buffered reader

@@ -16,11 +16,16 @@ import (
 
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
-	"github.com/urfave/cli"
+	"gopkg.in/urfave/cli.v1"
 )
 
-// VERSION gets set by the build script via the LDFLAGS
-var VERSION string
+// These variables get set by the build script via the LDFLAGS
+// Detail about these variables are here: https://goreleaser.com/#builds
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
 
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
@@ -42,12 +47,12 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 		var metaInterface map[string]interface{}
 
 		log.Printf("Loading meta from %q/meta.json", metaSpace)
-		metaJson, err := readFile(metaSpace + "/meta.json")
+		metaJSON, err := readFile(metaSpace + "/meta.json")
 		if err != nil {
 			log.Printf("Failed to load %q/meta.json: %v", metaSpace, err)
 			metaInterface = make(map[string]interface{})
 		} else {
-			err = unmarshal(metaJson, &metaInterface)
+			err = unmarshal(metaJSON, &metaInterface)
 			if err != nil {
 				log.Printf("Failed to load %q/meta.json: %v", metaSpace, err)
 				metaInterface = make(map[string]interface{})
@@ -408,12 +413,14 @@ func main() {
 	app.Name = "launcher"
 	app.Usage = "launch a Screwdriver build"
 	app.UsageText = "launch [options] build-id"
-	app.Copyright = "(c) 2016 Yahoo Inc."
+	app.Version = fmt.Sprintf("%v, commit %v, built at %v", version, commit, date)
 
-	if VERSION == "" {
-		VERSION = "0.0.0"
+	if date != "unknown" {
+		// date is passed in from GoReleaser which uses RFC3339 format
+		t, _ := time.Parse(time.RFC3339, date)
+		date = t.Format("2006")
 	}
-	app.Version = VERSION
+	app.Copyright = "(c) 2016-" + date + " Yahoo Inc."
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{

@@ -1,5 +1,3 @@
-workflow:
-    - deploy
 
 shared:
     image: golang
@@ -8,6 +6,7 @@ shared:
 
 jobs:
     main:
+        requires: [~pr, ~commit]
         steps:
             - get: go get -t ./...
             - vet: go vet ./...
@@ -15,14 +14,13 @@ jobs:
             - test: go test ./...
             - build: go build -a -o launch
 
-    deploy:
+    publish:
+        requires: [main]
         steps:
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
             - get: go get -t ./...
-            - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - tag: ./ci/git-tag.sh
-            - release: |
-                curl -sL https://git.io/goreleaser | bash
+            - release: "curl -sL https://git.io/goreleaser | bash"
         secrets:
             # Pushing tags to Git
             - GIT_KEY
