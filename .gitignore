@@ -5,10 +5,12 @@ launcher
 data/emitter
 
 # Generated while deploying
-
 /ci/
-/VERSION
 
 # goreleaser
-
 /dist/
+
+# habitat
+/results/
+/src/
+/VERSION
