@@ -12,7 +12,7 @@ jobs:
             - vet: go vet ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - test: go test ./...
-            - build: go build -a -o launch
+            - build: go build -a -o $SD_ARTIFACTS_DIR/launch
 
     publish:
         requires: [main]

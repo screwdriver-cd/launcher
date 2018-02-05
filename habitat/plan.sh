@@ -22,7 +22,7 @@ scaffolding_go_build_deps=(
 # Extract the version from the last published GitHub release
 pkg_version() {
     $(pkg_path_for core/curl)/bin/curl -I \
-        https://github.com/screwdriver-cd/launcher/releases/latest | \
+        https://github.com/${pkg_origin}/${pkg_name}/releases/latest | \
         $(pkg_path_for core/grep)/bin/grep Location | \
         $(pkg_path_for core/sed)/bin/sed -E 's#.*/tag/v(.*)$#\1#' | \
         $(pkg_path_for core/sed)/bin/sed 's/[^0-9.]*//g'
