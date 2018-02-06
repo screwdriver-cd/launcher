@@ -24,8 +24,13 @@ RUN set -x \
    # Download Meta CLI
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
       | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
-      | wget --base=http://github.com/ -i - -O meta\
-   && chmod +x meta\
+      | wget --base=http://github.com/ -i - -O meta \
+   && chmod +x meta \
+   # Download sd-step
+   && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
+      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
+      | wget --base=http://github.com/ -i - -O sd-step \
+   && chmod +x sd-step \
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
@@ -53,11 +58,11 @@ RUN set -x \
    && mv /opt/sd/hab-*-x86_64-linux/hab /opt/sd/bin/hab \
    && chmod +x /opt/sd/bin/hab \
    && rm -rf hab-* \
-   # Download sd-step
-   && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
-      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
-      | wget --base=http://github.com/ -i - -O sd-step\
-   && chmod +x sd-step \
+   # Install Habitat packages
+   && /opt/sd/bin/hab pkg install core/bash \
+   && rm -rf /hab/cache \
+   && mv /hab /opt/sd/hab-cache \
+   && ln -s /opt/sd/hab-cache /hab \
    # Create FIFO
    && mkfifo -m 666 emitter \
    # Cleanup packages
