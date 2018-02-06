@@ -3,6 +3,7 @@ pkg_origin=screwdriver-cd
 pkg_scaffolding=core/scaffolding-go
 pkg_license=('BSD 3-clause')
 pkg_maintainer=('St. John Johnson <st.john.johnson@gmail.com>')
+pkg_upstream_url=('https://github.com/${pkg_origin}/${pkg_name}')
 pkg_deps=(core/bash)
 pkg_build_deps=(
     core/curl
