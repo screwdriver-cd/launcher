@@ -12,7 +12,10 @@ jobs:
             - vet: go vet ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - test: go test ./...
+            # The emitter file is changed by a test, but we want to ignore it
+            - ignore-git: git update-index --assume-unchanged data/emitter
             - build: go build -a -o $SD_ARTIFACTS_DIR/launch
+            - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
 
     publish:
         requires: [main]
