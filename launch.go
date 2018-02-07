@@ -16,6 +16,7 @@ import (
 
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"gopkg.in/fatih/color.v1"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -36,6 +37,8 @@ var readFile = ioutil.ReadFile
 var newEmitter = screwdriver.NewEmitter
 var marshal = json.Marshal
 var unmarshal = json.Unmarshal
+var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
+var blackSprint = color.New(color.FgHiBlack).SprintFunc()
 
 var cleanExit = func() {
 	os.Exit(0)
@@ -166,7 +169,7 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string) error {
 	emitter, err := newEmitter(emitterPath)
 	if err != nil {
 		return err
@@ -260,9 +263,14 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return err
 	}
 
-	fmt.Fprintf(emitter, "Workspace created in %s\n", rootDir)
-	fmt.Fprintf(emitter, "Source Dir: %s\n", w.Src)
-	fmt.Fprintf(emitter, "Artifacts Dir: %s\n", w.Artifacts)
+	cyanFprintf(emitter, "Screwdriver Launcher information\n")
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Version:        v"), version)
+	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Pipeline:       #"), j.PipelineID)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), j.Name)
+	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Build:          #"), buildID)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Workspace Dir:  "), w.Root)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), w.Src)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
 	oldJobName := j.Name
 	pr := prNumber(j.Name)
@@ -313,11 +321,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	if err := executorRun(w.Src, env, emitter, b, api, buildID); err != nil {
-		return err
-	}
-
-	return nil
+	return executorRun(w.Src, env, emitter, b, api, buildID, shellBin)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
@@ -361,10 +365,10 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath string, metaSpace string, storeURI string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, shellBin string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, shellBin); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -453,6 +457,12 @@ func main() {
 			Usage: "API URI for Store",
 			Value: "http://localhost:8081",
 		},
+		cli.StringFlag{
+			Name:   "shell-bin",
+			Usage:  "Shell to use when executing commands",
+			Value:  "/bin/sh",
+			EnvVar: "SD_SHELL_BIN",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -462,6 +472,7 @@ func main() {
 		emitterPath := c.String("emitter")
 		metaSpace := c.String("meta-space")
 		storeURL := c.String("store-uri")
+		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 
 		if err != nil {
@@ -476,7 +487,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")

@@ -133,13 +133,13 @@ func TestUnmocked(t *testing.T) {
 		err     error
 		shell   string
 	}{
-		{"ls", nil, ""},
-		{"sleep 1", nil, ""},
-		{"ls && ls ", nil, ""},
+		{"ls", nil, "/bin/sh"},
+		{"sleep 1", nil, "/bin/sh"},
+		{"ls && ls ", nil, "/bin/sh"},
 		// Large single-line
-		{"openssl rand -hex 1000000", nil, ""},
-		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), ""},
-		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), ""},
+		{"openssl rand -hex 1000000", nil, "/bin/sh"},
+		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
+		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
 		// Custom shell
 		{"ls", nil, "/bin/bash"},
 	}
@@ -167,11 +167,8 @@ func TestUnmocked(t *testing.T) {
 				return nil
 			},
 		})
-		osGetEnv = func(s string) string {
-			return test.shell
-		}
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -233,7 +230,7 @@ func TestUnmockedMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh")
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runTeardown {
 		t.Errorf("step teardown should run")
@@ -261,7 +258,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh")
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -310,7 +307,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -381,7 +378,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
