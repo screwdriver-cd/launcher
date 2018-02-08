@@ -14,7 +14,9 @@ jobs:
             - test: go test ./...
             # The emitter file is changed by a test, but we want to ignore it
             - ignore-git: git update-index --assume-unchanged data/emitter
-            - build: go build -a -o $SD_ARTIFACTS_DIR/launch
+            # Ensure we can compile
+            - build: go build -a -o /dev/null
+            # Test cross-compiling as well
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
 
     publish:

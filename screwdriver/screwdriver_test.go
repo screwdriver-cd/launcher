@@ -293,8 +293,8 @@ func TestPipelineFromID(t *testing.T) {
 
 func TestUpdateBuildStatus(t *testing.T) {
 	var meta map[string]interface{}
-	mockJson := []byte("{\"hoge\":\"fuga\"}")
-	_ = json.Unmarshal(mockJson, &meta)
+	mockJSON := []byte("{\"hoge\":\"fuga\"}")
+	_ = json.Unmarshal(mockJSON, &meta)
 
 	tests := []struct {
 		status     BuildStatus

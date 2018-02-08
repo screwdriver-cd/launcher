@@ -17,8 +17,6 @@ import (
 	"gopkg.in/myesui/uuid.v1"
 )
 
-var osGetEnv = os.Getenv
-
 const (
 	// ExitLaunch is the exit code when a step fails to launch
 	ExitLaunch = 255
@@ -38,15 +36,8 @@ func (e ErrStatus) Error() string {
 }
 
 // Create a sh file
-func createShFile(path string, cmd screwdriver.CommandDef) error {
-	defaultShell := osGetEnv("SD_SHELL_BIN")
-
-	// Default to /bin/sh if we don't have an injected path
-	if defaultShell == "" {
-		defaultShell = "/bin/sh"
-	}
-
-	return ioutil.WriteFile(path, []byte("#!"+defaultShell+" -e\n"+cmd.Cmd), 0755)
+func createShFile(path string, cmd screwdriver.CommandDef, shellBin string) error {
+	return ioutil.WriteFile(path, []byte("#!"+shellBin+" -e\n"+cmd.Cmd), 0755)
 }
 
 // Returns a single line (without the ending \n) from the input buffered reader
@@ -122,10 +113,10 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	shargs = append(shargs, cmd.Cmd)
-	c := exec.Command("sh", shargs...)
+	c := exec.Command(shellBin, shargs...)
 
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -152,9 +143,9 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string) error {
 	// Set up a single pseudo-terminal
-	c := exec.Command("sh")
+	c := exec.Command(shellBin)
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
@@ -192,7 +183,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 			// Create step script file
 			stepFilePath := "/tmp/step.sh"
-			if err := createShFile(stepFilePath, cmd); err != nil {
+			if err := createShFile(stepFilePath, cmd, shellBin); err != nil {
 				return fmt.Errorf("Writing to step script file: %v", err)
 			}
 
@@ -223,7 +214,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			}
 
 			// Run teardown commands
-			code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path)
+			code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin)
 
 			if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 				return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
