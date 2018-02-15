@@ -1,7 +1,6 @@
 FROM alpine:3.4
 MAINTAINER The Screwdrivers <screwdriver.cd>
 
-# Download Launcher, Log Service, and Tini setup
 WORKDIR /opt/sd
 RUN set -x \
    # Alpine ships with musl instead of glibc (this fixes the symlink)
@@ -11,6 +10,7 @@ RUN set -x \
    && apk add --no-cache --update ca-certificates \
    && apk add --virtual .build-dependencies wget \
    && apk add --virtual .build-dependencies gpgme \
+
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
       | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
@@ -31,6 +31,7 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
       | wget --base=http://github.com/ -i - -O sd-step \
    && chmod +x sd-step \
+
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
@@ -51,18 +52,25 @@ RUN set -x \
    && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
+
    # Install Habitat
-   && wget 'https://api.bintray.com/content/habitat/stable/linux/x86_64/hab-$latest-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux' \
-   && tar -C . -ozxvf hab-\$latest-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux \
-   && mkdir /opt/sd/bin \
-   && mv /opt/sd/hab-*-x86_64-linux/hab /opt/sd/bin/hab \
-   && chmod +x /opt/sd/bin/hab \
-   && rm -rf hab-* \
+   && mkdir -p /hab/bin /opt/sd/bin \
+   # Download Habitat Binary
+   && wget -O hab.tar.gz 'https://api.bintray.com/content/habitat/stable/linux/x86_64/hab-$latest-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux' \
+   && tar -C . -ozxvf hab.tar.gz \
+   && mv hab-*/hab /hab/bin/hab \
+   && chmod +x /hab/bin/hab \
+   # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
+   && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /opt/sd/bin/hab pkg install core/bash \
-   && rm -rf /hab/cache \
-   && mv /hab /opt/sd/hab-cache \
-   && ln -s /opt/sd/hab-cache /hab \
+   && /hab/bin/hab pkg install core/bash core/git \
+   # Cleanup Habitat Files
+   && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
+   # Cleanup docs and man pages (how could this go wrong)
+   && find /hab -name doc -exec rm -r {} + \
+   && find /hab -name docs -exec rm -r {} + \
+   && find /hab -name man -exec rm -r {} + \
+
    # Create FIFO
    && mkfifo -m 666 emitter \
    # Cleanup packages
