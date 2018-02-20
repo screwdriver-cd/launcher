@@ -31,6 +31,11 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
       | wget --base=http://github.com/ -i - -O sd-step \
    && chmod +x sd-step \
+   # Download sd-cmd
+   && wget -q -O - https://github.com/screwdriver-cd/sd-cmd/releases/latest \
+      | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_linux_amd64' \
+      | wget --base=http://github.com/ -i - -O sd-cmd \
+   && chmod +x sd-cmd \
 
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
