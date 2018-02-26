@@ -82,6 +82,7 @@ RUN set -x \
    && apk del --purge .build-dependencies
 
 VOLUME /opt/sd
+VOLUME /hab
 
 # Set Entrypoint
 ENTRYPOINT ["/opt/sd/tini", "--", "/opt/sd/launch"]
