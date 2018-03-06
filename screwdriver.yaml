@@ -8,7 +8,10 @@ jobs:
     main:
         requires: [~pr, ~commit]
         steps:
-            - get: go get -t ./...
+            - glide: |
+                export PATH=$PATH:$GOPATH/bin
+                go get -v github.com/Masterminds/glide
+            - install: glide install
             - vet: go vet ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - test: go test ./...
@@ -23,7 +26,10 @@ jobs:
         requires: [main]
         steps:
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
-            - get: go get -t ./...
+            - glide: |
+                export PATH=$PATH:$GOPATH/bin
+                go get -v github.com/Masterminds/glide
+            - get: glide install
             - tag: ./ci/git-tag.sh
             - release: "curl -sL https://git.io/goreleaser | bash"
         secrets:
