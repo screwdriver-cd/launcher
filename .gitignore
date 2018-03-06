@@ -17,3 +17,5 @@ data/emitter
 
 # glide vendors
 vendor/
+# we dont want to maintain partial updates
+glide.lock
