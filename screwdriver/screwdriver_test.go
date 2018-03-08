@@ -163,6 +163,68 @@ func TestBuildFromID(t *testing.T) {
 	}
 }
 
+func TestEventFromID(t *testing.T) {
+	tests := []struct {
+		event      Event
+		statusCode int
+		err        error
+	}{
+		{
+			event: Event{
+				ID:            1555,
+				ParentEventID: 8765,
+			},
+			statusCode: 200,
+			err:        nil,
+		},
+		{
+			event:      Event{},
+			statusCode: 500,
+			err: errors.New("After 5 attempts, Last error: " +
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/events/0"),
+		},
+		{
+			event:      Event{},
+			statusCode: 404,
+			err: SDError{
+				StatusCode: 404,
+				Reason:     "Not Found",
+				Message:    "Event does not exist",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		JSON := []byte{}
+		err := errors.New("")
+
+		if reflect.TypeOf(test.err) == reflect.TypeOf(SDError{}) {
+			JSON, err = json.Marshal(test.err)
+			if err != nil {
+				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
+			}
+		} else {
+			JSON, err = json.Marshal(test.event)
+			if err != nil {
+				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
+			}
+		}
+
+		http := makeFakeHTTPClient(t, test.statusCode, string(JSON))
+		testAPI := api{"http://fakeurl", "faketoken", http}
+
+		event, err := testAPI.EventFromID(test.event.ID)
+
+		if !reflect.DeepEqual(err, test.err) {
+			t.Errorf("Unexpected error from EventFromID: \n%v\n want \n%v", err.Error(), test.err.Error())
+		}
+
+		if !reflect.DeepEqual(event, test.event) {
+			t.Errorf("event == %#v, want %#v", event, test.event)
+		}
+	}
+}
+
 func TestJobFromID(t *testing.T) {
 	tests := []struct {
 		job        Job

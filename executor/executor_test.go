@@ -24,6 +24,10 @@ func (f MockAPI) BuildFromID(buildID int) (screwdriver.Build, error) {
 	return screwdriver.Build{}, nil
 }
 
+func (f MockAPI) EventFromID(eventID int) (screwdriver.Event, error) {
+	return screwdriver.Event{}, nil
+}
+
 func (f MockAPI) JobFromID(jobID int) (screwdriver.Job, error) {
 	return screwdriver.Job{}, nil
 }

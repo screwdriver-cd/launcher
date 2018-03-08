@@ -36,6 +36,7 @@ func (b BuildStatus) String() string {
 // API is a Screwdriver API endpoint
 type API interface {
 	BuildFromID(buildID int) (Build, error)
+	EventFromID(eventID int) (Event, error)
 	JobFromID(jobID int) (Job, error)
 	PipelineFromID(pipelineID int) (Pipeline, error)
 	UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error
@@ -124,6 +125,13 @@ type Build struct {
 	ParentBuildID int                    `json:"parentBuildId"`
 	Meta          map[string]interface{} `json:"meta"`
 	EventID       int                    `json:"eventId"`
+}
+
+// Event is a Screwdriver Event
+type Event struct {
+	ID            int                    `json:"id"`
+	Meta          map[string]interface{} `json:"meta"`
+	ParentEventID int                    `json:"parentEventId"`
 }
 
 // Secret is a Screwdriver build secret.
@@ -290,6 +298,21 @@ func (a api) BuildFromID(buildID int) (build Build, err error) {
 		return build, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
 	return build, nil
+}
+
+// EventFromID fetches and returns a Event object from its ID
+func (a api) EventFromID(eventID int) (event Event, err error) {
+	u, err := a.makeURL(fmt.Sprintf("events/%d", eventID))
+	body, err := a.get(u)
+	if err != nil {
+		return event, err
+	}
+
+	err = json.Unmarshal(body, &event)
+	if err != nil {
+		return event, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+	return event, nil
 }
 
 // JobFromID fetches and returns a Job object from its ID
