@@ -210,6 +210,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Fetching Pipeline ID %d: %v", job.PipelineID, err)
 	}
 
+	metaByte := []byte("")
+	parentID := 0
+	metaFile := "meta.json" // Write to "meta.json" file
+	metaSource := ""
+
 	// If no parent build ID, get the parent event meta
 	if build.ParentBuildID == 0 {
 		log.Printf("Fetching Parent Event %d", event.ParentEventID)
@@ -218,25 +223,16 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err)
 		}
 
-		// Write to "meta.json" file
-		metaFile := "meta.json"
-
-		log.Printf("Creating Meta Space in %v", metaSpace)
-		err = createMetaSpace(metaSpace)
-		if err != nil {
-			return err
-		}
-
 		log.Printf("Fetching Parent Event Meta JSON %v", parentEvent.ID)
-		parentEventMetaByte, err := marshal(parentEvent.Meta)
+		metaByte, err = marshal(parentEvent.Meta)
 		if err != nil {
 			return fmt.Errorf("Parsing Parent Event(%d) Meta JSON: %v", parentEvent.ID, err)
 		}
 
-		err = writeFile(metaSpace+"/"+metaFile, parentEventMetaByte, 0666)
-		if err != nil {
-			return fmt.Errorf("Writing Parent Event(%d) Meta JSON: %v", parentEvent.ID, err)
-		}
+		metaSource = "Event"
+		parentID = parentEvent.ID
+
+		// If parent build exists, use parent build meta
 	} else {
 		log.Printf("Fetching Parent Build %d", build.ParentBuildID)
 		parentBuild, err := api.BuildFromID(build.ParentBuildID)
@@ -256,31 +252,31 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			return fmt.Errorf("Fetching Pipeline ID %d: %v", parentJob.PipelineID, err)
 		}
 
-		// If build is triggered from the same pipeline, write to the same "meta.json" file
-		metaFile := "meta.json"
-
 		// If build is triggered by an external pipeline, write to "sd@123:component.json"
 		// where sd@123:component is the triggering job
 		if pipeline.ID != parentPipeline.ID {
 			metaFile = "sd@" + strconv.Itoa(parentPipeline.ID) + ":" + parentJob.Name + ".json"
 		}
 
-		log.Printf("Creating Meta Space in %v", metaSpace)
-		err = createMetaSpace(metaSpace)
-		if err != nil {
-			return err
-		}
-
 		log.Printf("Fetching Parent Build Meta JSON %v", parentBuild.Meta)
-		parentBuildMetaByte, err := marshal(parentBuild.Meta)
+		metaByte, err = marshal(parentBuild.Meta)
 		if err != nil {
 			return fmt.Errorf("Parsing Parent Build(%d) Meta JSON: %v", parentBuild.ID, err)
 		}
 
-		err = writeFile(metaSpace+"/"+metaFile, parentBuildMetaByte, 0666)
-		if err != nil {
-			return fmt.Errorf("Writing Parent Build(%d) Meta JSON: %v", parentBuild.ID, err)
-		}
+		metaSource = "Build"
+		parentID = parentBuild.ID
+	}
+
+	log.Printf("Creating Meta Space in %v", metaSpace)
+	err = createMetaSpace(metaSpace)
+	if err != nil {
+		return err
+	}
+
+	err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
+	if err != nil {
+		return fmt.Errorf("Writing Parent %v(%d) Meta JSON: %v", metaSource, parentID, err)
 	}
 
 	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
