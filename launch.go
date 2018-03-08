@@ -192,12 +192,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Fetching Build ID %d: %v", buildID, err)
 	}
 
-	log.Printf("Fetching Event %d", build.EventID)
-	event, err := api.EventFromID(build.EventID)
-	if err != nil {
-		return fmt.Errorf("Fetching Event ID %d: %v", build.EventID, err)
-	}
-
 	log.Printf("Fetching Job %d", build.JobID)
 	job, err := api.JobFromID(build.JobID)
 	if err != nil {
@@ -217,6 +211,12 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	// If no parent build ID, get the parent event meta
 	if build.ParentBuildID == 0 {
+		log.Printf("Fetching Event %d", build.EventID)
+		event, err := api.EventFromID(build.EventID)
+		if err != nil {
+			return fmt.Errorf("Fetching Event ID %d: %v", build.EventID, err)
+		}
+
 		log.Printf("Fetching Parent Event %d", event.ParentEventID)
 		parentEvent, err := api.EventFromID(event.ParentEventID)
 		if err != nil {
