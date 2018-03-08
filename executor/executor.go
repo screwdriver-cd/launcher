@@ -142,6 +142,23 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	return ExitOk, nil
 }
 
+func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screwdriver.CommandDef) {
+	userCommands := []screwdriver.CommandDef{}
+	teardownCommands := []screwdriver.CommandDef{}
+
+	for _, cmd := range build.Commands {
+		isTeardown, _ := regexp.MatchString("sd-teardown-*", cmd.Name)
+
+		if isTeardown {
+			teardownCommands = append(teardownCommands, cmd)
+		} else {
+			userCommands = append(userCommands, cmd)
+		}
+	}
+
+	return userCommands, teardownCommands
+}
+
 // Run executes a slice of CommandDefs
 func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string) error {
 	// Set up a single pseudo-terminal
@@ -165,72 +182,67 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	f.Write([]byte(shargs))
 
-	teardownFlag := false
 	var firstError error
 	var code int
 	var cmdErr error
 
-	cmds := build.Commands
+	userCommands, teardownCommands := filterTeardowns(build)
 
-	for _, cmd := range cmds {
-		isTeardown, _ := regexp.MatchString("sd-teardown-*", cmd.Name)
-
+	for _, cmd := range userCommands {
 		// Start set up & user steps if previous steps succeed
-		if (!isTeardown) && (firstError == nil) {
-			if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
-				return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
-			}
+		if firstError != nil { break }
 
-			// Create step script file
-			stepFilePath := "/tmp/step.sh"
-			if err := createShFile(stepFilePath, cmd, shellBin); err != nil {
-				return fmt.Errorf("Writing to step script file: %v", err)
-			}
-
-			// Generate guid for the step
-			guid := uuid.NewV4().String()
-
-			// Set current running step in emitter
-			emitter.StartCmd(cmd)
-			fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
-
-			fReader := bufio.NewReader(f)
-
-			code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
-
-			if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
-				return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
-			}
-		} else if isTeardown {
-			if !teardownFlag {
-				if firstError == nil {
-					f.Write([]byte{4}) // Exit shell only if previous user steps ran successfully
-				}
-				teardownFlag = true
-			}
-
-			if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
-				return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
-			}
-
-			// Run teardown commands
-			code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin)
-
-			if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
-				return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
-			}
+		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		// Set first error flag
-		if (firstError == nil) && (cmdErr != nil) {
+		// Create step script file
+		stepFilePath := "/tmp/step.sh"
+		if err := createShFile(stepFilePath, cmd, shellBin); err != nil {
+			return fmt.Errorf("Writing to step script file: %v", err)
+		}
+
+		// Generate guid for the step
+		guid := uuid.NewV4().String()
+
+		// Set current running step in emitter
+		emitter.StartCmd(cmd)
+		fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
+
+		fReader := bufio.NewReader(f)
+
+		code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
+
+		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+		}
+
+		if (firstError == nil) {
 			firstError = cmdErr
 		}
 	}
 
-	// Return the first error occured
-	if firstError != nil {
-		return firstError
+	for index, cmd := range teardownCommands {
+		if index == 0 && firstError == nil{
+			// Exit shell only if previous user steps ran successfully
+			f.Write([]byte{4})
+		}
+
+		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
+		}
+
+		// Run teardown commands
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin)
+
+		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+		}
+
+		if (firstError == nil) {
+			firstError = cmdErr
+		}
 	}
 
-	return nil
+	return firstError
 }
