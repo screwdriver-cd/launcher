@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -882,10 +881,10 @@ func TestFetchParentEventMetaParseError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
-	want := "Parsing Parent Event(" + strconv.Itoa(TestParentEventID) + ") Meta JSON: Testing parsing parent event meta"
+	expected := fmt.Sprintf(`Parsing Parent Event(%d) Meta JSON: Testing parsing parent event meta`, TestParentEventID)
 
-	if err.Error() != want {
-		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	if err.Error() != expected {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
 	}
 }
 
@@ -917,10 +916,10 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
-	want := "Parsing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing parsing parent build meta"
+	expected := fmt.Sprintf(`Parsing Parent Build(%d) Meta JSON: Testing parsing parent build meta`, TestParentBuildID)
 
-	if err.Error() != want {
-		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	if err.Error() != expected {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
 	}
 }
 
@@ -952,10 +951,10 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
-	want := "Writing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing writing parent build meta"
+	expected := fmt.Sprintf(`Writing Parent Build(%d) Meta JSON: Testing writing parent build meta`, TestParentBuildID)
 
-	if err.Error() != want {
-		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	if err.Error() != expected {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
 	}
 }
 
@@ -987,9 +986,9 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
-	want := "Writing Parent Event(" + strconv.Itoa(TestParentEventID) + ") Meta JSON: Testing writing parent event meta"
+	expected := fmt.Sprintf(`Writing Parent Event(%d) Meta JSON: Testing writing parent event meta`, TestParentEventID)
 
-	if err.Error() != want {
-		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	if err.Error() != expected {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
 	}
 }
