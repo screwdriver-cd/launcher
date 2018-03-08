@@ -296,8 +296,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	cyanFprintf(emitter, "Screwdriver Launcher information\n")
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Version:        v"), version)
-	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Pipeline:       #"), j.PipelineID)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), j.Name)
+	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Pipeline:       #"), job.PipelineID)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), job.Name)
 	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Build:          #"), buildID)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Workspace Dir:  "), w.Root)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), w.Src)
