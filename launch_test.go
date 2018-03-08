@@ -19,7 +19,9 @@ const (
 	TestWorkspace        = "/sd/workspace"
 	TestEmitter          = "./data/emitter"
 	TestBuildID          = 1234
+	TestEventID          = 2234
 	TestJobID            = 2345
+	TestParentEventID    = 3345
 	TestPipelineID       = 3456
 	TestParentBuildID    = 1111
 	TestParentJobID      = 1112
@@ -37,6 +39,7 @@ var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 })
 
 type FakeBuild screwdriver.Build
+type FakeEvent screwdriver.Event
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 type FakeScmRepo screwdriver.ScmRepo
@@ -44,7 +47,10 @@ type FakeScmRepo screwdriver.ScmRepo
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID int) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, JobID: testJobID, SHA: TestSHA}), nil
+			return screwdriver.Build(FakeBuild{ID: testBuildID, EventID: TestEventID, JobID: testJobID, SHA: TestSHA}), nil
+		},
+		eventFromID: func(eventID int) (screwdriver.Event, error) {
+			return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
 		},
 		jobFromID: func(jobID int) (screwdriver.Job, error) {
 			if jobID != testJobID {
@@ -83,6 +89,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 
 type MockAPI struct {
 	buildFromID       func(int) (screwdriver.Build, error)
+	eventFromID       func(int) (screwdriver.Event, error)
 	jobFromID         func(int) (screwdriver.Job, error)
 	pipelineFromID    func(int) (screwdriver.Pipeline, error)
 	updateBuildStatus func(screwdriver.BuildStatus, map[string]interface{}, int) error
@@ -108,6 +115,13 @@ func (f MockAPI) BuildFromID(buildID int) (screwdriver.Build, error) {
 		return f.buildFromID(buildID)
 	}
 	return screwdriver.Build(FakeBuild{}), nil
+}
+
+func (f MockAPI) EventFromID(eventID int) (screwdriver.Event, error) {
+	if f.eventFromID != nil {
+		return f.eventFromID(eventID)
+	}
+	return screwdriver.Event(FakeEvent{}), nil
 }
 
 func (f MockAPI) JobFromID(jobID int) (screwdriver.Job, error) {
@@ -228,6 +242,25 @@ func TestBuildFromIdError(t *testing.T) {
 	}
 
 	expected := `Fetching Build ID 0`
+	if !strings.Contains(err.Error(), expected) {
+		t.Errorf("err == %q, want %q", err, expected)
+	}
+}
+
+func TestEventFromIdError(t *testing.T) {
+	api := MockAPI{
+		eventFromID: func(eventID int) (screwdriver.Event, error) {
+			err := fmt.Errorf("testing error returns")
+			return screwdriver.Event(FakeEvent{}), err
+		},
+	}
+
+	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
+	if err == nil {
+		t.Errorf("err should not be nil")
+	}
+
+	expected := `Fetching Event ID 0`
 	if !strings.Contains(err.Error(), expected) {
 		t.Errorf("err == %q, want %q", err, expected)
 	}
@@ -833,6 +866,29 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 }
 
+func TestFetchParentEventMetaParseError(t *testing.T) {
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestEventID, TestJobID, 0, "RUNNING")
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestParentEventID {
+			return screwdriver.Event(FakeEvent{ID: TestParentEventID}), nil
+		}
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
+	}
+	marshal = func(v interface{}) (result []byte, err error) {
+		return []byte("test"), fmt.Errorf("Testing parsing parent event meta")
+	}
+
+	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
+	want := "Parsing Parent Event(" + strconv.Itoa(TestParentEventID) + ") Meta JSON: Testing parsing parent event meta"
+
+	if err.Error() != want {
+		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	}
+}
+
 func TestFetchParentBuildMetaParseError(t *testing.T) {
 	oldMarshal := marshal
 	defer func() { marshal = oldMarshal }()
@@ -897,6 +953,41 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
 	want := "Writing Parent Build(" + strconv.Itoa(TestParentBuildID) + ") Meta JSON: Testing writing parent build meta"
+
+	if err.Error() != want {
+		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
+	}
+}
+
+func TestFetchParentEventMetaWriteError(t *testing.T) {
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+
+	api := mockAPI(t, TestEventID, TestJobID, 0, "RUNNING")
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestParentEventID {
+			return screwdriver.Event(FakeEvent{ID: TestParentEventID}), nil
+		}
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == TestParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestParentPipelineID, Name: "component"}), nil
+		}
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		if pipelineID == TestParentPipelineID {
+			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+		}
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		return fmt.Errorf("Testing writing parent event meta")
+	}
+
+	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
+	want := "Writing Parent Event(" + strconv.Itoa(TestParentEventID) + ") Meta JSON: Testing writing parent event meta"
 
 	if err.Error() != want {
 		t.Errorf("Error is wrong, got '%v', want '%v'", err, want)
