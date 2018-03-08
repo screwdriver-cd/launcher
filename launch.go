@@ -187,35 +187,35 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	log.Printf("Fetching Build %d", buildID)
-	b, err := api.BuildFromID(buildID)
+	build, err := api.BuildFromID(buildID)
 	if err != nil {
 		return fmt.Errorf("Fetching Build ID %d: %v", buildID, err)
 	}
 
-	log.Printf("Fetching Event %d", b.EventID)
-	e, err := api.EventFromID(b.EventID)
+	log.Printf("Fetching Event %d", build.EventID)
+	event, err := api.EventFromID(build.EventID)
 	if err != nil {
-		return fmt.Errorf("Fetching Event ID %d: %v", b.EventID, err)
+		return fmt.Errorf("Fetching Event ID %d: %v", build.EventID, err)
 	}
 
-	log.Printf("Fetching Job %d", b.JobID)
-	j, err := api.JobFromID(b.JobID)
+	log.Printf("Fetching Job %d", build.JobID)
+	job, err := api.JobFromID(build.JobID)
 	if err != nil {
-		return fmt.Errorf("Fetching Job ID %d: %v", b.JobID, err)
+		return fmt.Errorf("Fetching Job ID %d: %v", build.JobID, err)
 	}
 
-	log.Printf("Fetching Pipeline %d", j.PipelineID)
-	p, err := api.PipelineFromID(j.PipelineID)
+	log.Printf("Fetching Pipeline %d", job.PipelineID)
+	pipeline, err := api.PipelineFromID(job.PipelineID)
 	if err != nil {
-		return fmt.Errorf("Fetching Pipeline ID %d: %v", j.PipelineID, err)
+		return fmt.Errorf("Fetching Pipeline ID %d: %v", job.PipelineID, err)
 	}
 
 	// If no parent build ID, get the parent event meta
-	if b.ParentBuildID == 0 {
-		log.Printf("Fetching Parent Event %d", e.ParentEventID)
-		pe, err := api.EventFromID(e.ParentEventID)
+	if build.ParentBuildID == 0 {
+		log.Printf("Fetching Parent Event %d", event.ParentEventID)
+		parentEvent, err := api.EventFromID(event.ParentEventID)
 		if err != nil {
-			return fmt.Errorf("Fetching Parent Event ID %d: %v", e.ParentEventID, err)
+			return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err)
 		}
 
 		// Write to "meta.json" file
@@ -227,33 +227,33 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			return err
 		}
 
-		log.Printf("Fetching Parent Event Meta JSON %v", pe.ID)
-		peMetaByte, err := marshal(pe.Meta)
+		log.Printf("Fetching Parent Event Meta JSON %v", parentEvent.ID)
+		parentEventMetaByte, err := marshal(parentEvent.Meta)
 		if err != nil {
-			return fmt.Errorf("Parsing Parent Event(%d) Meta JSON: %v", pe.ID, err)
+			return fmt.Errorf("Parsing Parent Event(%d) Meta JSON: %v", parentEvent.ID, err)
 		}
 
-		err = writeFile(metaSpace+"/"+metaFile, peMetaByte, 0666)
+		err = writeFile(metaSpace+"/"+metaFile, parentEventMetaByte, 0666)
 		if err != nil {
-			return fmt.Errorf("Writing Parent Event(%d) Meta JSON: %v", pe.ID, err)
+			return fmt.Errorf("Writing Parent Event(%d) Meta JSON: %v", parentEvent.ID, err)
 		}
 	} else {
-		log.Printf("Fetching Parent Build %d", b.ParentBuildID)
-		pb, err := api.BuildFromID(b.ParentBuildID)
+		log.Printf("Fetching Parent Build %d", build.ParentBuildID)
+		parentBuild, err := api.BuildFromID(build.ParentBuildID)
 		if err != nil {
-			return fmt.Errorf("Fetching Parent Build ID %d: %v", b.ParentBuildID, err)
+			return fmt.Errorf("Fetching Parent Build ID %d: %v", build.ParentBuildID, err)
 		}
 
-		log.Printf("Fetching Parent Job %d", pb.JobID)
-		pj, err := api.JobFromID(pb.JobID)
+		log.Printf("Fetching Parent Job %d", parentBuild.JobID)
+		parentJob, err := api.JobFromID(parentBuild.JobID)
 		if err != nil {
-			return fmt.Errorf("Fetching Job ID %d: %v", pb.JobID, err)
+			return fmt.Errorf("Fetching Job ID %d: %v", parentBuild.JobID, err)
 		}
 
-		log.Printf("Fetching Parent Pipeline %d", pj.PipelineID)
-		pp, err := api.PipelineFromID(pj.PipelineID)
+		log.Printf("Fetching Parent Pipeline %d", parentJob.PipelineID)
+		parentPipeline, err := api.PipelineFromID(parentJob.PipelineID)
 		if err != nil {
-			return fmt.Errorf("Fetching Pipeline ID %d: %v", pj.PipelineID, err)
+			return fmt.Errorf("Fetching Pipeline ID %d: %v", parentJob.PipelineID, err)
 		}
 
 		// If build is triggered from the same pipeline, write to the same "meta.json" file
@@ -261,8 +261,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 		// If build is triggered by an external pipeline, write to "sd@123:component.json"
 		// where sd@123:component is the triggering job
-		if p.ID != pp.ID {
-			metaFile = "sd@" + strconv.Itoa(pp.ID) + ":" + pj.Name + ".json"
+		if pipeline.ID != parentPipeline.ID {
+			metaFile = "sd@" + strconv.Itoa(parentPipeline.ID) + ":" + parentJob.Name + ".json"
 		}
 
 		log.Printf("Creating Meta Space in %v", metaSpace)
@@ -271,19 +271,19 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			return err
 		}
 
-		log.Printf("Fetching Parent Build Meta JSON %v", pb.Meta)
-		pbMetaByte, err := marshal(pb.Meta)
+		log.Printf("Fetching Parent Build Meta JSON %v", parentBuild.Meta)
+		parentBuildMetaByte, err := marshal(parentBuild.Meta)
 		if err != nil {
-			return fmt.Errorf("Parsing Parent Build(%d) Meta JSON: %v", pb.ID, err)
+			return fmt.Errorf("Parsing Parent Build(%d) Meta JSON: %v", parentBuild.ID, err)
 		}
 
-		err = writeFile(metaSpace+"/"+metaFile, pbMetaByte, 0666)
+		err = writeFile(metaSpace+"/"+metaFile, parentBuildMetaByte, 0666)
 		if err != nil {
-			return fmt.Errorf("Writing Parent Build(%d) Meta JSON: %v", pb.ID, err)
+			return fmt.Errorf("Writing Parent Build(%d) Meta JSON: %v", parentBuild.ID, err)
 		}
 	}
 
-	scm, err := parseScmURI(p.ScmURI, p.ScmRepo.Name)
+	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
 	if err != nil {
 		return err
 	}
@@ -303,18 +303,18 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), w.Src)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
-	oldJobName := j.Name
-	pr := prNumber(j.Name)
+	oldJobName := job.Name
+	pr := prNumber(job.Name)
 	if pr != "" {
-		j.Name = "main"
+		job.Name = "main"
 	}
 
-	err = writeArtifact(w.Artifacts, "steps.json", b.Commands)
+	err = writeArtifact(w.Artifacts, "steps.json", build.Commands)
 	if err != nil {
 		return fmt.Errorf("Creating steps.json artifact: %v", err)
 	}
 
-	err = writeArtifact(w.Artifacts, "environment.json", b.Environment)
+	err = writeArtifact(w.Artifacts, "environment.json", build.Environment)
 	if err != nil {
 		return fmt.Errorf("Creating environment.json artifact: %v", err)
 	}
@@ -327,9 +327,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_BUILD_ID":            strconv.Itoa(buildID),
-		"SD_JOB_ID":              strconv.Itoa(j.ID),
-		"SD_PIPELINE_ID":         strconv.Itoa(j.PipelineID),
-		"SD_EVENT_ID":            strconv.Itoa(b.EventID),
+		"SD_JOB_ID":              strconv.Itoa(job.ID),
+		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
+		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PULL_REQUEST":        pr,
 		"SD_SOURCE_DIR":          w.Src,
@@ -337,22 +337,22 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 		"SD_API_URL":             apiURL,
 		"SD_BUILD_URL":           apiURL + "builds/" + strconv.Itoa(buildID),
-		"SD_BUILD_SHA":           b.SHA,
+		"SD_BUILD_SHA":           build.SHA,
 		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
 	}
 
-	secrets, err := api.SecretsForBuild(b)
+	secrets, err := api.SecretsForBuild(build)
 	if err != nil {
-		return fmt.Errorf("Fetching secrets for build %v", b.ID)
+		return fmt.Errorf("Fetching secrets for build %v", build.ID)
 	}
 
-	env := createEnvironment(defaultEnv, secrets, b)
+	env := createEnvironment(defaultEnv, secrets, build)
 
 	if err := api.UpdateStepStop(buildID, "sd-setup-launcher", 0); err != nil {
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	return executorRun(w.Src, env, emitter, b, api, buildID, shellBin)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
