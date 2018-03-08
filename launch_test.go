@@ -877,7 +877,7 @@ func TestFetchParentEventMetaParseError(t *testing.T) {
 		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
 	}
 	marshal = func(v interface{}) (result []byte, err error) {
-		return []byte("test"), fmt.Errorf("Testing parsing parent event meta")
+		return nil, fmt.Errorf("Testing parsing parent event meta")
 	}
 
 	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
@@ -912,7 +912,7 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
 	marshal = func(v interface{}) (result []byte, err error) {
-		return []byte("test"), fmt.Errorf("Testing parsing parent build meta")
+		return nil, fmt.Errorf("Testing parsing parent build meta")
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
