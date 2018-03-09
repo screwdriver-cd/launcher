@@ -958,6 +958,22 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 	}
 }
 
+func TestNoParentEventID(t *testing.T) {
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID}), nil
+	}
+
+	marshal = func(v interface{}) (result []byte, err error) {
+		return nil, fmt.Errorf("Testing parsing parent event meta")
+	}
+
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
+}
+
 func TestFetchParentEventMetaWriteError(t *testing.T) {
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
