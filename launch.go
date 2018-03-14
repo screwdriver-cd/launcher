@@ -44,6 +44,8 @@ var cleanExit = func() {
 	os.Exit(0)
 }
 
+const DefaultTimeout = 5400 // 90 minutes in seconds
+
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
 	if api != nil {
@@ -253,7 +255,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 			metaSource = "Build"
 			parentID = parentBuild.ID
-		} else {	// If has parent event, fetch meta from parent event
+		} else { // If has parent event, fetch meta from parent event
 			log.Printf("Fetching Parent Event %d", event.ParentEventID)
 			parentEvent, err := api.EventFromID(event.ParentEventID)
 			if err != nil {
@@ -352,7 +354,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, DefaultTimeout)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {

@@ -2,6 +2,7 @@ package executor
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
 	"gopkg.in/kr/pty.v1"
@@ -160,7 +162,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int) error {
 	// Set up a single pseudo-terminal
 	c := exec.Command(shellBin)
 	c.Dir = path
@@ -186,11 +188,20 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	var code int
 	var cmdErr error
 
+	timeout := time.Duration(timeoutSec) * time.Second
+	invokeTimeout := make(chan error, 1)
+	go func() {
+		time.Sleep(timeout)
+		invokeTimeout <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", timeout))
+	}()
+
 	userCommands, teardownCommands := filterTeardowns(build)
 
 	for _, cmd := range userCommands {
 		// Start set up & user steps if previous steps succeed
-		if firstError != nil { break }
+		if firstError != nil {
+			break
+		}
 
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
@@ -205,6 +216,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// Generate guid for the step
 		guid := uuid.NewV4().String()
 
+		completed := make(chan error, 1)
+
 		// Set current running step in emitter
 		emitter.StartCmd(cmd)
 		fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -212,18 +225,31 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		fReader := bufio.NewReader(f)
 
 		code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
+		completed <- cmdErr
+
+		select {
+		case <-completed:
+			if firstError == nil {
+				firstError = cmdErr
+			}
+		case buildTimeout := <-invokeTimeout:
+			// print timeout message into build
+			f.Write([]byte(fmt.Sprintf("\n\necho %v\n\n", buildTimeout.Error())))
+			// kill shell
+			f.Write([]byte{4})
+			if firstError == nil {
+				firstError = buildTimeout
+				code = 1
+			}
+		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
 		}
-
-		if (firstError == nil) {
-			firstError = cmdErr
-		}
 	}
 
 	for index, cmd := range teardownCommands {
-		if index == 0 && firstError == nil{
+		if index == 0 && firstError == nil {
 			// Exit shell only if previous user steps ran successfully
 			f.Write([]byte{4})
 		}
@@ -239,7 +265,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
 		}
 
-		if (firstError == nil) {
+		if firstError == nil {
 			firstError = cmdErr
 		}
 	}
