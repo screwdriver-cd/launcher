@@ -13,6 +13,8 @@ import (
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
+const TestBuildTimeout = 60
+
 var stepFilePath = "/tmp/step.sh"
 
 type MockAPI struct {
@@ -172,7 +174,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -234,7 +236,7 @@ func TestUnmockedMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh")
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runTeardown {
 		t.Errorf("step teardown should run")
@@ -262,8 +264,40 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh")
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
 	expectedErr := ErrStatus{127}
+	if !reflect.DeepEqual(err, expectedErr) {
+		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
+	}
+}
+
+func TestTimeout(t *testing.T) {
+	commands := []screwdriver.CommandDef{
+		{Cmd: "echo testing timeout", Name: "test timeout"},
+		{Cmd: "sleep 3", Name: "sleep for a long time"},
+		{Cmd: "echo woke up to snooze", Name: "snooze"},
+		{Cmd: "sleep 3", Name: "sleep for another long time"},
+		{Cmd: "exit 0", Name: "completed"},
+	}
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: map[string]string{},
+	}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			if stepName == "completed" {
+				t.Errorf("Should not update step that never run: %v", stepName)
+			}
+			return nil
+		},
+	})
+	expectedTimeout := 3
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", expectedTimeout)
+	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", expectedTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
 	}
@@ -311,7 +345,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh")
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -382,7 +416,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh")
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
