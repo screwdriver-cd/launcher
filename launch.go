@@ -171,7 +171,7 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int) error {
 	emitter, err := newEmitter(emitterPath)
 	if err != nil {
 		return err
@@ -354,7 +354,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, DefaultTimeout)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
@@ -398,10 +398,10 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, shellBin string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, shellBin string, buildTimeout int) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, shellBin); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, shellBin, buildTimeout); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -496,6 +496,12 @@ func main() {
 			Value:  "/bin/sh",
 			EnvVar: "SD_SHELL_BIN",
 		},
+		cli.IntFlag{
+			Name:   "build-timeout",
+			Usage:  "Maximum number of seconds to allow a build to run",
+			Value:  DefaultTimeout,
+			EnvVar: "SD_BUILD_TIMEOUT",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -507,6 +513,7 @@ func main() {
 		storeURL := c.String("store-uri")
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
+		buildTimeout := c.Int("build-timeout")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -520,7 +527,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeout)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
