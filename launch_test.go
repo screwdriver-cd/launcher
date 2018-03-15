@@ -1033,27 +1033,6 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 	}
 }
 
-func TestMergedMetaFromParentBuildsIDs(t *testing.T) {
-	TestParentBuildIDs := []float64{1111, 2222}
-	IDs := make([]interface{}, len(TestParentBuildIDs))
-	for i, s := range TestParentBuildIDs {
-		IDs[i] = s
-	}
-	oldMarshal := marshal
-	defer func() { marshal = oldMarshal }()
-
-	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
-	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
-	}
-
-	marshal = func(v interface{}) (result []byte, err error) {
-		return nil, fmt.Errorf("Testing parsing parent builds meta")
-	}
-
-	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
-}
-
 func TestNoParentEventID(t *testing.T) {
 	oldMarshal := marshal
 	defer func() { marshal = oldMarshal }()
