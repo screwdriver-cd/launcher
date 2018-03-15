@@ -115,17 +115,19 @@ type CommandDef struct {
 	Cmd  string `json:"command"`
 }
 
+// Need a generic interface to take in an int or array of ints
+type IntOrArray interface{}
+
 // Build is a Screwdriver Build
 type Build struct {
-	ID             int                    `json:"id"`
-	JobID          int                    `json:"jobId"`
-	SHA            string                 `json:"sha"`
-	Commands       []CommandDef           `json:"steps"`
-	Environment    map[string]string      `json:"environment"`
-	ParentBuildID  int                    `json:"parentBuildId"`
-	ParentBuildIDs []int                  `json:"parentBuildIds"`
-	Meta           map[string]interface{} `json:"meta"`
-	EventID        int                    `json:"eventId"`
+	ID            int                    `json:"id"`
+	JobID         int                    `json:"jobId"`
+	SHA           string                 `json:"sha"`
+	Commands      []CommandDef           `json:"steps"`
+	Environment   map[string]string      `json:"environment"`
+	ParentBuildID IntOrArray             `json:"parentBuildId"`
+	Meta          map[string]interface{} `json:"meta"`
+	EventID       int                    `json:"eventId"`
 }
 
 // Event is a Screwdriver Event

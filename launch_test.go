@@ -20,9 +20,9 @@ const (
 	TestBuildID          = 1234
 	TestEventID          = 2234
 	TestJobID            = 2345
+	TestParentBuildID    = 1111
 	TestParentEventID    = 3345
 	TestPipelineID       = 3456
-	TestParentBuildID    = 1111
 	TestParentJobID      = 1112
 	TestParentPipelineID = 1113
 	TestMetaSpace        = "./data/meta"
@@ -32,6 +32,8 @@ const (
 	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
 )
+
+var TestParentBuildIDFloat interface{} = float64(1111)
 
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
@@ -836,7 +838,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 		if buildID == TestParentBuildID {
 			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID, Meta: mockMeta}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -866,13 +868,17 @@ func TestFetchParentBuildMeta(t *testing.T) {
 }
 
 func TestFetchParentBuildsMetaParseError(t *testing.T) {
-	TestParentBuildIDs := []int{1111, 2222}
+	TestParentBuildIDs := []float64{1111, 2222}
+	IDs := make([]interface{}, len(TestParentBuildIDs))
+	for i, s := range TestParentBuildIDs {
+		IDs[i] = s
+	}
 	oldMarshal := marshal
 	defer func() { marshal = oldMarshal }()
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildIDs: TestParentBuildIDs}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
 	}
 
 	marshal = func(v interface{}) (result []byte, err error) {
@@ -880,7 +886,7 @@ func TestFetchParentBuildsMetaParseError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin)
-	expected := fmt.Sprintf(`Parsing Parent Builds(%v) Meta JSON: Testing parsing parent builds meta`, TestParentBuildIDs)
+	expected := fmt.Sprintf(`Parsing Parent Builds(%v) Meta JSON: Testing parsing parent builds meta`, IDs)
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
@@ -916,10 +922,10 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		if buildID == TestParentBuildID {
+		if buildID == 1111 {
 			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -954,7 +960,7 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 		if buildID == TestParentBuildID {
 			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -980,9 +986,13 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 	}
 }
 
-func TestFetchParentBuildsMetaWriteError(t *testing.T) {
+func TestFetchParentBuildsMeta(t *testing.T) {
 	actual := make(map[string]interface{})
-	TestParentBuildIDs := []int{1111, 2222}
+	TestParentBuildIDs := []float64{1111, 2222}
+	IDs := make([]interface{}, len(TestParentBuildIDs))
+	for i, s := range TestParentBuildIDs {
+		IDs[i] = s
+	}
 	TestMeta1 := map[string]interface{}{
 		"foo":    "bar",
 		"batman": "robin",
@@ -997,13 +1007,13 @@ func TestFetchParentBuildsMetaWriteError(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		if buildID == 1111 {
+		if buildID == TestParentBuildID {
 			return screwdriver.Build(FakeBuild{ID: TestBuildID, Meta: TestMeta1}), nil
 		}
 		if buildID == 2222 {
 			return screwdriver.Build(FakeBuild{ID: TestBuildID, Meta: TestMeta2}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildIDs: TestParentBuildIDs}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
 	}
 	marshal = func(v interface{}) (result []byte, err error) {
 		actual = v.(map[string]interface{})
@@ -1024,13 +1034,17 @@ func TestFetchParentBuildsMetaWriteError(t *testing.T) {
 }
 
 func TestMergedMetaFromParentBuildsIDs(t *testing.T) {
-	TestParentBuildIDs := []int{1111, 2222}
+	TestParentBuildIDs := []float64{1111, 2222}
+	IDs := make([]interface{}, len(TestParentBuildIDs))
+	for i, s := range TestParentBuildIDs {
+		IDs[i] = s
+	}
 	oldMarshal := marshal
 	defer func() { marshal = oldMarshal }()
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildIDs: TestParentBuildIDs}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
 	}
 
 	marshal = func(v interface{}) (result []byte, err error) {
