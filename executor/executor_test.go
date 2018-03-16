@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
@@ -295,9 +296,17 @@ func TestTimeout(t *testing.T) {
 			return nil
 		},
 	})
-	expectedTimeout := 3
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", expectedTimeout)
-	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", expectedTimeout)
+	emitter := MockEmitter{
+		startCmd: func(cmd screwdriver.CommandDef) {
+			if cmd.Cmd == "sleep 3" {
+				time.Sleep(10000)
+			}
+			return
+		},
+	}
+	testTimeout := 3
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout)
+	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
 	}
