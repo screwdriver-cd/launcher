@@ -34,7 +34,9 @@ const (
 )
 
 var TestParentBuildIDFloat interface{} = float64(1111)
-
+var TestParentBuildIDs = []float64{1111, 2222}
+var IDs = make([]interface{}, len(TestParentBuildIDs))
+var actual = make(map[string]interface{})
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
 })
@@ -868,8 +870,6 @@ func TestFetchParentBuildMeta(t *testing.T) {
 }
 
 func TestFetchParentBuildsMetaParseError(t *testing.T) {
-	TestParentBuildIDs := []float64{1111, 2222}
-	IDs := make([]interface{}, len(TestParentBuildIDs))
 	for i, s := range TestParentBuildIDs {
 		IDs[i] = s
 	}
@@ -987,9 +987,6 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 }
 
 func TestFetchParentBuildsMeta(t *testing.T) {
-	actual := make(map[string]interface{})
-	TestParentBuildIDs := []float64{1111, 2222}
-	IDs := make([]interface{}, len(TestParentBuildIDs))
 	for i, s := range TestParentBuildIDs {
 		IDs[i] = s
 	}
@@ -1038,6 +1035,9 @@ func TestNoParentEventID(t *testing.T) {
 	defer func() { marshal = oldMarshal }()
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID}), nil
+	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		return screwdriver.Event(FakeEvent{ID: TestEventID}), nil
 	}
