@@ -21,9 +21,9 @@ const (
 	TestBuildTimeout     = 60
 	TestEventID          = 2234
 	TestJobID            = 2345
+	TestParentBuildID    = 1111
 	TestParentEventID    = 3345
 	TestPipelineID       = 3456
-	TestParentBuildID    = 1111
 	TestParentJobID      = 1112
 	TestParentPipelineID = 1113
 	TestMetaSpace        = "./data/meta"
@@ -34,6 +34,10 @@ const (
 	TestSHA    = "abc123"
 )
 
+var TestParentBuildIDFloat interface{} = float64(1111)
+var TestParentBuildIDs = []float64{1111, 2222}
+var IDs = make([]interface{}, len(TestParentBuildIDs))
+var actual = make(map[string]interface{})
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
 })
@@ -837,7 +841,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 		if buildID == TestParentBuildID {
 			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID, Meta: mockMeta}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -863,6 +867,30 @@ func TestFetchParentBuildMeta(t *testing.T) {
 
 	if err != nil || string(parentMeta) != string(want) {
 		t.Errorf("Expected parentMeta is %v, but: %v", want, parentMeta)
+	}
+}
+
+func TestFetchParentBuildsMetaParseError(t *testing.T) {
+	for i, s := range TestParentBuildIDs {
+		IDs[i] = s
+	}
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
+	}
+
+	marshal = func(v interface{}) (result []byte, err error) {
+		return nil, fmt.Errorf("Testing parsing parent builds meta")
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
+	expected := fmt.Sprintf(`Parsing Parent Builds(%v) Meta JSON: Testing parsing parent builds meta`, IDs)
+
+	if err.Error() != expected {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
 	}
 }
 
@@ -895,10 +923,10 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		if buildID == TestParentBuildID {
+		if buildID == 1111 {
 			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -933,7 +961,7 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 		if buildID == TestParentBuildID {
 			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildID}), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -959,11 +987,58 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 	}
 }
 
+func TestFetchParentBuildsMeta(t *testing.T) {
+	for i, s := range TestParentBuildIDs {
+		IDs[i] = s
+	}
+	TestMeta1 := map[string]interface{}{
+		"foo":    "bar",
+		"batman": "robin",
+	}
+	TestMeta2 := map[string]interface{}{
+		"foo":    "baz",
+		"wonder": "woman",
+	}
+
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == TestParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: TestBuildID, Meta: TestMeta1}), nil
+		}
+		if buildID == 2222 {
+			return screwdriver.Build(FakeBuild{ID: TestBuildID, Meta: TestMeta2}), nil
+		}
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
+	}
+	marshal = func(v interface{}) (result []byte, err error) {
+		actual = v.(map[string]interface{})
+		return nil, fmt.Errorf("Testing parsing parent event meta")
+	}
+
+	_ = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
+
+	if actual["foo"] != "baz" {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["foo"], "baz")
+	}
+	if actual["batman"] != "robin" {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["batman"], "robin")
+	}
+	if actual["wonder"] != "woman" {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["wonder"], "woman")
+	}
+}
+
 func TestNoParentEventID(t *testing.T) {
 	oldMarshal := marshal
 	defer func() { marshal = oldMarshal }()
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID}), nil
+	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		return screwdriver.Event(FakeEvent{ID: TestEventID}), nil
 	}
@@ -997,6 +1072,9 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		}
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	marshal = func(v interface{}) (result []byte, err error) {
+		return nil, nil
 	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
 		return fmt.Errorf("Testing writing parent event meta")

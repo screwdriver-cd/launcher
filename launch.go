@@ -171,6 +171,25 @@ func prNumber(jobName string) string {
 	return matched[1]
 }
 
+// convertToArray will convert the interface to an array of ints
+func convertToArray(i interface{}) (array []int) {
+	switch v := i.(type) {
+	case float64:
+		var arr = make([]int, 1)
+		arr[0] = int(i.(float64))
+		return arr
+	case []interface{}:
+		var arr = make([]int, len(v))
+		for i, e := range v {
+			arr[i] = int(e.(float64))
+		}
+		return arr
+	default:
+		var arr = make([]int, 0)
+		return arr
+	}
+}
+
 func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int) error {
 	emitter, err := newEmitter(emitterPath)
 	if err != nil {
@@ -213,20 +232,43 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	metaByte := []byte("")
-	parentID := 0
 	metaFile := "meta.json" // Write to "meta.json" file
-	metaSource := ""
+	metaLog := ""
+
+	parentBuildIDs := convertToArray(build.ParentBuildID)
 
 	// If no parent build ID, and no parent event, skip fetch meta
-	if build.ParentBuildID == 0 && event.ParentEventID == 0 {
+	if len(parentBuildIDs) == 0 && event.ParentEventID == 0 {
 		log.Printf("This build has no Parent Build and no Parent Event, so fetching Meta is skipped")
 	} else {
-		// If has parent build, fetch from parent
-		if build.ParentBuildID != 0 {
-			log.Printf("Fetching Parent Build %d", build.ParentBuildID)
-			parentBuild, err := api.BuildFromID(build.ParentBuildID)
+		if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
+			mergedMeta := make(map[string]interface{})
+
+			// Get meta from all parent builds
+			for _, pbID := range parentBuildIDs {
+				pb, err := api.BuildFromID(pbID)
+				if err != nil {
+					return fmt.Errorf("Fetching Parent Build ID %d: %v", pbID, err)
+				}
+
+				// Save meta to mergedMeta object
+				for key, value := range pb.Meta {
+					mergedMeta[key] = value
+				}
+			}
+
+			log.Printf("Marshalling Merged Meta JSON %v", parentBuildIDs)
+			metaByte, err = marshal(mergedMeta)
 			if err != nil {
-				return fmt.Errorf("Fetching Parent Build ID %d: %v", build.ParentBuildID, err)
+				return fmt.Errorf("Parsing Parent Builds(%v) Meta JSON: %v", parentBuildIDs, err)
+			}
+
+			metaLog = fmt.Sprintf(`Builds(%v)`, parentBuildIDs)
+		} else if len(parentBuildIDs) == 1 { // If has parent build, fetch from parent build
+			log.Printf("Fetching Parent Build %d", parentBuildIDs[0])
+			parentBuild, err := api.BuildFromID(parentBuildIDs[0])
+			if err != nil {
+				return fmt.Errorf("Fetching Parent Build ID %d: %v", parentBuildIDs[0], err)
 			}
 
 			log.Printf("Fetching Parent Job %d", parentBuild.JobID)
@@ -253,8 +295,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 				return fmt.Errorf("Parsing Parent Build(%d) Meta JSON: %v", parentBuild.ID, err)
 			}
 
-			metaSource = "Build"
-			parentID = parentBuild.ID
+			metaLog = fmt.Sprintf(`Build(%v)`, parentBuild.ID)
 		} else { // If has parent event, fetch meta from parent event
 			log.Printf("Fetching Parent Event %d", event.ParentEventID)
 			parentEvent, err := api.EventFromID(event.ParentEventID)
@@ -268,8 +309,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 				return fmt.Errorf("Parsing Parent Event(%d) Meta JSON: %v", parentEvent.ID, err)
 			}
 
-			metaSource = "Event"
-			parentID = parentEvent.ID
+			metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
 		}
 
 		// Create meta space
@@ -281,7 +321,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 		err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
 		if err != nil {
-			return fmt.Errorf("Writing Parent %v(%d) Meta JSON: %v", metaSource, parentID, err)
+			return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
 		}
 	}
 
