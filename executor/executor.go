@@ -145,6 +145,45 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	return ExitOk, nil
 }
 
+// Initiate the build timeout timer
+func initBuildTimeout(timeout time.Duration, ch chan<- error) {
+	log.Printf("Starting timer for timeout of %v seconds", timeout)
+	time.Sleep(timeout)
+	log.Printf("Timeout of %v seconds exceeded. Signal kill-build process", timeout)
+	ch <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", timeout))
+}
+
+// print timeout message to build & kill shell
+func handleBuildTimeout(f *os.File, timeoutErr error) {
+	l := []string{
+		"#####################################################################\n",
+		"#####################################################################\n",
+		"#####################################################################\n",
+		`      88                                                                
+  ,d    ""                                                         ,d     
+  88                                                               88     
+MM88MMM 88 88,dPYba,,adPYba,   ,adPPYba,  ,adPPYba,  88       88 MM88MMM  
+  88    88 88P'   "88"    "8a a8P_____88 a8"     "8a 88       88   88     
+  88    88 88      88      88 8PP""""""" 8b       d8 88       88   88     
+  88,   88 88      88      88 "8b,   ,aa "8a,   ,a8" "8a,   ,a88   88,`,
+		"\n  \"Y888 88 88      88      88  `\"Ybbd8\"'  `\"YbbdP\"'   `\"YbbdP'Y8   \"Y888`\n",
+		"\n",
+		fmt.Sprintf("%v\n", timeoutErr.Error()),
+		"\n",
+		"#####################################################################\n",
+		"#####################################################################\n",
+		"#####################################################################\n",
+	}
+
+	for _, msg := range l {
+		// print lines
+		f.Write([]byte(msg))
+	}
+
+	// kill shell
+	f.Write([]byte{4})
+}
+
 func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screwdriver.CommandDef) {
 	userCommands := []screwdriver.CommandDef{}
 	teardownCommands := []screwdriver.CommandDef{}
@@ -191,12 +230,9 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	timeout := time.Duration(timeoutSec) * time.Second
 	invokeTimeout := make(chan error, 1)
-	go func(buildTimeout time.Duration) {
-		log.Printf("Starting timer for timeout of %v seconds", buildTimeout)
-		time.Sleep(buildTimeout)
-		log.Printf("Timeout of %v seconds exceeded. Signal kill-build process", buildTimeout)
-		invokeTimeout <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", buildTimeout))
-	}(timeout)
+
+	// start build timeout timer
+	go initBuildTimeout(timeout, invokeTimeout)
 
 	userCommands, teardownCommands := filterTeardowns(build)
 
@@ -242,15 +278,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			}
 			code = <-eCode
 		case buildTimeout := <-invokeTimeout:
-			// log build timeout exceeded
-			log.Printf("Build timeout of %v seconds exceeded", timeout)
-			// print timeout message into build
-			f.Write([]byte(fmt.Sprintf("\n\necho %v\n\n", buildTimeout.Error())))
-			// kill shell
-			f.Write([]byte{4})
+			handleBuildTimeout(f, buildTimeout)
+
 			if firstError == nil {
 				firstError = buildTimeout
-				code = 1
+				code = 3
 			}
 		}
 
