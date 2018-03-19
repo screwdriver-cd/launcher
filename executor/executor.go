@@ -216,7 +216,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// Generate guid for the step
 		guid := uuid.NewV4().String()
 
-		completed := make(chan error, 1)
+		runErr := make(chan error, 1)
+		eCode := make(chan int, 1)
 
 		// Set current running step in emitter
 		emitter.StartCmd(cmd)
@@ -224,14 +225,19 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		fReader := bufio.NewReader(f)
 
-		code, cmdErr = doRunCommand(guid, stepFilePath, emitter, f, fReader)
-		completed <- cmdErr
+		go func() {
+			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
+            // exit code & errors from doRunCommand
+			eCode <- runCode
+			runErr <- rcErr
+		}()
 
 		select {
-		case <-completed:
+		case cmdErr = <-runErr:
 			if firstError == nil {
 				firstError = cmdErr
 			}
+			code = <-eCode
 		case buildTimeout := <-invokeTimeout:
 			// print timeout message into build
 			f.Write([]byte(fmt.Sprintf("\n\necho %v\n\n", buildTimeout.Error())))
