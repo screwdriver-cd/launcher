@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
@@ -190,10 +191,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	timeout := time.Duration(timeoutSec) * time.Second
 	invokeTimeout := make(chan error, 1)
-	go func() {
-		time.Sleep(timeout)
-		invokeTimeout <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", timeout))
-	}()
+	go func(buildTimeout time.Duration) {
+		log.Printf("Starting timer for timeout of %v seconds", buildTimeout)
+		time.Sleep(buildTimeout)
+		log.Printf("Timeout of %v seconds exceeded. Signal kill-build process", buildTimeout)
+		invokeTimeout <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", buildTimeout))
+	}(timeout)
 
 	userCommands, teardownCommands := filterTeardowns(build)
 
@@ -227,7 +230,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		go func() {
 			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
-            // exit code & errors from doRunCommand
+			// exit code & errors from doRunCommand
 			eCode <- runCode
 			runErr <- rcErr
 		}()
@@ -239,6 +242,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			}
 			code = <-eCode
 		case buildTimeout := <-invokeTimeout:
+			// log build timeout exceeded
+			log.Printf("Build timeout of %v seconds exceeded", timeout)
 			// print timeout message into build
 			f.Write([]byte(fmt.Sprintf("\n\necho %v\n\n", buildTimeout.Error())))
 			// kill shell
