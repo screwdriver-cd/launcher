@@ -44,7 +44,7 @@ var cleanExit = func() {
 	os.Exit(0)
 }
 
-const DefaultTimeout = 5400 // 90 minutes in seconds
+const DefaultTimeout = 90 // 90 minutes
 
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
@@ -538,7 +538,7 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:   "build-timeout",
-			Usage:  "Maximum number of seconds to allow a build to run",
+			Usage:  "Maximum number of minutes to allow a build to run",
 			Value:  DefaultTimeout,
 			EnvVar: "SD_BUILD_TIMEOUT",
 		},
@@ -553,7 +553,7 @@ func main() {
 		storeURL := c.String("store-uri")
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
-		buildTimeout := c.Int("build-timeout")
+		buildTimeoutSeconds := c.Int("build-timeout") * 60
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -567,7 +567,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeout)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
