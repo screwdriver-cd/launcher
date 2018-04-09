@@ -118,7 +118,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	shargs = append(shargs, cmd.Cmd)
+	shargs = append(shargs, "PATH=$PATH:/opt/sd && " + cmd.Cmd)
 	c := exec.Command(shellBin, shargs...)
 
 	emitter.StartCmd(cmd)
@@ -139,6 +139,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 
 			return waitStatus.ExitStatus(), ErrStatus{waitStatus.ExitStatus()}
 		}
+
 		return ExitUnknown, fmt.Errorf("Running command %q: %v", cmd.Cmd, err)
 	}
 
