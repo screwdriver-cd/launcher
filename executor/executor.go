@@ -118,7 +118,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	shargs = append(shargs, "PATH=$PATH:/opt/sd && " + cmd.Cmd)
+	shargs = append(shargs, "export PATH=$PATH:/opt/sd && " + cmd.Cmd)
 	c := exec.Command(shellBin, shargs...)
 
 	emitter.StartCmd(cmd)
@@ -215,7 +215,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Run setup commands
 	setupCommands := []string{
 		"set -e",
-		"PATH=$PATH:/opt/sd",
+		"export PATH=$PATH:/opt/sd",
 		"finish() { echo $SD_STEP_ID $?; }",
 		"trap finish EXIT;\n",
 	}
