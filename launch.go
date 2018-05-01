@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/peterbourgon/mergemap"
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
 	"gopkg.in/fatih/color.v1"
@@ -28,6 +29,7 @@ var (
 	date    = "unknown"
 )
 
+var deepMergeJSON = mergemap.Merge
 var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var open = os.Open
@@ -251,10 +253,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 					return fmt.Errorf("Fetching Parent Build ID %d: %v", pbID, err)
 				}
 
-				// Save meta to mergedMeta object
-				for key, value := range pb.Meta {
-					mergedMeta[key] = value
-				}
+				mergedMeta = deepMergeJSON(pb.Meta, mergedMeta)
 			}
 
 			log.Printf("Marshalling Merged Meta JSON %v", parentBuildIDs)
