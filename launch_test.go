@@ -991,12 +991,25 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 	for i, s := range TestParentBuildIDs {
 		IDs[i] = s
 	}
+	TestMetaDeep1 := map[string]interface{}{
+		"cat":  "meow",
+		"bird": "chirp",
+	}
+	TestMetaDeep2 := map[string]interface{}{
+		"dog":  "woof",
+		"bird": "twitter",
+	}
+	ExpectedMetaDeep := map[string]interface{}{
+		"cat":  "meow",
+		"dog":  "woof",
+		"bird": "chirp",
+	}
 	TestMeta1 := map[string]interface{}{
-		"foo":    "bar",
+		"foo":    TestMetaDeep1,
 		"batman": "robin",
 	}
 	TestMeta2 := map[string]interface{}{
-		"foo":    "baz",
+		"foo":    TestMetaDeep2,
 		"wonder": "woman",
 	}
 
@@ -1020,8 +1033,8 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 
 	_ = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
 
-	if actual["foo"] != "baz" {
-		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["foo"], "baz")
+	if !reflect.DeepEqual(actual["foo"], ExpectedMetaDeep) {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["foo"], ExpectedMetaDeep)
 	}
 	if actual["batman"] != "robin" {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["batman"], "robin")
