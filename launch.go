@@ -393,7 +393,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, metaSpace+"/"+metaFile)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {

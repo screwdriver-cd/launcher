@@ -17,6 +17,7 @@ import (
 const TestBuildTimeout = 60
 
 var stepFilePath = "/tmp/step.sh"
+var metaPath = "/meta-space/meta.json"
 
 type MockAPI struct {
 	updateStepStart func(buildID int, stepName string) error
@@ -135,6 +136,7 @@ func ReadCommand(file string) []string {
 }
 
 func TestUnmocked(t *testing.T) {
+	copyFiles = func(src, dest string) (err error) { return nil }
 	var tests = []struct {
 		command string
 		err     error
@@ -175,7 +177,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, metaPath)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -197,6 +199,7 @@ func TestUnmocked(t *testing.T) {
 }
 
 func TestUnmockedMulti(t *testing.T) {
+	copyFiles = func(src, dest string) (err error) { return nil }
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "export FOO=BAR", Name: "test export env"},
@@ -237,7 +240,7 @@ func TestUnmockedMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, metaPath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runTeardown {
 		t.Errorf("step teardown should run")
@@ -248,6 +251,7 @@ func TestUnmockedMulti(t *testing.T) {
 }
 
 func TestTeardownfail(t *testing.T) {
+	copyFiles = func(src, dest string) (err error) { return nil }
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "doesnotexit", Name: "sd-teardown-artifacts"},
@@ -265,7 +269,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, metaPath)
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -273,6 +277,7 @@ func TestTeardownfail(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
+	copyFiles = func(src, dest string) (err error) { return nil }
 	commands := []screwdriver.CommandDef{
 		{Cmd: "echo testing timeout", Name: "test timeout"},
 		{Cmd: "sleep 3", Name: "sleep for a long time"},
@@ -305,7 +310,7 @@ func TestTimeout(t *testing.T) {
 		},
 	}
 	testTimeout := 3
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, metaPath)
 	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -313,6 +318,7 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
+	copyFiles = func(src, dest string) (err error) { return nil }
 	baseEnv := []string{
 		"var0=xxx",
 		"var1=foo",
@@ -354,7 +360,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, metaPath)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -388,6 +394,7 @@ func TestEnv(t *testing.T) {
 }
 
 func TestEmitter(t *testing.T) {
+	copyFiles = func(src, dest string) (err error) { return nil }
 	var tests = []struct {
 		command string
 		name    string
@@ -425,7 +432,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, metaPath)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

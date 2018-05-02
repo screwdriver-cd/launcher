@@ -215,7 +215,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, metaPath string) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -498,7 +498,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, env []string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int, shellBin string, timeout int) error {
+	executorRun = func(path string, env []string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int, shellBin string, timeout int, metaPath string) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
@@ -705,7 +705,7 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	foundEnv := map[string]string{}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, metaPath string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
@@ -754,7 +754,7 @@ func TestEnvSecrets(t *testing.T) {
 	foundEnv := map[string]string{}
 	oldExecutorRun := executorRun
 	defer func() { executorRun = oldExecutorRun }()
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int) error {
+	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, metaPath string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
