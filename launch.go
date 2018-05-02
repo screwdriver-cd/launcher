@@ -17,8 +17,7 @@ import (
 	"github.com/peterbourgon/mergemap"
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
-	"gopkg.in/fatih/color.v1"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli"
 )
 
 // These variables get set by the build script via the LDFLAGS
@@ -393,7 +392,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, metaSpace+"/"+metaFile)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
