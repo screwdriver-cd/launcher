@@ -115,10 +115,31 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 	return copyLinesUntil(fReader, emitter, guid)
 }
 
+// Copy the src file to dst.
+var copyFiles = func(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
+}
+
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin, metaPath string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	shargs = append(shargs, "export PATH=$PATH:/opt/sd && " + cmd.Cmd)
+	shargs = append(shargs, "export PATH=$PATH:/opt/sd && "+cmd.Cmd)
 	c := exec.Command(shellBin, shargs...)
 
 	emitter.StartCmd(cmd)
@@ -128,6 +149,8 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 
 	c.Dir = path
 	c.Env = append(env, c.Env...)
+
+	_ = copyFiles(metaPath, "/sd/workspace/meta.json")
 
 	if err := c.Start(); err != nil {
 		return ExitLaunch, fmt.Errorf("Launching command %q: %v", cmd.Cmd, err)
@@ -201,7 +224,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, metaPath string) error {
 	// Set up a single pseudo-terminal
 	c := exec.Command(shellBin)
 	c.Dir = path
@@ -301,7 +324,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 
 		// Run teardown commands
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, metaPath)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
