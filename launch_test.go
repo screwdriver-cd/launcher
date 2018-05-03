@@ -694,6 +694,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PULL_REQUEST":        "1",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
+		"SD_META_PATH":           "./data/meta/meta.json",
 		"SD_BUILD_ID":            "1234",
 		"SD_BUILD_SHA":           "abc123",
 		"SD_STORE_URL":           "http://store.screwdriver.cd/v1/",

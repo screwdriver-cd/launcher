@@ -376,6 +376,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
+		"SD_META_PATH":           metaSpace + "/" + metaFile,
 		"SD_API_URL":             apiURL,
 		"SD_BUILD_URL":           apiURL + "builds/" + strconv.Itoa(buildID),
 		"SD_BUILD_SHA":           build.SHA,
