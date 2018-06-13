@@ -51,6 +51,10 @@ func (f MockAPI) GetAPIURL() (string, error) {
 	return "http://foo.bar", nil
 }
 
+func (f MockAPI) GetCoverageInfo() (screwdriver.Coverage, error) {
+	return screwdriver.Coverage{}, nil
+}
+
 func (f MockAPI) UpdateStepStart(buildID int, stepName string) error {
 	if f.updateStepStart != nil {
 		return f.updateStepStart(buildID, stepName)
