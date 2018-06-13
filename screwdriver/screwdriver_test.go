@@ -246,7 +246,7 @@ func TestGetCoverageInfo(t *testing.T) {
 			coverage:   Coverage{},
 			statusCode: 500,
 			err: errors.New("After 5 attempts, Last error: " +
-				"GET retries exhausted: 500 returned from GET http://fakeurl/v4//coverage/info"),
+				"GET retries exhausted: 500 returned from GET http://fakeurl/v4/coverage/info"),
 		},
 		{
 			coverage:   Coverage{},
