@@ -76,14 +76,13 @@ RUN set -x \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
 
+   # Create FIFO
+   && mkfifo -m 666 emitter \
    # Cleanup packages
    && apk del --purge .build-dependencies
-
-# Copy entrypoint script into /opt/sd/
-COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh
 
 VOLUME /opt/sd
 VOLUME /hab
 
 # Set Entrypoint
-ENTRYPOINT ["/opt/sd/launcher_entrypoint.sh"]
+ENTRYPOINT ["/opt/sd/tini", "--", "/opt/sd/launch"]
