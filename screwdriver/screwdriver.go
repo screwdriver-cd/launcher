@@ -44,6 +44,7 @@ type API interface {
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
+	GetCoverageInfo() (Coverage, error)
 }
 
 // SDError is an error response from the Screwdriver API
@@ -128,6 +129,11 @@ type Build struct {
 	ParentBuildID IntOrArray             `json:"parentBuildId"`
 	Meta          map[string]interface{} `json:"meta"`
 	EventID       int                    `json:"eventId"`
+}
+
+// Coverage is a Coverage object returned when getInfo is called
+type Coverage struct {
+	EnvVars map[string]string `json:"envVars"`
 }
 
 // Event is a Screwdriver Event
@@ -286,6 +292,22 @@ func (a api) put(url *url.URL, bodyType string, payload io.Reader) ([]byte, erro
 func (a api) GetAPIURL() (string, error) {
 	url, err := a.makeURL("")
 	return url.String(), err
+}
+
+// Get coverage object with coverage information
+func (a api) GetCoverageInfo() (coverage Coverage, err error) {
+	url, err := a.makeURL(fmt.Sprintf("/coverage/info"))
+	body, err := a.get(url)
+	if err != nil {
+		return coverage, err
+	}
+
+	err = json.Unmarshal(body, &coverage)
+	if err != nil {
+		return coverage, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+
+	return coverage, nil
 }
 
 // BuildFromID fetches and returns a Build object from its ID

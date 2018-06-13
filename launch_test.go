@@ -38,11 +38,16 @@ var TestParentBuildIDFloat interface{} = float64(1111)
 var TestParentBuildIDs = []float64{1111, 2222}
 var IDs = make([]interface{}, len(TestParentBuildIDs))
 var actual = make(map[string]interface{})
+var TestEnvVars = map[string]string{
+	"SD_SONAR_AUTH_URL": "https://api.screwdriver.cd/v4/coverage/token",
+	"SD_SONAR_HOST":     "https://sonar.screwdriver.cd",
+}
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
 })
 
 type FakeBuild screwdriver.Build
+type FakeCoverage screwdriver.Coverage
 type FakeEvent screwdriver.Event
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
@@ -88,6 +93,9 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 		getAPIURL: func() (string, error) {
 			return "http://foo.bar", nil
 		},
+		getCoverageInfo: func() (screwdriver.Coverage, error) {
+			return screwdriver.Coverage(FakeCoverage{EnvVars: TestEnvVars}), nil
+		},
 	}
 }
 
@@ -101,10 +109,15 @@ type MockAPI struct {
 	updateStepStop    func(buildID int, stepName string, exitCode int) error
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
 	getAPIURL         func() (string, error)
+	getCoverageInfo   func() (screwdriver.Coverage, error)
 }
 
 func (f MockAPI) GetAPIURL() (string, error) {
 	return f.getAPIURL()
+}
+
+func (f MockAPI) GetCoverageInfo() (screwdriver.Coverage, error) {
+	return f.getCoverageInfo()
 }
 
 func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, error) {
@@ -730,7 +743,6 @@ func TestSetEnv(t *testing.T) {
 	for k, v := range tests {
 		if foundEnv[k] != v {
 			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
-			// t.Errorf("Invalid value for environment variable %v: got %v, want %v", test.key, value, test.value)
 		}
 	}
 }
