@@ -387,7 +387,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	// Add coverage env vars
 	coverageInfo, err := api.GetCoverageInfo()
 	if err != nil {
-		return fmt.Errorf("Getting coverage info for build %v", build.ID)
+		log.Printf("Failed to get coverage info for build %v so skip it\n", build.ID)
 	}
 
 	for key, value := range coverageInfo.EnvVars {
