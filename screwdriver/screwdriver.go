@@ -296,7 +296,7 @@ func (a api) GetAPIURL() (string, error) {
 
 // Get coverage object with coverage information
 func (a api) GetCoverageInfo() (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf("/coverage/info"))
+	url, err := a.makeURL(fmt.Sprintf("coverage/info"))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err
