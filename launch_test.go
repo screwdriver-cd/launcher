@@ -712,6 +712,8 @@ func TestSetEnv(t *testing.T) {
 		"SD_BUILD_ID":            "1234",
 		"SD_BUILD_SHA":           "abc123",
 		"SD_STORE_URL":           "http://store.screwdriver.cd/v1/",
+		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
+		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
@@ -737,6 +739,21 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
+	for k, v := range tests {
+		if foundEnv[k] != v {
+			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
+		}
+	}
+
+	// in case of no coverage plugins
+	delete(tests, "SD_SONAR_AUTH_URL")
+	delete(tests, "SD_SONAR_HOST")
+	TestEnvVars = map[string]string{}
+	foundEnv = map[string]string{}
+	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
