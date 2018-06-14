@@ -384,17 +384,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
 	}
 
-	// Add coverage env vars
-	coverageInfo, err := api.GetCoverageInfo()
-	if err != nil {
-		return fmt.Errorf("Getting coverage info for build %v", build.ID)
-	}
-
-	for key, value := range coverageInfo.EnvVars {
-		defaultEnv[key] = value
-	}
-
-	// Get secrets for build
 	secrets, err := api.SecretsForBuild(build)
 	if err != nil {
 		return fmt.Errorf("Fetching secrets for build %v", build.ID)
