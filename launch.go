@@ -388,10 +388,10 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	coverageInfo, err := api.GetCoverageInfo()
 	if err != nil {
 		log.Printf("Failed to get coverage info for build %v so skip it\n", build.ID)
-	}
-
-	for key, value := range coverageInfo.EnvVars {
-		defaultEnv[key] = value
+	} else {
+		for key, value := range coverageInfo.EnvVars {
+			defaultEnv[key] = value
+		}
 	}
 
 	// Get secrets for build
