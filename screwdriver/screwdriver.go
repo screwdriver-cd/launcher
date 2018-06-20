@@ -25,6 +25,7 @@ const (
 	Success             = "SUCCESS"
 	Failure             = "FAILURE"
 	Aborted             = "ABORTED"
+	Blocked             = "BLOCKED"
 )
 
 const maxAttempts = 5
@@ -384,6 +385,7 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 	case Success:
 	case Failure:
 	case Aborted:
+	case Blocked:
 	default:
 		return fmt.Errorf("Invalid build status: %s", status)
 	}
