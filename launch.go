@@ -239,9 +239,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	parentBuildIDs := convertToArray(build.ParentBuildID)
 
-	// If no parent build ID, and no parent event, skip fetch meta
-	if len(parentBuildIDs) == 0 && event.ParentEventID == 0 {
-		log.Printf("This build has no Parent Build and no Parent Event, so fetching Meta is skipped")
+	// If no parent build ID, no parent event, and no event meta, skip fetch meta
+	if len(parentBuildIDs) == 0 && event.ParentEventID == 0 && len(event.Meta) == 0 {
+		log.Printf("This build has no Parent Build, no Parent Event, and no Event Meta, so fetching Meta is skipped")
 	} else {
 		if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
 			mergedMeta := make(map[string]interface{})
@@ -295,7 +295,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			}
 
 			metaLog = fmt.Sprintf(`Build(%v)`, parentBuild.ID)
-		} else { // If has parent event, fetch meta from parent event
+		} else if event.ParentEventID != 0 { // If has parent event, fetch meta from parent event
 			log.Printf("Fetching Parent Event %d", event.ParentEventID)
 			parentEvent, err := api.EventFromID(event.ParentEventID)
 			if err != nil {
@@ -309,9 +309,16 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			}
 
 			metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
+		} else { // If has meta, marshal it
+			log.Printf("Fetching Event Meta JSON %v", event.ID)
+			metaByte, err = marshal(event.Meta)
+			if err != nil {
+				return fmt.Errorf("Parsing Event(%d) Meta JSON: %v", event.ID, err)
+			}
 		}
 
 		// Create meta space
+
 		log.Printf("Creating Meta Space in %v", metaSpace)
 		err = createMetaSpace(metaSpace)
 		if err != nil {
