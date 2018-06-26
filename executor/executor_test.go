@@ -225,7 +225,7 @@ func TestUnmockedMulti(t *testing.T) {
 			if stepName == "test sleep 1" {
 				t.Errorf("step should never execute: %v", stepName)
 			}
-			if stepName == "user-teardown-echo" {
+			if stepName == "teardown-echo" {
 				runUserTeardown = true
 			}
 			if stepName == "sd-teardown-artifacts" {

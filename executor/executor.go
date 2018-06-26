@@ -190,7 +190,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 
 	for _, cmd := range build.Commands {
 		isSdTeardown, _ := regexp.MatchString("sd-teardown-*", cmd.Name)
-		isUserTeardown, _ := regexp.MatchString("user-teardown-*", cmd.Name)
+		isUserTeardown, _ := regexp.MatchString("teardown-*", cmd.Name)
 
 		if isSdTeardown {
 			sdTeardownCommands = append(sdTeardownCommands, cmd)
