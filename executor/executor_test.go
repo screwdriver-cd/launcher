@@ -206,7 +206,7 @@ func TestUnmockedMulti(t *testing.T) {
 		{Cmd: "export FOO=BAR", Name: "test export env"},
 		{Cmd: `if [ -z "$FOO" ] ; then exit 1; fi`, Name: "test if env set"},
 		{Cmd: "doesnotexit", Name: "test doesnotexit err"},
-		{Cmd: "echo user teardown step", Name: "user-teardown-echo"},
+		{Cmd: "echo user teardown step", Name: "teardown-echo"},
 		{Cmd: "sleep 1", Name: "test sleep 1"},
 		{Cmd: "echo upload artifacts", Name: "sd-teardown-artifacts"},
 	}
@@ -240,7 +240,7 @@ func TestUnmockedMulti(t *testing.T) {
 			if stepName == "test sleep 1" {
 				t.Errorf("Should not update step that never run: %v", stepName)
 			}
-			if stepName == "user-teardown-echo" {
+			if stepName == "teardown-echo" {
 				runUserTeardown = true
 			}
 			if stepName == "sd-teardown-artifacts" {
