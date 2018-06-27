@@ -81,6 +81,9 @@ RUN set -x \
    # Cleanup packages
    && apk del --purge .build-dependencies
 
+# Copy optional entrypoint script to the image
+COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh
+
 VOLUME /opt/sd
 VOLUME /hab
 
