@@ -712,6 +712,8 @@ func TestSetEnv(t *testing.T) {
 		"SD_BUILD_ID":            "1234",
 		"SD_BUILD_SHA":           "abc123",
 		"SD_STORE_URL":           "http://store.screwdriver.cd/v1/",
+		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
+		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
@@ -737,6 +739,21 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
+	for k, v := range tests {
+		if foundEnv[k] != v {
+			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
+		}
+	}
+
+	// in case of no coverage plugins
+	delete(tests, "SD_SONAR_AUTH_URL")
+	delete(tests, "SD_SONAR_HOST")
+	TestEnvVars = map[string]string{}
+	foundEnv = map[string]string{}
+	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -1027,8 +1044,8 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 		"wonder": "woman",
 	}
 
-	oldWriteFile := writeFile
-	defer func() { writeFile = oldWriteFile }()
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
@@ -1081,6 +1098,9 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
 
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
 	api := mockAPI(t, TestEventID, TestJobID, 0, "RUNNING")
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestParentEventID {
@@ -1109,6 +1129,62 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 
 	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
 	expected := fmt.Sprintf(`Writing Parent Event(%d) Meta JSON: Testing writing parent event meta`, TestParentEventID)
+
+	if err.Error() != expected {
+		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
+	}
+}
+
+func TestFetchEventMeta(t *testing.T) {
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+
+	mockMeta := make(map[string]interface{})
+	mockMeta["spooky"] = "ghost"
+	var eventMeta []byte
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestEventID {
+			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta:mockMeta}), nil
+		}
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			eventMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
+	want := []byte("{\"spooky\":\"ghost\"}")
+
+	if err != nil || string(eventMeta) != string(want) {
+		t.Errorf("Expected eventMeta is %v, but: %v", want, eventMeta)
+	}
+}
+
+func TestFetchEventMetaMarshalError(t *testing.T) {
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	mockMeta := make(map[string]interface{})
+	mockMeta["spooky"] = "ghost"
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestEventID {
+			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: mockMeta}), nil
+		}
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
+	}
+	marshal = func(v interface{}) (result []byte, err error) {
+		return nil, fmt.Errorf("Testing parsing event meta")
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout)
+	expected := fmt.Sprintf(`Parsing Event(%d) Meta JSON: Testing parsing event meta`, TestEventID)
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)

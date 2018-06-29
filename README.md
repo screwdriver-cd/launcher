@@ -4,7 +4,7 @@
 [![Latest Release][version-image]][version-url]
 [![Go Report Card][goreport-image]][goreport-url]
 
-> The entrypoint for launching job in Screwdriver
+> The entrypoint for launching a build in Screwdriver
 
 ## Usage
 

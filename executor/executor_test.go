@@ -206,6 +206,7 @@ func TestUnmockedMulti(t *testing.T) {
 		{Cmd: "export FOO=BAR", Name: "test export env"},
 		{Cmd: `if [ -z "$FOO" ] ; then exit 1; fi`, Name: "test if env set"},
 		{Cmd: "doesnotexit", Name: "test doesnotexit err"},
+		{Cmd: "echo user teardown step", Name: "teardown-echo"},
 		{Cmd: "sleep 1", Name: "test sleep 1"},
 		{Cmd: "echo upload artifacts", Name: "sd-teardown-artifacts"},
 	}
@@ -215,6 +216,7 @@ func TestUnmockedMulti(t *testing.T) {
 		Environment: map[string]string{},
 	}
 	runTeardown := false
+	runUserTeardown := false
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			if buildID != testBuild.ID {
@@ -222,6 +224,9 @@ func TestUnmockedMulti(t *testing.T) {
 			}
 			if stepName == "test sleep 1" {
 				t.Errorf("step should never execute: %v", stepName)
+			}
+			if stepName == "teardown-echo" {
+				runUserTeardown = true
 			}
 			if stepName == "sd-teardown-artifacts" {
 				runTeardown = true
@@ -235,6 +240,9 @@ func TestUnmockedMulti(t *testing.T) {
 			if stepName == "test sleep 1" {
 				t.Errorf("Should not update step that never run: %v", stepName)
 			}
+			if stepName == "teardown-echo" {
+				runUserTeardown = true
+			}
 			if stepName == "sd-teardown-artifacts" {
 				runTeardown = true
 			}
@@ -243,6 +251,9 @@ func TestUnmockedMulti(t *testing.T) {
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	if !runUserTeardown {
+		t.Errorf("step user teardown should run")
+	}
 	if !runTeardown {
 		t.Errorf("step teardown should run")
 	}
