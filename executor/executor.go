@@ -2,7 +2,6 @@ package executor
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -118,7 +117,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	shargs = append(shargs, "export PATH=$PATH:/opt/sd && " + cmd.Cmd)
+	shargs = append(shargs, "export PATH=$PATH:/opt/sd && "+cmd.Cmd)
 	c := exec.Command(shellBin, shargs...)
 
 	emitter.StartCmd(cmd)
@@ -151,7 +150,7 @@ func initBuildTimeout(timeout time.Duration, ch chan<- error) {
 	log.Printf("Starting timer for timeout of %v seconds", timeout)
 	time.Sleep(timeout)
 	log.Printf("Timeout of %v seconds exceeded. Signal kill-build process", timeout)
-	ch <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", timeout))
+	ch <- fmt.Errorf("Timeout of %v seconds exceeded", timeout)
 }
 
 // print timeout message to build & kill shell
@@ -189,8 +188,8 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 	userTeardownCommands := []screwdriver.CommandDef{}
 
 	for _, cmd := range build.Commands {
-		isSdTeardown, _ := regexp.MatchString("^sd-teardown-*", cmd.Name)
-		isUserTeardown, _ := regexp.MatchString("^teardown-*", cmd.Name)
+		isSdTeardown, _ := regexp.MatchString("^sd-teardown-.*", cmd.Name)
+		isUserTeardown, _ := regexp.MatchString("^teardown-.*", cmd.Name)
 
 		if isSdTeardown {
 			sdTeardownCommands = append(sdTeardownCommands, cmd)
@@ -294,7 +293,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 	}
 
-	teardownCommands := append(userTeardownCommands, sdTeardownCommands...);
+	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
