@@ -117,7 +117,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	shargs = append(shargs, "export PATH=$PATH:/opt/sd && "+cmd.Cmd)
+	shargs = append(shargs, "export PATH=$PATH:/opt/sd && " + cmd.Cmd)
 	c := exec.Command(shellBin, shargs...)
 
 	emitter.StartCmd(cmd)
@@ -188,8 +188,8 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 	userTeardownCommands := []screwdriver.CommandDef{}
 
 	for _, cmd := range build.Commands {
-		isSdTeardown, _ := regexp.MatchString("^sd-teardown-.*", cmd.Name)
-		isUserTeardown, _ := regexp.MatchString("^teardown-.*", cmd.Name)
+		isSdTeardown, _ := regexp.MatchString("^sd-teardown-.+", cmd.Name)
+		isUserTeardown, _ := regexp.MatchString("^teardown-.+", cmd.Name)
 
 		if isSdTeardown {
 			sdTeardownCommands = append(sdTeardownCommands, cmd)
