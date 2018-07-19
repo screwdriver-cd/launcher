@@ -68,7 +68,7 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git \
+   && /hab/bin/hab pkg install core/bash core/git core/zip \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
