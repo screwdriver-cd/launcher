@@ -115,18 +115,20 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool) (int, error) {
 	shargs := []string{"-e", "-c"}
-	shargs = append(shargs,
-		"export PATH=$PATH:/opt/sd && " +
-		"file=/tmp/buildEnv; . $file; rm $file; " + // source the file that exports ENV
-		cmd.Cmd)
+	cmdStr := "export PATH=$PATH:/opt/sd && file=/tmp/buildEnv; . $file; " // source the file that exports ENV
+	if (cleanup == true) {	// clean up the file
+		cmdStr += "rm /tmp/buildEnv; "
+	}
+	cmdStr += cmd.Cmd
+
+	shargs = append(shargs, cmdStr)
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 	c.Stdout = emitter
 	c.Stderr = emitter
-
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
@@ -300,6 +302,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	}
 
 	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
+	cleanup := false
 
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
@@ -312,7 +315,13 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 
 		// Run teardown commands
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin)
+		if (index == len(teardownCommands) -1) {
+				// last teardown step, clean up env file
+				cleanup = true;
+
+		}
+
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, cleanup)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
