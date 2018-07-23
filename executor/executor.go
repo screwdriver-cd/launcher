@@ -2,7 +2,6 @@ package executor
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -153,7 +152,7 @@ func initBuildTimeout(timeout time.Duration, ch chan<- error) {
 	log.Printf("Starting timer for timeout of %v seconds", timeout)
 	time.Sleep(timeout)
 	log.Printf("Timeout of %v seconds exceeded. Signal kill-build process", timeout)
-	ch <- errors.New(fmt.Sprintf("Timeout of %v seconds exceeded", timeout))
+	ch <- fmt.Errorf("Timeout of %v seconds exceeded", timeout)
 }
 
 // print timeout message to build & kill shell
@@ -185,21 +184,25 @@ func handleBuildTimeout(f *os.File, timeoutErr error) {
 	f.Write([]byte{4})
 }
 
-func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screwdriver.CommandDef) {
+func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screwdriver.CommandDef, []screwdriver.CommandDef) {
 	userCommands := []screwdriver.CommandDef{}
-	teardownCommands := []screwdriver.CommandDef{}
+	sdTeardownCommands := []screwdriver.CommandDef{}
+	userTeardownCommands := []screwdriver.CommandDef{}
 
 	for _, cmd := range build.Commands {
-		isTeardown, _ := regexp.MatchString("sd-teardown-*", cmd.Name)
+		isSdTeardown, _ := regexp.MatchString("^sd-teardown-.+", cmd.Name)
+		isUserTeardown, _ := regexp.MatchString("^teardown-.+", cmd.Name)
 
-		if isTeardown {
-			teardownCommands = append(teardownCommands, cmd)
+		if isSdTeardown {
+			sdTeardownCommands = append(sdTeardownCommands, cmd)
+		} else if isUserTeardown {
+			userTeardownCommands = append(userTeardownCommands, cmd)
 		} else {
 			userCommands = append(userCommands, cmd)
 		}
 	}
 
-	return userCommands, teardownCommands
+	return userCommands, sdTeardownCommands, userTeardownCommands
 }
 
 // Run executes a slice of CommandDefs
@@ -239,7 +242,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// start build timeout timer
 	go initBuildTimeout(timeout, invokeTimeout)
 
-	userCommands, teardownCommands := filterTeardowns(build)
+	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
 
 	for _, cmd := range userCommands {
 		// Start set up & user steps if previous steps succeed
@@ -295,6 +298,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
 		}
 	}
+
+	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {

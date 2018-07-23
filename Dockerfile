@@ -68,7 +68,7 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git \
+   && /hab/bin/hab pkg install core/bash core/git core/zip \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
@@ -80,6 +80,9 @@ RUN set -x \
    && mkfifo -m 666 emitter \
    # Cleanup packages
    && apk del --purge .build-dependencies
+
+# Copy optional entrypoint script to the image
+COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh
 
 VOLUME /opt/sd
 VOLUME /hab
