@@ -122,7 +122,6 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 		"export PATH=$PATH:/opt/sd && " +
 		"file=/tmp/buildEnv; . $file; rm $file; " + // source the file that exports ENV
 		cmd.Cmd)
-
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -219,12 +218,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	setupCommands := []string{
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
-		// trap EXIT, echo the last step ID and export environment variables to /tmp/buildEnv
+		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"echo $SD_STEP_ID $?; " +
 		"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportBuildEnv; env > $file; " +
-		"while read -r line; do echo \"${prefix}$line\"; done < $file > $newfile; mv $newfile $file; " +
-		"	}",
+		"while read -r line; do echo ${prefix}$line; done < $file > $newfile; mv $newfile $file; }",
 		"trap finish EXIT;\n",
 	}
 	shargs := strings.Join(setupCommands, " && ")

@@ -251,6 +251,52 @@ func TestUnmockedMulti(t *testing.T) {
 	}
 }
 
+func TestTeardownEnv(t *testing.T) {
+	// commands := []screwdriver.CommandDef{
+	// 	{Cmd: "export FOO=BAR", Name: "env"},
+	// 	{Cmd: "doesnotexit", Name: "doesnotexit"},
+	// 	// {Cmd: "if [ $FOO = BAR ]; then fail; fi", Name: "teardown-user"},
+	// 	// {Cmd: "if [ $FOO = BAR ]; then fail; fi", Name: "sd-teardown-artifacts"},
+	// }
+	// testBuild := screwdriver.Build{
+	// 	ID:          12345,
+	// 	Commands:    commands,
+	// 	Environment: map[string]string{},
+	// }
+	// runTeardown := false
+	// testAPI := screwdriver.API(MockAPI{
+	// 	updateStepStart: func(buildID int, stepName string) error {
+	// 		if buildID != testBuild.ID {
+	// 			t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+	// 		}
+	// 		if stepName == "sd-teardown-artifacts" {
+	// 			runTeardown = false
+	// 		}
+	// 		return nil
+	// 	},
+	// 	updateStepStop: func(buildID int, stepName string, code int) error {
+	// 		if buildID != testBuild.ID {
+	// 			t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+	// 		}
+	// 		// if (code != 0) {
+	// 		// 	t.Errorf("step failed with exit code %v", code)
+	// 		// }
+	// 		if stepName == "sd-teardown-artifacts" {
+	// 			runTeardown = true
+	// 		}
+	// 		return nil
+	// 	},
+	// })
+	// err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	// expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	// if !runTeardown {
+	// 	t.Errorf("step teardown should run")
+	// }
+	// if !reflect.DeepEqual(err, expectedErr) {
+	// 	t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
+	// }
+}
+
 func TestTeardownfail(t *testing.T) {
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
