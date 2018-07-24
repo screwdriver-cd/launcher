@@ -116,6 +116,8 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool) (int, error) {
+	fmt.Printf("%v\n", cmd.Cmd)
+
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && file=/tmp/buildEnv; . $file; " // source the file that exports ENV
 	if (cleanup == true) {	// clean up the file
@@ -127,6 +129,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
+
 	c.Stdout = emitter
 	c.Stderr = emitter
 	c.Dir = path
@@ -227,9 +230,14 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"finish() { " +
 		"echo $SD_STEP_ID $?; " +
 		"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportBuildEnv; env > $file; " +
-		"while read -r line; do echo ${prefix}$line; done < $file > $newfile; mv $newfile $file; }",
+		"while read -r line; do " +
+		"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'`;" +	//escape double quote
+		"newline=`echo $escapeQuote | sed 's/\\([A-Z_][A-Z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'`;" +
+		"echo ${prefix}$newline; " +
+		"done < $file > $newfile; mv $newfile $file; }",
 		"trap finish EXIT;\n",
 	}
+
 	shargs := strings.Join(setupCommands, " && ")
 
 	f.Write([]byte(shargs))
@@ -247,6 +255,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
 
 	for _, cmd := range userCommands {
+		fmt.Printf("%v\n", cmd.Cmd)
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
