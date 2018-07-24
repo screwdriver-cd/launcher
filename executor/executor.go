@@ -119,16 +119,21 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	fmt.Printf("%v\n", cmd.Cmd)
 
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd && file=/tmp/buildEnv; . $file; " // source the file that exports ENV
-	if (cleanup == true) {	// clean up the file
-		cmdStr += "rm /tmp/buildEnv; "
-	}
+	cmdStr := "export PATH=$PATH:/opt/sd && . /tmp/buildEnv;" // source the file that exports ENV
+	// if (cleanup == true) {	// clean up the file
+	// 	cmdStr += "rm /tmp/buildEnv; "
+	// }
 	cmdStr += cmd.Cmd
+
+	fmt.Println(cmdStr)
 
 	shargs = append(shargs, cmdStr)
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
+	fmt.Println("********");
+	fmt.Printf("stdout %v\n", c.Stdout);
+	fmt.Printf("stderr %v\n", c.Stderr);
 
 	c.Stdout = emitter
 	c.Stderr = emitter
@@ -222,7 +227,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
-	// Run setup commands
 	setupCommands := []string{
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
@@ -230,13 +234,25 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"finish() { " +
 		"echo $SD_STEP_ID $?; " +
 		"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportBuildEnv; env > $file; " +
-		"while read -r line; do " +
-		"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'`;" +	//escape double quote
-		"newline=`echo $escapeQuote | sed 's/\\([A-Z_][A-Z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'`;" +
-		"echo ${prefix}$newline; " +
-		"done < $file > $newfile; mv $newfile $file; }",
+		"while read -r line; do echo ${prefix}$line; done < $file > $newfile; mv $newfile $file; }",
 		"trap finish EXIT;\n",
 	}
+
+	// // Run setup commands
+	// setupCommands := []string{
+	// 	"set -e",
+	// 	"export PATH=$PATH:/opt/sd",
+	// 	// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
+	// 	"finish() { " +
+	// 	"echo $SD_STEP_ID $?; " +
+	// 	"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportBuildEnv; env > $file; " +
+	// 	"while read -r line; do " +
+	// 	// "escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'`;" +	//escape double quote
+	// 	// "newline=`echo $newline | sed 's/\\([A-Z_][A-Z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'`;" +
+	// 	"echo ${prefix}$line; " +
+	// 	"done < $file > $newfile; mv $newfile $file; }",
+	// 	"trap finish EXIT;\n",
+	// }
 
 	shargs := strings.Join(setupCommands, " && ")
 
