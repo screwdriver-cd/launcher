@@ -263,29 +263,23 @@ func TestUnmockedMulti(t *testing.T) {
 }
 
 func TestTeardownEnv(t *testing.T) {
-	// commands := []screwdriver.CommandDef{
-	// 	// {Cmd: "export DOUBLE_QUOTE='my \" double quote'", Name: "env"},
-	// 	// {Cmd: "export SINGLE_QUOTE=\"my ' single quote\"", Name: "envi"},
-	// 	{Cmd: "export SINGLE_QUOTE=BAR", Name: "env"},
-	// 	{Cmd: "cat /tmp/buildEnv", Name: "cat"},
-	// 	{Cmd: "doesnotexit", Name: "doesnotexit"},
-	// 	{Cmd: "echo bye", Name: "teardown-bye"},
-	// 	// {Cmd: "if [ \"$DOUBLE_QUOTE\" = 'my \" double quote' ]; then echo bad; fi", Name: "teardown-user"},
-	// 	// {Cmd: "if [ \"$SINGLE_QUOTE\" != \"my ' single quote\" ]; then exit 1; fi", Name: "sd-teardown-artifacts"},
-	// }
 	commands := []screwdriver.CommandDef{
-		{Cmd: "export FOO=BAR", Name: "env"},
+		{Cmd: "export FOO=\"BAR with spaces\"", Name: "foo"},
+		{Cmd: "export SINGLE_QUOTE=\"my ' single quote\"", Name: "singlequote"},
+		{Cmd: "export DOUBLE_QUOTE=\"my \\\" double quote\"", Name: "doublequote"},
 		{Cmd: "doesnotexit", Name: "doesnotexit"},
-		{Cmd: "if [ $FOO != BAR ]; then fail; fi", Name: "teardown-user"},
-		{Cmd: "if [ $FOO != BAR ]; then fail; fi", Name: "sd-teardown-artifacts"},
+		{Cmd: "echo bye", Name: "teardown-bye"},
+		{Cmd: "if [ \"$FOO\" != 'BAR with spaces' ]; then exit 1; fi", Name: "teardown-foo"},
+		{Cmd: "if [ \"$SINGLE_QUOTE\" != \"my ' single quote\" ]; then exit 1; fi", Name: "teardown-singlequote"},
+		{Cmd: "if [ \"$DOUBLE_QUOTE\" != \"my double quote\" ]; then exit 1; fi", Name: "sd-teardown-doublequote"},
 	}
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,
 		Environment: map[string]string{},
 	}
-	// runUserTeardown := false
-	// runSdTeardown := false
+	runUserTeardown := false
+	runSdTeardown := false
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			fmt.Printf("START %v\n", stepName)
@@ -300,12 +294,12 @@ func TestTeardownEnv(t *testing.T) {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
-			// if stepName == "teardown-user" {
-			// 	runUserTeardown = true
-			// }
-			// if stepName == "sd-teardown-artifacts" {
-			// 	runSdTeardown = true
-			// }
+			if stepName == "teardown-singlequote" {
+				runUserTeardown = true
+			}
+			if stepName == "sd-teardown-doublequote" {
+				runSdTeardown = true
+			}
 			if (code != 0 && stepName != "doesnotexit") {	// all steps should pass except for this step
 				t.Errorf("step %v failed with exit code %v", stepName, code)
 			}
@@ -314,12 +308,12 @@ func TestTeardownEnv(t *testing.T) {
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
-	// if !runUserTeardown {
-	// 	t.Errorf("step user teardown should run")
-	// }
-	// if !runSdTeardown {
-	// 	t.Errorf("step sd teardown should run")
-	// }
+	if !runUserTeardown {
+		t.Errorf("step user teardown should run")
+	}
+	if !runSdTeardown {
+		t.Errorf("step sd teardown should run")
+	}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
 	}
