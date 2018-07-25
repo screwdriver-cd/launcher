@@ -271,7 +271,7 @@ func TestTeardownEnv(t *testing.T) {
 		{Cmd: "echo bye", Name: "teardown-bye"},
 		{Cmd: "if [ \"$FOO\" != 'BAR with spaces' ]; then exit 1; fi", Name: "teardown-foo"},
 		{Cmd: "if [ \"$SINGLE_QUOTE\" != \"my ' single quote\" ]; then exit 1; fi", Name: "teardown-singlequote"},
-		{Cmd: "if [ \"$DOUBLE_QUOTE\" != \"my double quote\" ]; then exit 1; fi", Name: "sd-teardown-doublequote"},
+		{Cmd: "if [ \"$DOUBLE_QUOTE\" != \"my \\\" double quote\" ]; then exit 1; fi", Name: "sd-teardown-doublequote"},
 	}
 	testBuild := screwdriver.Build{
 		ID:          12345,

@@ -65,7 +65,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		err    error
 		t      string
 		reader = bufio.NewReader(r)
-		// Match the guid and exitCode
+		// Match the guid and exitCodereExport
 		reExit = regexp.MustCompile(fmt.Sprintf("(%s) ([0-9]+)", match))
 		// Match the export SD_STEP_ID command
 		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
@@ -228,13 +228,14 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"export PATH=$PATH:/opt/sd",
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
-		"echo $SD_STEP_ID $?; " +
-    "prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file; " +
+    "EXITCODE=$? " +
+		"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file; " +
     "while read -r line; do " +
     "escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'`;" +    //escape double quote
     "newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'`;" +    // add double quote around
     "echo ${prefix}$newline; " +
-    "done < $file > $newfile; }",    //mv newfile to file
+    "done < $file > $newfile; " +
+		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
 
