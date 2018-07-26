@@ -26,6 +26,14 @@ const (
 	ExitUnknown = 254
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
+	// Command to Export Env
+	ExportEnvCmd =
+	"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file; " +
+	"while read -r line; do " +
+	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` &&" +    //escape double quote
+	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
+	"echo ${prefix}$newline; " +
+	"done < $file > $newfile; "
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -229,12 +237,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
     "EXITCODE=$? " +
-		"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file; " +
-    "while read -r line; do " +
-    "escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'`;" +    //escape double quote
-    "newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'`;" +    // add double quote around
-    "echo ${prefix}$newline; " +
-    "done < $file > $newfile; " +
+		ExportEnvCmd +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
@@ -317,6 +320,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
 			// Exit shell only if previous user steps ran successfully
+			f.Write([]byte(ExportEnvCmd))
 			f.Write([]byte{4})
 		}
 
