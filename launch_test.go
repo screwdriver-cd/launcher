@@ -104,7 +104,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			}
 			if buildTimeoutMinutes != TestBuildTimeout {
 				t.Errorf("buildTimeout == %d, want %d", buildTimeoutMinutes, TestBuildTimeout)
-				// Panic to get the atacktrace
+				// Panic to get the stacktrace
 				panic(true)
 			}
 			return "foobar", nil
