@@ -532,3 +532,33 @@ func TestSecretsForBuild(t *testing.T) {
 		t.Errorf("s=%q, want %q", s, wantSecrets)
 	}
 }
+
+func TestGetBuildToken(t *testing.T) {
+	testBuildID := 1111
+	testBuildTimeoutMinutes := 90
+	testResponse := `{"token": "foobar"}`
+	wantToken := "foobar"
+
+	http := makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
+		wantURL, _ := url.Parse("http://fakeurl/v4/builds/1111/token")
+		if r.URL.String() != wantURL.String() {
+			t.Errorf("Secrets URL=%q, want %q", r.URL, wantURL)
+		}
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		want := regexp.MustCompile(`{"buildTimeout":\d+}`)
+		if !want.MatchString(buf.String()) {
+			t.Errorf("buf.String() = %q", buf.String())
+		}
+	})
+
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	token, err := testAPI.GetBuildToken(testBuildID, testBuildTimeoutMinutes)
+	if err != nil {
+		t.Fatalf("Unexpected error from GetBuildToken: %v", err)
+	}
+
+	if !reflect.DeepEqual(token, wantToken) {
+		t.Errorf("t=%q, want %q", token, wantToken)
+	}
+}

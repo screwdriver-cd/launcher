@@ -96,6 +96,19 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 		getCoverageInfo: func() (screwdriver.Coverage, error) {
 			return screwdriver.Coverage(FakeCoverage{EnvVars: TestEnvVars}), nil
 		},
+		getBuildToken: func(buildID int, buildTimeoutMinutes int) (string, error) {
+			if buildID != testBuildID {
+				t.Errorf("buildID == %d, want %d", buildID, testBuildID)
+				// Panic to get the stacktrace
+				panic(true)
+			}
+			if buildTimeoutMinutes != TestBuildTimeout {
+				t.Errorf("buildTimeout == %d, want %d", buildTimeoutMinutes, TestBuildTimeout)
+				// Panic to get the atacktrace
+				panic(true)
+			}
+			return "foobar", nil
+		},
 	}
 }
 
@@ -110,6 +123,7 @@ type MockAPI struct {
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
 	getAPIURL         func() (string, error)
 	getCoverageInfo   func() (screwdriver.Coverage, error)
+	getBuildToken     func(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
 func (f MockAPI) GetAPIURL() (string, error) {
@@ -174,6 +188,13 @@ func (f MockAPI) UpdateStepStop(buildID int, stepName string, exitCode int) erro
 		return f.updateStepStop(buildID, stepName, exitCode)
 	}
 	return nil
+}
+
+func (f MockAPI) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error) {
+	if f.getBuildToken != nil {
+		return f.getBuildToken(buildID, buildTimeoutMinutes)
+	}
+	return "foobar", nil
 }
 
 type MockEmitter struct {
@@ -1146,7 +1167,7 @@ func TestFetchEventMeta(t *testing.T) {
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestEventID {
-			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta:mockMeta}), nil
+			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: mockMeta}), nil
 		}
 		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
 	}

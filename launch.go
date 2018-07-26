@@ -578,7 +578,18 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
-		api, err := screwdriver.New(url, token)
+		temporalApi, err := screwdriver.New(url, token)
+		if err != nil {
+			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+			exit(screwdriver.Failure, buildID, nil, metaSpace)
+		}
+
+		buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
+		if err != nil {
+			log.Printf("Error getting Build Token %v: %v", buildID, err)
+		}
+
+		api, err := screwdriver.New(url, buildToken)
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)

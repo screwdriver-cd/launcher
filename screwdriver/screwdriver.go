@@ -28,6 +28,7 @@ const (
 )
 
 const maxAttempts = 5
+const defaultBuildTimeoutBuffer = 30 // 30 minutes
 
 func (b BuildStatus) String() string {
 	return string(b)
@@ -45,6 +46,7 @@ type API interface {
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
 	GetCoverageInfo() (Coverage, error)
+	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
 // SDError is an error response from the Screwdriver API
@@ -89,6 +91,11 @@ type StepStartPayload struct {
 type StepStopPayload struct {
 	EndTime  time.Time `json:"endTime"`
 	ExitCode int       `json:"code"`
+}
+
+// BuildTokenPayload is a Screwdriver Build Token payload.
+type BuildTokenPayload struct {
+	BuildTimeout int `json:"buildTimeout"`
 }
 
 // Pipeline is a Screwdriver Pipeline definition.
@@ -151,6 +158,11 @@ type Secret struct {
 
 // Secrets is the collection of secrets for a Screwdriver build
 type Secrets []Secret
+
+// Token is a Screwdriver API token.
+type Token struct {
+	Token string `json:"token"`
+}
 
 func (a api) makeURL(path string) (*url.URL, error) {
 	version := "v4"
@@ -474,4 +486,33 @@ func (a api) SecretsForBuild(build Build) (Secrets, error) {
 	}
 
 	return secrets, nil
+}
+
+func (a api) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error) {
+	u, err := a.makeURL(fmt.Sprintf("builds/%d/token", buildID))
+	if err != nil {
+		return a.token, fmt.Errorf("Creating url: %v", err)
+	}
+
+	bs := BuildTokenPayload{
+		BuildTimeout: buildTimeoutMinutes + defaultBuildTimeoutBuffer,
+	}
+	payload, err := json.Marshal(bs)
+	if err != nil {
+		return a.token, fmt.Errorf("Marshaling JSON for Build Token: %v", err)
+	}
+
+	body, err := a.post(u, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return a.token, fmt.Errorf("Posting to Build Token: %v", err)
+	}
+
+	buildToken := Token{}
+
+	err = json.Unmarshal(body, &buildToken)
+	if err != nil {
+		return a.token, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+
+	return buildToken.Token, nil
 }
