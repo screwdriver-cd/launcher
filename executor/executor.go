@@ -28,12 +28,14 @@ const (
 	ExitOk = 0
 	// Command to Export Env
 	ExportEnvCmd =
-	"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file; " +
+	"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file && " +
 	"while read -r line; do " +
-	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` &&" +    //escape double quote
+	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
 	"echo ${prefix}$newline; " +
-	"done < $file > $newfile; "
+	"done < $file > $newfile"
+	// Command to clean up
+	CleanupCmd = "rm -f /tmp/buildEnv && rm -f /tmp/exportEnv"
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -125,9 +127,9 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool) (int, error) {
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd && . /tmp/exportEnv; " // source the file that exports ENV
+	cmdStr := "export PATH=$PATH:/opt/sd && . /tmp/exportEnv && " // source the file that exports ENV
 	if (cleanup == true) {	// clean up the file
-		cmdStr += "rm /tmp/exportEnv; "
+		cmdStr += CleanupCmd + " && "
 	}
 	cmdStr += cmd.Cmd
 
@@ -236,8 +238,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"export PATH=$PATH:/opt/sd",
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
-    "EXITCODE=$? " +
-		ExportEnvCmd +
+    "EXITCODE=$?; " +
+		ExportEnvCmd + " && " +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
@@ -319,8 +321,10 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
+			fmt.Print("PREVIOUS COMMAND PASSED")
 			// Exit shell only if previous user steps ran successfully
 			f.Write([]byte(ExportEnvCmd))
+			f.Write([]byte("sleep 20"))
 			f.Write([]byte{4})
 		}
 

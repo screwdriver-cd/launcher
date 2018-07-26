@@ -13,7 +13,9 @@ jobs:
             - install: glide install
             - vet: go vet ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
-            - test: go test ./...
+            # The executor test involves writing/reading from the same file.
+            # -p 1 to ensure the tests not run concurrently
+            - test: go test ./... -p 1
             # The emitter file is changed by a test, but we want to ignore it
             - ignore-git: git update-index --assume-unchanged data/emitter
             # Ensure we can compile

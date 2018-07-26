@@ -200,7 +200,7 @@ func TestUnmocked(t *testing.T) {
 	}
 }
 
-func TestUnmockedMulti(t *testing.T) {
+func TestMulti(t *testing.T) {
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "export FOO=BAR", Name: "test export env"},
