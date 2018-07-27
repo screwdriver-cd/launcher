@@ -124,6 +124,19 @@ func TestHelperProcess(*testing.T) {
 	os.Exit(255)
 }
 
+func cleanup(filename string) {
+	os.Remove(filename)
+}
+
+func setupTestCase(t *testing.T, filename string) func(t *testing.T, filename string) {
+	t.Log("setup test case")
+	cleanup(filename)
+	return func(t *testing.T, filename string) {
+		t.Log("teardown test case")
+		cleanup(filename)
+	}
+}
+
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
@@ -139,6 +152,9 @@ func ReadCommand(file string) []string {
 }
 
 func TestUnmocked(t *testing.T) {
+	envFilepath := "/tmp/testUnmocked"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	var tests = []struct {
 		command string
 		err     error
@@ -179,7 +195,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, "/tmp/Unmocked")
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -201,6 +217,9 @@ func TestUnmocked(t *testing.T) {
 }
 
 func TestMulti(t *testing.T) {
+	envFilepath := "/tmp/testMulti"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "export FOO=BAR", Name: "test export env"},
@@ -249,7 +268,7 @@ func TestMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
@@ -263,6 +282,9 @@ func TestMulti(t *testing.T) {
 }
 
 func TestTeardownEnv(t *testing.T) {
+	envFilepath := "/tmp/testTeardownEnv"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "export FOO=\"BAR with spaces\"", Name: "foo"},
 		{Cmd: "export SINGLE_QUOTE=\"my ' single quote\"", Name: "singlequote"},
@@ -306,7 +328,7 @@ func TestTeardownEnv(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
@@ -320,6 +342,9 @@ func TestTeardownEnv(t *testing.T) {
 }
 
 func TestTeardownfail(t *testing.T) {
+	envFilepath := "/tmp/testTeardownfail"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "doesnotexit", Name: "sd-teardown-artifacts"},
@@ -337,7 +362,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -345,6 +370,9 @@ func TestTeardownfail(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
+	envFilepath := "/tmp/testTimeout"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "echo testing timeout", Name: "test timeout"},
 		{Cmd: "sleep 3", Name: "sleep for a long time"},
@@ -377,7 +405,7 @@ func TestTimeout(t *testing.T) {
 		},
 	}
 	testTimeout := 3
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -385,6 +413,9 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
+	envFilepath := "/tmp/testEnv"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	baseEnv := []string{
 		"var0=xxx",
 		"var1=foo",
@@ -426,7 +457,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -460,6 +491,9 @@ func TestEnv(t *testing.T) {
 }
 
 func TestEmitter(t *testing.T) {
+	envFilepath := "/tmp/testEmitter"
+	teardownTestCase := setupTestCase(t, envFilepath)
+	defer teardownTestCase(t, envFilepath)
 	var tests = []struct {
 		command string
 		name    string
@@ -497,7 +531,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

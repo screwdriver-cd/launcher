@@ -26,16 +26,6 @@ const (
 	ExitUnknown = 254
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
-	// Command to Export Env
-	ExportEnvCmd =
-	"prefix='export '; file=/tmp/buildEnv; newfile=/tmp/exportEnv; env > $file && " +
-	"while read -r line; do " +
-	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
-	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
-	"echo ${prefix}$newline; " +
-	"done < $file > $newfile"
-	// Command to clean up
-	CleanupCmd = "rm -f /tmp/buildEnv && rm -f /tmp/exportEnv"
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -81,6 +71,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
 	)
 	t, err = readln(reader)
+	// fmt.Printf("line is %v ", t)
 	for err == nil {
 		parts := reExit.FindStringSubmatch(t)
 		if len(parts) != 0 {
@@ -125,11 +116,12 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool, envFilepath string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd && . /tmp/exportEnv && " // source the file that exports ENV
+	cmdStr := "export PATH=$PATH:/opt/sd && . " + envFilepath + " && " // source the file that exports ENV
+	cleanupCmd := "rm -f " + envFilepath
 	if (cleanup == true) {	// clean up the file
-		cmdStr += CleanupCmd + " && "
+		cmdStr += cleanupCmd + " && "
 	}
 	cmdStr += cmd.Cmd
 
@@ -221,7 +213,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath string) error {
 	// Set up a single pseudo-terminal
 	c := exec.Command(shellBin)
 	c.Dir = path
@@ -232,6 +224,15 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
+	// Command to Export Env
+	exportEnvCmd :=
+	"prefix='export '; file=/tmp/buildEnv; newfile=" + envFilepath + "; env > $file && " +
+	"while read -r line; do " +
+	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
+	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
+	"echo ${prefix}$newline; " +
+	"done < $file > $newfile"
+
 	// Run setup commands
 	setupCommands := []string{
 		"set -e",
@@ -239,7 +240,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
     "EXITCODE=$?; " +
-		ExportEnvCmd + " && " +
+		exportEnvCmd + " && " +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
@@ -247,6 +248,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	shargs := strings.Join(setupCommands, " && ")
 
 	f.Write([]byte(shargs))
+	// io.Copy(os.Stdout, f)
 
 	var firstError error
 	var code int
@@ -319,12 +321,21 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 	cleanup := false
 
+	// Previous user steps ran successfully and there is no teardown step to run, clean up
+	if len(teardownCommands) == 0 && firstError == nil {
+			fmt.Print("NO TEARDOWN------")
+			f.Write([]byte("rm -f " + envFilepath + "\n"))
+			// r := bufio.NewReader(f)
+			//
+			// copyLinesUntil(r, emitter, "1234")
+	}
+
+	// io.Copy(os.Stdout, f)
 	for index, cmd := range teardownCommands {
+		fmt.Print("HAS TEARDOWN------")
 		if index == 0 && firstError == nil {
-			fmt.Print("PREVIOUS COMMAND PASSED")
 			// Exit shell only if previous user steps ran successfully
 			f.Write([]byte{4})
-			fmt.Print("CLOSED")
 		}
 
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
@@ -338,7 +349,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, cleanup)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, cleanup, envFilepath)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)

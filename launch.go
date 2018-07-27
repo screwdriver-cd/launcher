@@ -194,6 +194,7 @@ func convertToArray(i interface{}) (array []int) {
 
 func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int) error {
 	emitter, err := newEmitter(emitterPath)
+	envFilepath := "/tmp/exportEnv"
 	if err != nil {
 		return err
 	}
@@ -413,7 +414,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
 	}
 
-	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
