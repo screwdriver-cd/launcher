@@ -192,7 +192,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int, buildToken string) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/exportEnv"
 	if err != nil {
@@ -390,6 +390,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_BUILD_URL":           apiURL + "builds/" + strconv.Itoa(buildID),
 		"SD_BUILD_SHA":           build.SHA,
 		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
+		"SD_TOKEN":               buildToken,
 	}
 
 	// Add coverage env vars
@@ -458,10 +459,10 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, shellBin string, buildTimeout int) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, shellBin string, buildTimeout int, buildToken string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, shellBin, buildTimeout); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, shellBin, buildTimeout, buildToken); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -579,7 +580,18 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
-		api, err := screwdriver.New(url, token)
+		temporalApi, err := screwdriver.New(url, token)
+		if err != nil {
+			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+			exit(screwdriver.Failure, buildID, nil, metaSpace)
+		}
+
+		buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
+		if err != nil {
+			log.Printf("Error getting Build Token %v: %v", buildID, err)
+		}
+
+		api, err := screwdriver.New(url, buildToken)
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)
@@ -587,7 +599,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds, buildToken)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")

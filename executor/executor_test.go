@@ -69,6 +69,10 @@ func (f MockAPI) UpdateStepStop(buildID int, stepName string, exitCode int) erro
 	return nil
 }
 
+func (f MockAPI) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error) {
+	return "foobar", nil
+}
+
 type MockEmitter struct {
 	startCmd func(screwdriver.CommandDef)
 	write    func([]byte) (int, error)
