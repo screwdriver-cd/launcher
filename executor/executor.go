@@ -118,8 +118,8 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool, envFilepath string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd && . " + envFilepath + " && " // source the file that exports ENV
-	cleanupCmd := "rm -f " + envFilepath
+	cmdStr := "export PATH=$PATH:/opt/sd && . " + envFilepath + "_export && " // source the file that exports ENV
+	cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export"
 	if (cleanup == true) {	// clean up the file
 		cmdStr += cleanupCmd + " && "
 	}
@@ -226,7 +226,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// Command to Export Env
 	exportEnvCmd :=
-	"prefix='export '; file=/tmp/buildEnv; newfile=" + envFilepath + "; env > $file && " +
+	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
 	"while read -r line; do " +
 	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
@@ -324,7 +324,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Previous user steps ran successfully and there is no teardown step to run, clean up
 	if len(teardownCommands) == 0 && firstError == nil {
 			fmt.Print("NO TEARDOWN------")
-			f.Write([]byte("rm -f " + envFilepath + "\n"))
+			cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export"
+			f.Write([]byte(cleanupCmd + "\n"))
 			// r := bufio.NewReader(f)
 			//
 			// copyLinesUntil(r, emitter, "1234")

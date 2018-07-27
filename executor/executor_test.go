@@ -126,6 +126,7 @@ func TestHelperProcess(*testing.T) {
 
 func cleanup(filename string) {
 	os.Remove(filename)
+	os.Remove(filename + "_export")
 }
 
 func setupTestCase(t *testing.T, filename string) func(t *testing.T, filename string) {
@@ -195,7 +196,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, "/tmp/Unmocked")
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, envFilepath)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
