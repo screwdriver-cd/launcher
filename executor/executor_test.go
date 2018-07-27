@@ -305,15 +305,12 @@ func TestTeardownEnv(t *testing.T) {
 	runSdTeardown := false
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
-			fmt.Printf("START %v\n", stepName)
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
 			return nil
 		},
 		updateStepStop: func(buildID int, stepName string, code int) error {
-			fmt.Printf("STOP step %v code %v\n", stepName, code)
-			fmt.Printf("=========\n")
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}

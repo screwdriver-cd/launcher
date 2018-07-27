@@ -71,7 +71,6 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
 	)
 	t, err = readln(reader)
-	// fmt.Printf("line is %v ", t)
 	for err == nil {
 		parts := reExit.FindStringSubmatch(t)
 		if len(parts) != 0 {
@@ -124,8 +123,6 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 		cmdStr += cleanupCmd + " && "
 	}
 	cmdStr += cmd.Cmd
-
-	fmt.Println(cmdStr)
 
 	shargs = append(shargs, cmdStr)
 	c := exec.Command(shellBin, shargs...)
@@ -263,7 +260,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
 
 	for _, cmd := range userCommands {
-		fmt.Printf("%v\n", cmd.Cmd)
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
@@ -323,17 +319,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// Previous user steps ran successfully and there is no teardown step to run, clean up
 	if len(teardownCommands) == 0 && firstError == nil {
-			fmt.Print("NO TEARDOWN------")
 			cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export"
 			f.Write([]byte(cleanupCmd + "\n"))
-			// r := bufio.NewReader(f)
-			//
-			// copyLinesUntil(r, emitter, "1234")
 	}
 
 	// io.Copy(os.Stdout, f)
 	for index, cmd := range teardownCommands {
-		fmt.Print("HAS TEARDOWN------")
 		if index == 0 && firstError == nil {
 			// Exit shell only if previous user steps ran successfully
 			f.Write([]byte{4})
