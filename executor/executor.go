@@ -75,7 +75,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		err    error
 		t      string
 		reader = bufio.NewReader(r)
-		// Match the guid and exitCodereExport
+		// Match the guid and exitCode
 		reExit = regexp.MustCompile(fmt.Sprintf("(%s) ([0-9]+)", match))
 		// Match the export SD_STEP_ID command
 		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
@@ -323,9 +323,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		if index == 0 && firstError == nil {
 			fmt.Print("PREVIOUS COMMAND PASSED")
 			// Exit shell only if previous user steps ran successfully
-			f.Write([]byte(ExportEnvCmd))
-			f.Write([]byte("sleep 20"))
 			f.Write([]byte{4})
+			fmt.Print("CLOSED")
 		}
 
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
