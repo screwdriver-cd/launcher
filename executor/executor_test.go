@@ -129,17 +129,18 @@ func TestHelperProcess(*testing.T) {
 }
 
 func cleanup(filename string) {
-	os.Remove(filename)
-	os.Remove(filename + "_export")
+	_, err := os.Stat(filename)
+
+	if err == nil {
+		err := os.Remove(filename)
+		fmt.Printf("err removing file %v", err)
+	}
 }
 
-func setupTestCase(t *testing.T, filename string) func(t *testing.T, filename string) {
+func setupTestCase(t *testing.T, filename string) {
 	t.Log("setup test case")
 	cleanup(filename)
-	return func(t *testing.T, filename string) {
-		t.Log("teardown test case")
-		cleanup(filename)
-	}
+	cleanup(filename + "_export")
 }
 
 func TestMain(m *testing.M) {
@@ -158,8 +159,7 @@ func ReadCommand(file string) []string {
 
 func TestUnmocked(t *testing.T) {
 	envFilepath := "/tmp/testUnmocked"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	var tests = []struct {
 		command string
 		err     error
@@ -223,8 +223,7 @@ func TestUnmocked(t *testing.T) {
 
 func TestMulti(t *testing.T) {
 	envFilepath := "/tmp/testMulti"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "export FOO=BAR", Name: "test export env"},
@@ -288,8 +287,7 @@ func TestMulti(t *testing.T) {
 
 func TestTeardownEnv(t *testing.T) {
 	envFilepath := "/tmp/testTeardownEnv"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "export FOO=\"BAR with spaces\"", Name: "foo"},
 		{Cmd: "export SINGLE_QUOTE=\"my ' single quote\"", Name: "singlequote"},
@@ -345,8 +343,7 @@ func TestTeardownEnv(t *testing.T) {
 
 func TestTeardownfail(t *testing.T) {
 	envFilepath := "/tmp/testTeardownfail"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "doesnotexit", Name: "sd-teardown-artifacts"},
@@ -373,8 +370,7 @@ func TestTeardownfail(t *testing.T) {
 
 func TestTimeout(t *testing.T) {
 	envFilepath := "/tmp/testTimeout"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "echo testing timeout", Name: "test timeout"},
 		{Cmd: "sleep 3", Name: "sleep for a long time"},
@@ -416,8 +412,7 @@ func TestTimeout(t *testing.T) {
 
 func TestEnv(t *testing.T) {
 	envFilepath := "/tmp/testEnv"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	baseEnv := []string{
 		"var0=xxx",
 		"var1=foo",
@@ -494,8 +489,7 @@ func TestEnv(t *testing.T) {
 
 func TestEmitter(t *testing.T) {
 	envFilepath := "/tmp/testEmitter"
-	teardownTestCase := setupTestCase(t, envFilepath)
-	defer teardownTestCase(t, envFilepath)
+	setupTestCase(t, envFilepath)
 	var tests = []struct {
 		command string
 		name    string

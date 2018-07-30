@@ -20,6 +20,7 @@ jobs:
             - build: go build -a -o /dev/null
             # Test cross-compiling as well
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
+            - teardown-sleep: sleep 1000
 
     publish:
         requires: [main]

@@ -128,7 +128,6 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
-
 	c.Stdout = emitter
 	c.Stderr = emitter
 	c.Dir = path
@@ -245,7 +244,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	shargs := strings.Join(setupCommands, " && ")
 
 	f.Write([]byte(shargs))
-	// io.Copy(os.Stdout, f)
 
 	var firstError error
 	var code int
@@ -323,7 +321,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			f.Write([]byte(cleanupCmd + "\n"))
 	}
 
-	// io.Copy(os.Stdout, f)
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
 			// Exit shell only if previous user steps ran successfully
