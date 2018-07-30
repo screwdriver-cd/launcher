@@ -159,7 +159,6 @@ func ReadCommand(file string) []string {
 
 func TestUnmocked(t *testing.T) {
 	envFilepath := "/tmp/testUnmocked"
-	setupTestCase(t, envFilepath)
 	var tests = []struct {
 		command string
 		err     error
@@ -177,6 +176,7 @@ func TestUnmocked(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		setupTestCase(t, envFilepath)
 		cmd := screwdriver.CommandDef{
 			Cmd:  test.command,
 			Name: "test",
