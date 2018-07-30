@@ -223,6 +223,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Command to Export Env
 	exportEnvCmd :=
 	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
+
+	// Remove PS1, this gives some issues if exporting to ""
+	"sed '/^PS1=.*/d' $file > $newfile && " +
+	"mv $newfile $file && " +
+
+	// Loops through each line
 	"while read -r line; do " +
 	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
