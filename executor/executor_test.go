@@ -132,8 +132,7 @@ func cleanup(filename string) {
 	_, err := os.Stat(filename)
 
 	if err == nil {
-		err := os.Remove(filename)
-		fmt.Printf("err removing file %v", err)
+		os.Remove(filename)
 	}
 }
 

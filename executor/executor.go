@@ -117,15 +117,10 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool, envFilepath string) (int, error) {
 	shargs := []string{"-e", "-c"}
-
-	// source the file that exports ENV
-	cmdStr := "export PATH=$PATH:/opt/sd && " +
-						"while ! [ -f " + envFilepath + "_export ]; do sleep 1; done;  && " +
-						". " + envFilepath + "_export && "
-
-	// clean up the files
-	cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export && "
-	if (cleanup == true) {
+	envExportFilepath := envFilepath + "_export"
+	cmdStr := "export PATH=$PATH:/opt/sd && while ! [ -f  "+ envExportFilepath + " ]; do sleep 1; done && . " + envExportFilepath + " && " // source the file that exports ENV
+	cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envExportFilepath + " && "
+	if (cleanup == true) {	// clean up the file
 		fmt.Printf("*******last teardown step, clean up...\n")
 		cmdStr += cleanupCmd
 	}
