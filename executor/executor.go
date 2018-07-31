@@ -243,7 +243,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
-		exportEnvCmd + " && " +
+		exportEnvCmd + "; " +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
