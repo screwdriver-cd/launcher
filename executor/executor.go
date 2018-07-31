@@ -121,12 +121,9 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	cmdStr := "export PATH=$PATH:/opt/sd && while ! [ -f  "+ envExportFilepath + " ]; do sleep 1; done && . " + envExportFilepath + " && " // source the file that exports ENV
 	cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envExportFilepath + " && "
 	if (cleanup == true) {	// clean up the file
-		fmt.Printf("*******last teardown step, clean up...\n")
 		cmdStr += cleanupCmd
 	}
 	cmdStr += cmd.Cmd
-
-	fmt.Printf("cmdStr %v\n", cmdStr)
 
 	shargs = append(shargs, cmdStr)
 	c := exec.Command(shellBin, shargs...)
@@ -245,7 +242,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"export PATH=$PATH:/opt/sd",
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
-    "EXITCODE=$?; " +
+		"EXITCODE=$?; " +
 		exportEnvCmd + " && " +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
@@ -327,9 +324,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// Previous user steps ran successfully and there is no teardown step to run, clean up
 	if len(teardownCommands) == 0 && firstError == nil {
-			fmt.Print("cleaning up ")
-			cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export"
-			f.Write([]byte(cleanupCmd + "\n"))
+		cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export"
+		f.Write([]byte(cleanupCmd + "\n"))
 	}
 
 	for index, cmd := range teardownCommands {
@@ -344,9 +340,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		// Run teardown commands
 		if (index == len(teardownCommands) - 1) {
-				// last teardown step, clean up env file
-				cleanup = true;
-
+			// last teardown step, clean up env file
+			cleanup = true;
 		}
 
 		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, cleanup, envFilepath)
