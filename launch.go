@@ -563,7 +563,7 @@ func main() {
 			EnvVar: "SD_BUILD_TIMEOUT",
 		},
 		cli.BoolFlag{
-			Name:  "fetch-flag",
+			Name:  "only-fetch-token",
 			Usage: "Only fetching build token",
 		},
 	}
@@ -578,7 +578,7 @@ func main() {
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 		buildTimeoutSeconds := c.Int("build-timeout") * 60
-		fetchFlag := c.Bool("fetch-flag")
+		fetchFlag := c.Bool("only-fetch-token")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
