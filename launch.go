@@ -562,6 +562,10 @@ func main() {
 			Value:  DefaultTimeout,
 			EnvVar: "SD_BUILD_TIMEOUT",
 		},
+		cli.BoolFlag{
+			Name:  "fetch-flag",
+			Usage: "Only fetching build token",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -574,6 +578,7 @@ func main() {
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 		buildTimeoutSeconds := c.Int("build-timeout") * 60
+		fetchFlag := c.Bool("fetch-flag")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -587,7 +592,14 @@ func main() {
 
 		buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
 		if err != nil {
+			// If token is build scope token, GetBuildToken returns 403 error but need not exit
 			log.Printf("Error getting Build Token %v: %v", buildID, err)
+		}
+
+		if fetchFlag {
+			log.Printf("Launcher process only fetch token.")
+			fmt.Printf("%s", buildToken)
+			cleanExit()
 		}
 
 		api, err := screwdriver.New(url, buildToken)
