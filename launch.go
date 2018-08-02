@@ -584,25 +584,25 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
-		temporalApi, err := screwdriver.New(url, token)
-		if err != nil {
-			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-			exit(screwdriver.Failure, buildID, nil, metaSpace)
-		}
-
-		buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
-		if err != nil {
-			// If token is build scope token, GetBuildToken returns 403 error but need not exit
-			log.Printf("Error getting Build Token %v: %v", buildID, err)
-		}
-
 		if fetchFlag {
+			temporalApi, err := screwdriver.New(url, token)
+			if err != nil {
+				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace)
+			}
+
+			buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
+			if err != nil {
+				log.Printf("Error getting Build Token %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace)
+			}
+
 			log.Printf("Launcher process only fetch token.")
 			fmt.Printf("%s", buildToken)
 			cleanExit()
 		}
 
-		api, err := screwdriver.New(url, buildToken)
+		api, err := screwdriver.New(url, token)
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)
@@ -610,7 +610,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds, buildToken)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds, token)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
