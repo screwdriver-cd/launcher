@@ -38,8 +38,15 @@ func (e ErrStatus) Error() string {
 }
 
 // Create a sh file
-func createShFile(path string, cmd screwdriver.CommandDef, shellBin string) error {
-	return ioutil.WriteFile(path, []byte("#!"+shellBin+" -e\n"+cmd.Cmd), 0755)
+func createShFile(path string, cmd screwdriver.CommandDef, shellBin string, userShellBin string) error {
+	shell := userShellBin
+	isSdStep, _ := regexp.MatchString("^sd-.+", cmd.Name)
+
+	if isSdStep {
+		shell = shellBin
+	}
+
+	return ioutil.WriteFile(path, []byte("#!"+shell+" -e\n"+cmd.Cmd), 0755)
 }
 
 // Returns a single line (without the ending \n) from the input buffered reader
@@ -204,7 +211,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, userShellBin string, timeoutSec int) error {
 	// Set up a single pseudo-terminal
 	c := exec.Command(shellBin)
 	c.Dir = path
@@ -250,7 +257,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		// Create step script file
 		stepFilePath := "/tmp/step.sh"
-		if err := createShFile(stepFilePath, cmd, shellBin); err != nil {
+		if err := createShFile(stepFilePath, cmd, shellBin, userShellBin); err != nil {
 			return fmt.Errorf("Writing to step script file: %v", err)
 		}
 

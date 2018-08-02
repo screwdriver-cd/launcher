@@ -183,7 +183,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, test.shell, TestBuildTimeout)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -253,7 +253,7 @@ func TestUnmockedMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
@@ -284,7 +284,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout)
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -324,7 +324,7 @@ func TestTimeout(t *testing.T) {
 		},
 	}
 	testTimeout := 3
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", testTimeout)
 	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -373,7 +373,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -458,5 +458,49 @@ func TestEmitter(t *testing.T) {
 		if found[i] != test.name {
 			t.Errorf("Unexpected order. Want %v. Got %v", found[i], test.name)
 		}
+	}
+}
+
+func TestUserShell(t *testing.T) {
+	commands := []screwdriver.CommandDef{
+		{Cmd: "echo hi > /tmp/echo && . /tmp/echo", Name: "sd-setup"},
+		{Cmd: "echo hi > /tmp/echo && source /tmp/echo", Name: "source"},
+		{Cmd: "echo hi > /tmp/echo && source /tmp/echo", Name: "teardown-echo"},
+		{Cmd: "echo hi > /tmp/echo && source /tmp/echo", Name: "sd-teardown-artifacts"},
+	}
+	env := map[string]string{
+		"USER_SHELL_BIN": "bash",
+	}
+
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: env,
+	}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if stepName == "test sleep 1" {
+				t.Errorf("step should never execute: %v", stepName)
+			}
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if stepName == "test sleep 1" {
+				t.Errorf("Should not update step that never run: %v", stepName)
+			}
+			return nil
+		},
+	})
+	fmt.Print(env["USER_SHELL_BIN"]);
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout)
+	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	if !reflect.DeepEqual(err, expectedErr) {
+		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
 	}
 }
