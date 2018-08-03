@@ -37,14 +37,22 @@ func (e ErrStatus) Error() string {
 	return fmt.Sprintf("exit %d", e.Status)
 }
 
-// Create a sh file
-func createShFile(path string, cmd screwdriver.CommandDef, shellBin string, userShellBin string) error {
+func chooseShell(shellBin, userShellBin, stepName string) string{
 	shell := userShellBin
-	isSdStep, _ := regexp.MatchString("^sd-.+", cmd.Name)
+	isSdStep, _ := regexp.MatchString("^sd-.+", stepName)
 
 	if isSdStep {
 		shell = shellBin
 	}
+
+	return shell
+}
+
+// Create a sh file
+func createShFile(path string, cmd screwdriver.CommandDef, shellBin string, userShellBin string) error {
+	shell := chooseShell(shellBin, userShellBin, cmd.Name)
+
+	fmt.Printf("shell is %v name is %v\n", shell, cmd.Name)
 
 	return ioutil.WriteFile(path, []byte("#!"+shell+" -e\n"+cmd.Cmd), 0755)
 }
@@ -122,10 +130,11 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, userShellBin string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	shargs = append(shargs, "export PATH=$PATH:/opt/sd && " + cmd.Cmd)
-	c := exec.Command(shellBin, shargs...)
+	shell := chooseShell(shellBin, userShellBin, cmd.Name)
+	c := exec.Command(shell, shargs...)
 
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -313,7 +322,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 
 		// Run teardown commands
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, userShellBin)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)

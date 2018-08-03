@@ -198,6 +198,8 @@ func TestUnmocked(t *testing.T) {
 			t.Errorf("Unexpected shell from Run(%#v): %v", test, commands[0])
 		}
 
+		fmt.Print(commands)
+
 		if !reflect.DeepEqual(commands[1], test.command) {
 			t.Errorf("Unexpected command from Run(%#v): %v", test, commands[1])
 		}
@@ -463,15 +465,14 @@ func TestEmitter(t *testing.T) {
 
 func TestUserShell(t *testing.T) {
 	commands := []screwdriver.CommandDef{
-		{Cmd: "echo hi > /tmp/echo && . /tmp/echo", Name: "sd-setup"},
-		{Cmd: "echo hi > /tmp/echo && source /tmp/echo", Name: "source"},
-		{Cmd: "echo hi > /tmp/echo && source /tmp/echo", Name: "teardown-echo"},
-		{Cmd: "echo hi > /tmp/echo && source /tmp/echo", Name: "sd-teardown-artifacts"},
+		{Cmd: "echo echo hi > /tmp/echo && . /tmp/echo", Name: "sd-setup"},
+		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "user-source"},
+		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "teardown-echo"},
+		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "sd-teardown-artifacts"},	// source is not available in sh
 	}
 	env := map[string]string{
-		"USER_SHELL_BIN": "bash",
+		"USER_SHELL_BIN": "/bin/bash",
 	}
-
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,
@@ -479,27 +480,14 @@ func TestUserShell(t *testing.T) {
 	}
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
-			if buildID != testBuild.ID {
-				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
-			}
-			if stepName == "test sleep 1" {
-				t.Errorf("step should never execute: %v", stepName)
-			}
 			return nil
 		},
 		updateStepStop: func(buildID int, stepName string, code int) error {
-			if buildID != testBuild.ID {
-				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
-			}
-			if stepName == "test sleep 1" {
-				t.Errorf("Should not update step that never run: %v", stepName)
-			}
 			return nil
 		},
 	})
-	fmt.Print(env["USER_SHELL_BIN"]);
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout)
-	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	expectedErr := fmt.Errorf("Launching command exit with code: %v", 111)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
 	}

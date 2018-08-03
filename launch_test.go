@@ -850,7 +850,7 @@ func TestCreateEnvironment(t *testing.T) {
 
 	buildEnv := map[string]string{
 		"GOPATH": "/go/path",
-		"USER_SHELL_BIN":  "bash",
+		"USER_SHELL_BIN":  "/bin/bash",
 	}
 
 	testBuild := screwdriver.Build{
@@ -872,7 +872,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"GETSOVERRIDDEN=override",
 		"OSENVWITHEQUALS=foo=bar=",
 		"GOPATH=/go/path",
-		"USER_SHELL_BIN=bash",
+		"USER_SHELL_BIN=/bin/bash",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
@@ -883,8 +883,8 @@ func TestCreateEnvironment(t *testing.T) {
 		t.Errorf("Failed to override the base environment with a secret")
 	}
 
-	if userShellBin != "bash" {
-		t.Errorf("User shell bin is not set correctly. Expect %v, got %v", "bash", userShellBin)
+	if userShellBin != "/bin/bash" {
+		t.Errorf("User shell bin is not set correctly. Expect %v, got %v", "/bin/bash", userShellBin)
 	}
 }
 
