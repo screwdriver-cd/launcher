@@ -115,15 +115,13 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, cleanup bool, envFilepath string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, envFilepath string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	envExportFilepath := envFilepath + "_export"
-	cmdStr := "export PATH=$PATH:/opt/sd && while ! [ -f  "+ envExportFilepath + " ]; do sleep 1; done && . " + envExportFilepath + " && " // source the file that exports ENV
-	cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envExportFilepath + " && "
-	if (cleanup == true) {	// clean up the file
-		cmdStr += cleanupCmd
-	}
-	cmdStr += cmd.Cmd
+	cmdStr := "export PATH=$PATH:/opt/sd && " +
+		"while ! [ -f  "+ envExportFilepath + " ]; do sleep 1; done && " + // wait for the file to be available
+		". " + envExportFilepath + " && " +
+		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
 	c := exec.Command(shellBin, shargs...)
@@ -320,13 +318,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	}
 
 	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
-	cleanup := false
-
-	// Previous user steps ran successfully and there is no teardown step to run, clean up
-	if len(teardownCommands) == 0 && firstError == nil {
-		cleanupCmd := "rm -f " + envFilepath + " && rm -f " + envFilepath + "_export"
-		f.Write([]byte(cleanupCmd + "\n"))
-	}
 
 	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
@@ -338,13 +329,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		// Run teardown commands
-		if (index == len(teardownCommands) - 1) {
-			// last teardown step, clean up env file
-			cleanup = true;
-		}
-
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, cleanup, envFilepath)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, envFilepath)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
