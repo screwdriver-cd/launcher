@@ -52,7 +52,7 @@ func chooseShell(shellBin, userShellBin, stepName string) string{
 func createShFile(path string, cmd screwdriver.CommandDef, shellBin string, userShellBin string) error {
 	shell := chooseShell(shellBin, userShellBin, cmd.Name)
 
-	fmt.Printf("shell is %v name is %v\n", shell, cmd.Name)
+	fmt.Printf("using shell %v, command is %v\n", shell, cmd.Cmd)
 
 	return ioutil.WriteFile(path, []byte("#!"+shell+" -e\n"+cmd.Cmd), 0755)
 }
@@ -135,6 +135,8 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	shargs = append(shargs, "export PATH=$PATH:/opt/sd && " + cmd.Cmd)
 	shell := chooseShell(shellBin, userShellBin, cmd.Name)
 	c := exec.Command(shell, shargs...)
+
+	fmt.Printf("using shell %v, command is %v\n", shell, cmd.Cmd)
 
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)

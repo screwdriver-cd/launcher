@@ -487,7 +487,7 @@ func TestUserShell(t *testing.T) {
 		},
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout)
-	expectedErr := fmt.Errorf("Launching command exit with code: %v", 111)
+	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
 	}
