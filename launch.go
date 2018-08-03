@@ -563,6 +563,10 @@ func main() {
 			Value:  DefaultTimeout,
 			EnvVar: "SD_BUILD_TIMEOUT",
 		},
+		cli.BoolFlag{
+			Name:  "only-fetch-token",
+			Usage: "Only fetching build token",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -575,23 +579,31 @@ func main() {
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 		buildTimeoutSeconds := c.Int("build-timeout") * 60
+		fetchFlag := c.Bool("only-fetch-token")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
 		}
 
-		temporalApi, err := screwdriver.New(url, token)
-		if err != nil {
-			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-			exit(screwdriver.Failure, buildID, nil, metaSpace)
+		if fetchFlag {
+			temporalApi, err := screwdriver.New(url, token)
+			if err != nil {
+				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace)
+			}
+
+			buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
+			if err != nil {
+				log.Printf("Error getting Build Token %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace)
+			}
+
+			log.Printf("Launcher process only fetch token.")
+			fmt.Printf("%s", buildToken)
+			cleanExit()
 		}
 
-		buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
-		if err != nil {
-			log.Printf("Error getting Build Token %v: %v", buildID, err)
-		}
-
-		api, err := screwdriver.New(url, buildToken)
+		api, err := screwdriver.New(url, token)
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)
@@ -599,7 +611,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds, buildToken)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds, token)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
