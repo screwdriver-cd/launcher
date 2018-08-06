@@ -544,34 +544,34 @@ func TestEmitter(t *testing.T) {
 	}
 }
 
-// func TestUserShell(t *testing.T) {
-// 	envFilepath := "/tmp/testUserShell"
-// 	setupTestCase(t, envFilepath)
-// 	commands := []screwdriver.CommandDef{
-// 		{Cmd: "echo echo hi > /tmp/echo && . /tmp/echo", Name: "sd-setup"},
-// 		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "user-source"},
-// 		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "teardown-echo"},
-// 		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "sd-teardown-artifacts"},	// source is not available in sh
-// 	}
-// 	env := map[string]string{
-// 		"USER_SHELL_BIN": "/bin/bash",
-// 	}
-// 	testBuild := screwdriver.Build{
-// 		ID:          12345,
-// 		Commands:    commands,
-// 		Environment: env,
-// 	}
-// 	testAPI := screwdriver.API(MockAPI{
-// 		updateStepStart: func(buildID int, stepName string) error {
-// 			return nil
-// 		},
-// 		updateStepStop: func(buildID int, stepName string, code int) error {
-// 			return nil
-// 		},
-// 	})
-// 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout, envFilepath)
-// 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
-// 	if !reflect.DeepEqual(err, expectedErr) {
-// 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
-// 	}
-// }
+func TestUserShell(t *testing.T) {
+	envFilepath := "/tmp/testUserShell"
+	setupTestCase(t, envFilepath)
+	commands := []screwdriver.CommandDef{
+		{Cmd: "echo echo hi > /tmp/echo && . /tmp/echo", Name: "sd-setup"},
+		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "user-source"},
+		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "teardown-echo"},
+		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "sd-teardown-artifacts"},	// source is not available in sh
+	}
+	env := map[string]string{
+		"USER_SHELL_BIN": "/bin/bash",
+	}
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: env,
+	}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			return nil
+		},
+	})
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout, envFilepath)
+	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	if !reflect.DeepEqual(err, expectedErr) {
+		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
+	}
+}

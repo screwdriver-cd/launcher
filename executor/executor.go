@@ -49,11 +49,7 @@ func chooseShell(shellBin, userShellBin, stepName string) string{
 }
 
 // Create a sh file
-func createShFile(path string, cmd screwdriver.CommandDef, shellBin string, userShellBin string) error {
-	shell := chooseShell(shellBin, userShellBin, cmd.Name)
-
-	fmt.Printf("using shell %v, command is %v\n", shell, cmd.Cmd)
-
+func createShFile(path string, cmd screwdriver.CommandDef, shell string) error {
 	return ioutil.WriteFile(path, []byte("#!"+shell+" -e\n"+cmd.Cmd), 0755)
 }
 
@@ -201,16 +197,20 @@ func handleBuildTimeout(f *os.File, timeoutErr error) {
 	f.Write([]byte{4})
 }
 
-func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screwdriver.CommandDef, []screwdriver.CommandDef) {
-	userCommands := []screwdriver.CommandDef{}
+func categorizeCommands(build screwdriver.Build) ([]screwdriver.CommandDef, []screwdriver.CommandDef, []screwdriver.CommandDef, []screwdriver.CommandDef) {
+	sdSetupCommands := []screwdriver.CommandDef{}
 	sdTeardownCommands := []screwdriver.CommandDef{}
+	userCommands := []screwdriver.CommandDef{}
 	userTeardownCommands := []screwdriver.CommandDef{}
 
 	for _, cmd := range build.Commands {
+		isSdSetup, _ := regexp.MatchString("^sd-(?!teardown).+", cmd.Name)
 		isSdTeardown, _ := regexp.MatchString("^sd-teardown-.+", cmd.Name)
 		isUserTeardown, _ := regexp.MatchString("^teardown-.+", cmd.Name)
 
-		if isSdTeardown {
+		if isSdSetup {
+			sdSetupCommands = append(sdSetupCommands, cmd)
+		} else if isSdTeardown {
 			sdTeardownCommands = append(sdTeardownCommands, cmd)
 		} else if isUserTeardown {
 			userTeardownCommands = append(userTeardownCommands, cmd)
@@ -219,13 +219,18 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 		}
 	}
 
-	return userCommands, sdTeardownCommands, userTeardownCommands
+	return sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands
 }
 
-// Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, userShellBin string, timeoutSec int, envFilepath string) error {
+func runCommands(path string, env []string, emitter screwdriver.Emitter, api screwdriver.API, buildID int, timeoutSec int, shargs string, commands []screwdriver.CommandDef, shell string) (error) {
+	timeout := time.Duration(timeoutSec) * time.Second
+	invokeTimeout := make(chan error, 1)
+
+	// start build timeout timer
+	go initBuildTimeout(timeout, invokeTimeout)
+
 	// Set up a single pseudo-terminal
-	c := exec.Command(shellBin)
+	c := exec.Command(shell)
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
@@ -234,50 +239,13 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
-	// Command to Export Env
-	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
-
-	// Remove PS1, this gives some issues if exporting to ""
-	"sed '/^PS1=.*/d' $file > $newfile && " +
-	"mv $newfile $file && " +
-
-	// Loops through each line
-	"while read -r line; do " +
-	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
-	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
-	"echo ${prefix}$newline; " +
-	"done < $file > $newfile"
-
-	// Run setup commands
-	setupCommands := []string{
-		"set -e",
-		"export PATH=$PATH:/opt/sd",
-		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
-		"finish() { " +
-		"EXITCODE=$?; " +
-		exportEnvCmd + "; " +
-		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
-		"trap finish EXIT;\n",
-	}
-
-	shargs := strings.Join(setupCommands, " && ")
-
 	f.Write([]byte(shargs))
 
 	var firstError error
-	var code int
 	var cmdErr error
+	var code int
 
-	timeout := time.Duration(timeoutSec) * time.Second
-	invokeTimeout := make(chan error, 1)
-
-	// start build timeout timer
-	go initBuildTimeout(timeout, invokeTimeout)
-
-	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
-
-	for _, cmd := range userCommands {
+	for _, cmd := range commands {
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
@@ -289,7 +257,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		// Create step script file
 		stepFilePath := "/tmp/step.sh"
-		if err := createShFile(stepFilePath, cmd, shellBin, userShellBin); err != nil {
+		if err := createShFile(stepFilePath, cmd, shell); err != nil {
 			return fmt.Errorf("Writing to step script file: %v", err)
 		}
 
@@ -332,28 +300,75 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 	}
 
-	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
-
-	for index, cmd := range teardownCommands {
-		if index == 0 && firstError == nil {
-			// Exit shell only if previous user steps ran successfully
-			f.Write([]byte{4})
-		}
-
-		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
-			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
-		}
-
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, userShellBin, envFilepath)
-
-		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
-			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
-		}
-
-		if firstError == nil {
-			firstError = cmdErr
-		}
+	// Exit shell only if all steps ran successfully (doesn't go to trap)
+	if firstError == nil {
+		f.Write([]byte{4})
 	}
 
 	return firstError
+}
+
+// Run executes a slice of CommandDefs
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, sdShellBin string, userShellBin string, timeoutSec int, envFilepath string) error {
+	// Command to Export Env
+	exportEnvCmd :=
+	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
+
+	// Remove PS1, this gives some issues if exporting to ""
+	"sed '/^PS1=.*/d' $file > $newfile && " +
+	"mv $newfile $file && " +
+
+	// Loops through each line
+	"while read -r line; do " +
+	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
+	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
+	"echo ${prefix}$newline; " +
+	"done < $file > $newfile"
+
+	// Run setup commands
+	setupCommands := []string{
+		"set -e",
+		"export PATH=$PATH:/opt/sd",
+		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
+		"finish() { " +
+		"EXITCODE=$?; " +
+		exportEnvCmd + "; " +
+		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
+		"trap finish EXIT;\n",
+	}
+
+	shargs := strings.Join(setupCommands, " && ")
+
+	var setupErr error
+	var buildErr error
+	var teardownErr error
+	var cmdErr error
+	var code int
+
+	sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands := categorizeCommands(build)
+
+	setupErr = runCommands(path, env, emitter, api, buildID, timeoutSec, shargs, sdSetupCommands, sdShellBin)
+	buildErr = runCommands(path, env, emitter, api, buildID, timeoutSec, shargs, userCommands, userShellBin)
+
+	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
+	for _, cmd := range teardownCommands {
+		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
+		}
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, sdShellBin, userShellBin, envFilepath)
+		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+		}
+		if teardownErr == nil {
+			teardownErr = cmdErr
+		}
+	}
+
+	// return the first error
+	if setupErr != nil {
+		return setupErr
+	} else if buildErr != nil {
+		return buildErr
+	}
+	return teardownErr
 }
