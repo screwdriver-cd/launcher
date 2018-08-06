@@ -223,7 +223,7 @@ func categorizeCommands(build screwdriver.Build) ([]screwdriver.CommandDef, []sc
 	return sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands
 }
 
-func runCommands(path string, env []string, emitter screwdriver.Emitter, api screwdriver.API, buildID int, timeoutSec int, shargs string, commands []screwdriver.CommandDef, shell string) (error) {
+func runCommands(path string, env []string, emitter screwdriver.Emitter, api screwdriver.API, buildID int, timeoutSec int, shargs string, commands []screwdriver.CommandDef, shell string) error {
 	timeout := time.Duration(timeoutSec) * time.Second
 	invokeTimeout := make(chan error, 1)
 
@@ -231,7 +231,7 @@ func runCommands(path string, env []string, emitter screwdriver.Emitter, api scr
 	go initBuildTimeout(timeout, invokeTimeout)
 
 	// Set up a single pseudo-terminal
-	c := exec.Command(shell)
+	c := exec.Command(shell, shargs)
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
@@ -330,6 +330,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	setupCommands := []string{
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
+		// source env file if exists
+		"export PATH=$PATH:/opt/sd && if [ -f $newfile ]; then . $newfile; fi; " +
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
