@@ -126,7 +126,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, userShellBin string, envFilepath string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, sdShellBin string, userShellBin string, envFilepath string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	envExportFilepath := envFilepath + "_export"
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
@@ -135,7 +135,8 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
-	c := exec.Command(shellBin, shargs...)
+	shell := chooseShell(sdShellBin, userShellBin, cmd.Name)
+	c := exec.Command(shell, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 	c.Stdout = emitter
