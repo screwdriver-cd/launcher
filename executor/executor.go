@@ -130,7 +130,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, envFilepath string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, userShellBin string, envFilepath string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	envExportFilepath := envFilepath + "_export"
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
@@ -344,7 +344,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, envFilepath, userShellBin)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, userShellBin, envFilepath)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
