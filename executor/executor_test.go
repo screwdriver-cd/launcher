@@ -168,14 +168,13 @@ func TestUnmocked(t *testing.T) {
 		{"ls && ls ", nil, "/bin/sh"},
 		// Large single-line
 		{"openssl rand -hex 1000000", nil, "/bin/sh"},
-		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
+		{"newtestdoesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
 		// Custom shell
 		{"ls", nil, "/bin/bash"},
 	}
 
 	for _, test := range tests {
-		fmt.Print("\n********\n")
 		setupTestCase(t, envFilepath)
 		cmd := screwdriver.CommandDef{
 			Cmd:  test.command,
@@ -214,8 +213,6 @@ func TestUnmocked(t *testing.T) {
 		if !reflect.DeepEqual(commands[0], "#!"+test.shell+" -e") {
 			t.Errorf("Unexpected shell from Run(%#v): %v", test, commands[0])
 		}
-
-		fmt.Print(commands)
 
 		if !reflect.DeepEqual(commands[1], test.command) {
 			t.Errorf("Unexpected command from Run(%#v): %v", test, commands[1])
@@ -549,10 +546,10 @@ func TestUserShell(t *testing.T) {
 	envFilepath := "/tmp/testUserShell"
 	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
-		{Cmd: "echo echo hi > /tmp/echo && . /tmp/echo", Name: "sd-setup"},
-		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "user-source"},
-		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "teardown-echo"},
-		{Cmd: "echo echo hi > /tmp/echo && source /tmp/echo", Name: "sd-teardown-artifacts"},	// source is not available in sh
+		{Cmd: "if [ $0 != /bin/sh ]; then exit 1; fi", Name: "sd-setup-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "user-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "teardown-user-step"},
+		{Cmd: "if [ $0 != /bin/sh ]; then exit 1; fi", Name: "sd-teardown-step"},	// source is not available in sh
 	}
 	env := map[string]string{
 		"USER_SHELL_BIN": "/bin/bash",
@@ -571,8 +568,7 @@ func TestUserShell(t *testing.T) {
 		},
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout, envFilepath)
-	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
-	if !reflect.DeepEqual(err, expectedErr) {
-		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 }

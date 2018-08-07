@@ -50,9 +50,6 @@ func chooseShell(shellBin, userShellBin, stepName string) string{
 
 // Create a sh file
 func createShFile(path string, cmd screwdriver.CommandDef, shell string) error {
-	fmt.Print("\n------------\n")
-	fmt.Print("#!"+shell+" -e\n"+cmd.Cmd)
-	fmt.Print("\n------------\n")
 	return ioutil.WriteFile(path, []byte("#!"+shell+" -e\n"+cmd.Cmd), 0755)
 }
 
@@ -108,7 +105,6 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		}
 
 		t, err = readln(reader)
-		fmt.Printf("error after readln %v\n", err)
 	}
 
 	if err != nil {
@@ -143,6 +139,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 
 	shargs = append(shargs, cmdStr)
 	shell := chooseShell(sdShellBin, userShellBin, cmd.Name)
+
 	c := exec.Command(shell, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -212,18 +209,21 @@ func categorizeCommands(build screwdriver.Build) ([]screwdriver.CommandDef, []sc
 	userTeardownCommands := []screwdriver.CommandDef{}
 
 	for _, cmd := range build.Commands {
-		isSdSetup, _ := regexp.MatchString("^sd-(?!teardown).+", cmd.Name)
 		isSdTeardown, _ := regexp.MatchString("^sd-teardown-.+", cmd.Name)
 		isUserTeardown, _ := regexp.MatchString("^teardown-.+", cmd.Name)
 
-		if isSdSetup {
-			sdSetupCommands = append(sdSetupCommands, cmd)
-		} else if isSdTeardown {
+		if isSdTeardown {
 			sdTeardownCommands = append(sdTeardownCommands, cmd)
 		} else if isUserTeardown {
 			userTeardownCommands = append(userTeardownCommands, cmd)
 		} else {
-			userCommands = append(userCommands, cmd)
+			// golang regexp does not support negative lookahead (https://golang.org/pkg/regexp), so need to check it this way
+			isSdSetup, _ := regexp.MatchString("^sd-.+", cmd.Name)
+			if isSdSetup {
+				sdSetupCommands = append(sdSetupCommands, cmd)
+			} else {
+				userCommands = append(userCommands, cmd)
+			}
 		}
 	}
 
@@ -231,8 +231,6 @@ func categorizeCommands(build screwdriver.Build) ([]screwdriver.CommandDef, []sc
 }
 
 func runCommands(invokeTimeout chan error, path string, env []string, emitter screwdriver.Emitter, api screwdriver.API, buildID int, shargs string, commands []screwdriver.CommandDef, shell string) error {
-	fmt.Print("inside runCommands\n")
-	fmt.Printf("running %v\n", commands)
 	if len(commands) == 0 {
 		return nil
 	}
@@ -254,7 +252,6 @@ func runCommands(invokeTimeout chan error, path string, env []string, emitter sc
 	var code int
 
 	for _, cmd := range commands {
-		fmt.Printf("current cmd %v\n", cmd.Cmd)
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
@@ -304,8 +301,6 @@ func runCommands(invokeTimeout chan error, path string, env []string, emitter sc
 			}
 		}
 
-		fmt.Printf("first Err %v\n", firstError)
-
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
 		}
@@ -321,10 +316,9 @@ func runCommands(invokeTimeout chan error, path string, env []string, emitter sc
 
 // Run executes a slice of CommandDefs
 func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, sdShellBin string, userShellBin string, timeoutSec int, envFilepath string) error {
+	setUpFiles := "prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file"
 	// Command to Export Env
 	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
-
 	// Remove PS1, this gives some issues if exporting to ""
 	"sed '/^PS1=.*/d' $file > $newfile && " +
 	"mv $newfile $file && " +
@@ -341,7 +335,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
 		// source env file if exists
-		"if [ -f $newfile ]; then . $newfile; fi; ",
+		setUpFiles,
+		"if [ -f $newfile ]; then . $newfile; fi; " +
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
@@ -364,7 +359,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	var code int
 
 	sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands := categorizeCommands(build)
-	fmt.Printf("set up %v, user %v, sdtear %v, usertear %v\n", sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands)
 
 	setupErr = runCommands(invokeTimeout, path, env, emitter, api, buildID, shargs, sdSetupCommands, sdShellBin)
 	if (setupErr == nil) {
@@ -385,10 +379,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			teardownErr = cmdErr
 		}
 	}
-
-	fmt.Print(setupErr)
-	fmt.Print(buildErr)
-	fmt.Print(teardownErr)
 
 	// Return the first error
 	if setupErr != nil {
