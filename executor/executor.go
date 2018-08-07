@@ -50,6 +50,9 @@ func chooseShell(shellBin, userShellBin, stepName string) string{
 
 // Create a sh file
 func createShFile(path string, cmd screwdriver.CommandDef, shell string) error {
+	fmt.Print("\n------------\n")
+	fmt.Print("#!"+shell+" -e\n"+cmd.Cmd)
+	fmt.Print("\n------------\n")
 	return ioutil.WriteFile(path, []byte("#!"+shell+" -e\n"+cmd.Cmd), 0755)
 }
 
@@ -82,6 +85,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
 	)
 	t, err = readln(reader)
+
 	for err == nil {
 		parts := reExit.FindStringSubmatch(t)
 		if len(parts) != 0 {
@@ -104,7 +108,9 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		}
 
 		t, err = readln(reader)
+		fmt.Printf("error after readln %v\n", err)
 	}
+
 	if err != nil {
 		return ExitUnknown, fmt.Errorf("Error with reader: %v", err)
 	}
@@ -121,6 +127,8 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 	shargs := strings.Join(executionCommand, " ")
 
 	f.Write([]byte(shargs))
+
+	fmt.Printf("\ninside doRunCommand, shargs is %v\n", shargs)
 
 	return copyLinesUntil(fReader, emitter, guid)
 }
@@ -223,15 +231,16 @@ func categorizeCommands(build screwdriver.Build) ([]screwdriver.CommandDef, []sc
 	return sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands
 }
 
-func runCommands(path string, env []string, emitter screwdriver.Emitter, api screwdriver.API, buildID int, timeoutSec int, shargs string, commands []screwdriver.CommandDef, shell string) error {
-	timeout := time.Duration(timeoutSec) * time.Second
-	invokeTimeout := make(chan error, 1)
+func runCommands(invokeTimeout chan error, path string, env []string, emitter screwdriver.Emitter, api screwdriver.API, buildID int, shargs string, commands []screwdriver.CommandDef, shell string) error {
+	fmt.Print("inside runCommands\n")
+	fmt.Printf("running %v\n", commands)
+	if len(commands) == 0 {
+		return nil
+	}
 
-	// start build timeout timer
-	go initBuildTimeout(timeout, invokeTimeout)
-
+	fmt.Print("does not get here\n")
 	// Set up a single pseudo-terminal
-	c := exec.Command(shell, shargs)
+	c := exec.Command(shell)
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
@@ -247,6 +256,7 @@ func runCommands(path string, env []string, emitter screwdriver.Emitter, api scr
 	var code int
 
 	for _, cmd := range commands {
+		fmt.Printf("current cmd %v\n", cmd.Name)
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
@@ -296,6 +306,8 @@ func runCommands(path string, env []string, emitter screwdriver.Emitter, api scr
 			}
 		}
 
+		fmt.Printf("first Err %v\n", firstError)
+
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
 		}
@@ -341,6 +353,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	}
 
 	shargs := strings.Join(setupCommands, " && ")
+	timeout := time.Duration(timeoutSec) * time.Second
+	invokeTimeout := make(chan error, 1)
+
+	// start build timeout timer
+	go initBuildTimeout(timeout, invokeTimeout)
 
 	var setupErr error
 	var buildErr error
@@ -349,10 +366,14 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	var code int
 
 	sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands := categorizeCommands(build)
+	fmt.Printf("set up %v, user %v, sdtear %v, usertear %v\n", sdSetupCommands, userCommands, sdTeardownCommands, userTeardownCommands)
 
-	setupErr = runCommands(path, env, emitter, api, buildID, timeoutSec, shargs, sdSetupCommands, sdShellBin)
-	buildErr = runCommands(path, env, emitter, api, buildID, timeoutSec, shargs, userCommands, userShellBin)
+	setupErr = runCommands(invokeTimeout, path, env, emitter, api, buildID, shargs, sdSetupCommands, sdShellBin)
+	if (setupErr == nil) {
+		buildErr = runCommands(invokeTimeout, path, env, emitter, api, buildID, shargs, userCommands, userShellBin)
+	}
 
+	// Run teardown commands regardless of previous steps
 	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 	for _, cmd := range teardownCommands {
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
@@ -367,7 +388,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 	}
 
-	// return the first error
+	// Return the first error
 	if setupErr != nil {
 		return setupErr
 	} else if buildErr != nil {
