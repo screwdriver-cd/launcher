@@ -117,6 +117,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 	return ExitOk, nil
 }
 
+
 func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fReader io.Reader) (int, error) {
 	executionCommand := []string{
 		"export SD_STEP_ID=" + guid,
@@ -127,8 +128,6 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 	shargs := strings.Join(executionCommand, " ")
 
 	f.Write([]byte(shargs))
-
-	fmt.Printf("\ninside doRunCommand, shargs is %v\n", shargs)
 
 	return copyLinesUntil(fReader, emitter, guid)
 }
@@ -238,7 +237,6 @@ func runCommands(invokeTimeout chan error, path string, env []string, emitter sc
 		return nil
 	}
 
-	fmt.Print("does not get here\n")
 	// Set up a single pseudo-terminal
 	c := exec.Command(shell)
 	c.Dir = path
@@ -256,7 +254,7 @@ func runCommands(invokeTimeout chan error, path string, env []string, emitter sc
 	var code int
 
 	for _, cmd := range commands {
-		fmt.Printf("current cmd %v\n", cmd.Name)
+		fmt.Printf("current cmd %v\n", cmd.Cmd)
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
@@ -343,7 +341,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
 		// source env file if exists
-		"export PATH=$PATH:/opt/sd && if [ -f $newfile ]; then . $newfile; fi; " +
+		"if [ -f $newfile ]; then . $newfile; fi; ",
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
@@ -387,6 +385,10 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			teardownErr = cmdErr
 		}
 	}
+
+	fmt.Print(setupErr)
+	fmt.Print(buildErr)
+	fmt.Print(teardownErr)
 
 	// Return the first error
 	if setupErr != nil {

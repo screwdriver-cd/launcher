@@ -164,14 +164,14 @@ func TestUnmocked(t *testing.T) {
 		shell   string
 	}{
 		{"ls", nil, "/bin/sh"},
-		// {"sleep 1", nil, "/bin/sh"},
-		// {"ls && ls ", nil, "/bin/sh"},
-		// // Large single-line
-		// {"openssl rand -hex 1000000", nil, "/bin/sh"},
-		// {"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
-		// {"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
-		// // Custom shell
-		// {"ls", nil, "/bin/bash"},
+		{"sleep 1", nil, "/bin/sh"},
+		{"ls && ls ", nil, "/bin/sh"},
+		// Large single-line
+		{"openssl rand -hex 1000000", nil, "/bin/sh"},
+		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
+		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
+		// Custom shell
+		{"ls", nil, "/bin/bash"},
 	}
 
 	for _, test := range tests {
