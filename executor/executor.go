@@ -316,9 +316,11 @@ func runCommands(invokeTimeout chan error, path string, env []string, emitter sc
 
 // Run executes a slice of CommandDefs
 func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, sdShellBin string, userShellBin string, timeoutSec int, envFilepath string) error {
-	setUpFiles := "prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file"
+	envExportFilepath := envFilepath + "_export"
 	// Command to Export Env
 	exportEnvCmd :=
+	"prefix='export '; file="+ envFilepath + "; newfile=" + envExportFilepath + "; env > $file && " +
+
 	// Remove PS1, this gives some issues if exporting to ""
 	"sed '/^PS1=.*/d' $file > $newfile && " +
 	"mv $newfile $file && " +
@@ -335,8 +337,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
 		// source env file if exists
-		setUpFiles,
-		"if [ -f $newfile ]; then . $newfile; fi; " +
+		// setUpFiles,
+		// "if [ -f $newfile ]; then . $newfile; fi; " +
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
