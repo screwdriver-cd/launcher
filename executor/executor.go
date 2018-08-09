@@ -252,13 +252,13 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	 // export PATH=$PATH:/opt/sd &&
 	 // finish() {
 	 //   EXITCODE=$?;
-	 //   prefix='export '; file=/tmp/env; nops1=/tmp/env_nops1; newfile=/tmp/env_export; env > $file &&
-	 //   sed '/^PS1=.* /d' $file > $nops1 &&
+	 //   prefix='export '; file=/tmp/env; tmpfile=/tmp/env_tmp; newfile=/tmp/env_export; env | grep -vi PS1 > $file &&
 	 //   while read -r line; do
 	 //   escapeQuote=`echo $line | sed 's/"/\\\"/g'` &&
 	 //   newline=`echo $escapeQuote | sed 's/\([A-Za-z_][A-Za-z0-9_]*\)=\(.*\)/\1="\2"/'` &&
 	 //   echo ${prefix}$newline;
-	 //   done < $nops1 > $newfile;
+	 //   done < $file > $tmpfile;
+	 //   mv $tmpfile $newfile;
 	 //   echo $SD_STEP_ID $EXITCODE;
 	 // }  && trap finish EXIT;
 

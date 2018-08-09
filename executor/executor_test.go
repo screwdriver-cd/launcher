@@ -140,7 +140,7 @@ func cleanup(filename string) {
 func setupTestCase(t *testing.T, filename string) {
 	t.Log("setup test case")
 	cleanup(filename)
-	cleanup(filename + "_nops1")
+	cleanup(filename + "_tmp")
 	cleanup(filename + "_export")
 }
 
