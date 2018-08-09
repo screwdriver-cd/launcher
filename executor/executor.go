@@ -119,12 +119,11 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
 		"while ! [ -f  "+ exportFile + " ]; do sleep 1; done && " + // wait for the file to be available
-		"(. " + exportFile + " || echo 'Failed to export environment variables' ) && " +
+		". " + exportFile + " && " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
 
-	fmt.Print(shargs)
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
