@@ -115,15 +115,16 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, envFilepath string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	envExportFilepath := envFilepath + "_export"
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
-		"while ! [ -f  "+ envExportFilepath + " ]; do sleep 1; done && " + // wait for the file to be available
-		". " + envExportFilepath + " && " +
+		"while ! [ -f  "+ exportFile + " ]; do sleep 1; done && " + // wait for the file to be available
+		"(. " + exportFile + " || echo 'Failed to export environment variables' ) && " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
+
+	fmt.Print(shargs)
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -219,20 +220,21 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
+	nops1File := envFilepath + "_nops1"
+	exportFile := envFilepath + "_export"
 	// Command to Export Env
 	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
+	"prefix='export '; file="+ envFilepath + "; nops1=" + nops1File + "; newfile=" + exportFile + "; env > $file && " +
 
 	// Remove PS1, this gives some issues if exporting to ""
-	"sed '/^PS1=.*/d' $file > $newfile && " +
-	"mv $newfile $file && " +
+	"sed '/^PS1=.*/d' $file > $nops1 && " +
 
 	// Loops through each line
 	"while read -r line; do " +
 	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
 	"echo ${prefix}$newline; " +
-	"done < $file > $newfile"
+	"done < $nops1 > $newfile"
 
 	// Run setup commands
 	setupCommands := []string{
@@ -329,7 +331,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, envFilepath)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, exportFile)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
