@@ -542,3 +542,34 @@ func TestEmitter(t *testing.T) {
 		}
 	}
 }
+
+func TestUserShell(t *testing.T) {
+	envFilepath := "/tmp/testUserShell"
+	setupTestCase(t, envFilepath)
+	commands := []screwdriver.CommandDef{
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "sd-setup-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "user-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "teardown-user-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "sd-teardown-step"},	// source is not available in sh
+	}
+	env := map[string]string{
+		"USER_SHELL_BIN": "/bin/bash",
+	}
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: env,
+	}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			return nil
+		},
+	})
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/bash", TestBuildTimeout, envFilepath)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}

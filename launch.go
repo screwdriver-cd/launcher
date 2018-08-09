@@ -409,7 +409,10 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Fetching secrets for build %v", build.ID)
 	}
 
-	env := createEnvironment(defaultEnv, secrets, build)
+	env, userShellBin := createEnvironment(defaultEnv, secrets, build)
+	if userShellBin != "" {
+		shellBin = userShellBin
+	}
 
 	if err := api.UpdateStepStop(buildID, "sd-setup-launcher", 0); err != nil {
 		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
@@ -418,7 +421,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
 }
 
-func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) []string {
+func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {
+	var userShellBin string
+
 	combined := map[string]string{}
 
 	// Start with the current environment
@@ -453,9 +458,12 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 
 	for k, v := range build.Environment {
 		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
+		if k == "USER_SHELL_BIN" {
+			userShellBin = v
+		}
 	}
 
-	return envStrings
+	return envStrings, userShellBin
 }
 
 // Executes the command based on arguments from the CLI
