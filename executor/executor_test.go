@@ -168,7 +168,7 @@ func TestUnmocked(t *testing.T) {
 		{"ls && ls ", nil, "/bin/sh"},
 		// Large single-line
 		{"openssl rand -hex 1000000", nil, "/bin/sh"},
-		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
+		{"newtestdoesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
 		// Custom shell
 		{"ls", nil, "/bin/bash"},
@@ -199,7 +199,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, envFilepath)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, test.shell, TestBuildTimeout, envFilepath)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -271,8 +271,8 @@ func TestMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
-	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout, envFilepath)
+  expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
 	}
@@ -327,7 +327,7 @@ func TestTeardownEnv(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
@@ -360,7 +360,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -402,7 +402,7 @@ func TestTimeout(t *testing.T) {
 		},
 	}
 	testTimeout := 3
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, envFilepath)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", testTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -453,7 +453,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout, envFilepath)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -526,8 +526,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
-
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", "/bin/sh", TestBuildTimeout, envFilepath)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -540,5 +539,36 @@ func TestEmitter(t *testing.T) {
 		if found[i] != test.name {
 			t.Errorf("Unexpected order. Want %v. Got %v", found[i], test.name)
 		}
+	}
+}
+
+func TestUserShell(t *testing.T) {
+	envFilepath := "/tmp/testUserShell"
+	setupTestCase(t, envFilepath)
+	commands := []screwdriver.CommandDef{
+		{Cmd: "if [ $0 != /bin/sh ]; then exit 1; fi", Name: "sd-setup-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "user-step"},
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "teardown-user-step"},
+		{Cmd: "if [ $0 != /bin/sh ]; then exit 1; fi", Name: "sd-teardown-step"},	// source is not available in sh
+	}
+	env := map[string]string{
+		"USER_SHELL_BIN": "/bin/bash",
+	}
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: env,
+	}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			return nil
+		},
+	})
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", env["USER_SHELL_BIN"], TestBuildTimeout, envFilepath)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 }
