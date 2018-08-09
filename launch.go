@@ -194,7 +194,7 @@ func convertToArray(i interface{}) (array []int) {
 
 func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int, buildToken string) error {
 	emitter, err := newEmitter(emitterPath)
-	envFilepath := "/tmp/exportEnv"
+	envFilepath := "/tmp/env"
 	if err != nil {
 		return err
 	}
