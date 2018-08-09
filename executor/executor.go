@@ -115,15 +115,15 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, envFilepath string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
-	envExportFilepath := envFilepath + "_export"
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
-		"while ! [ -f  "+ envExportFilepath + " ]; do sleep 1; done && " + // wait for the file to be available
-		". " + envExportFilepath + " && " +
+		"while ! [ -f  "+ exportFile + " ]; do sleep 1; done && " + // wait for the file to be available
+		". " + exportFile + " && " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
+
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -219,20 +219,22 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
+	tmpFile := envFilepath + "_tmp"
+	exportFile := envFilepath + "_export"
 	// Command to Export Env
 	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; newfile=" + envFilepath + "_export; env > $file && " +
+	"prefix='export '; file="+ envFilepath + "; tmpfile=" + tmpFile + "; newfile=" + exportFile + "; " +
 
 	// Remove PS1, this gives some issues if exporting to ""
-	"sed '/^PS1=.*/d' $file > $newfile && " +
-	"mv $newfile $file && " +
+	"env | grep -vi PS1 > $file && " +
 
 	// Loops through each line
 	"while read -r line; do " +
 	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
 	"echo ${prefix}$newline; " +
-	"done < $file > $newfile"
+	"done < $file > $tmpfile; " +
+	"mv $tmpfile $newfile"
 
 	// Run setup commands
 	setupCommands := []string{
@@ -241,12 +243,28 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
-		exportEnvCmd + "; " +
+		exportEnvCmd + " ; " +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
 
+	 // The above script does the following
+	 // export PATH=$PATH:/opt/sd &&
+	 // finish() {
+	 //   EXITCODE=$?;
+	 //   prefix='export '; file=/tmp/env; tmpfile=/tmp/env_tmp; newfile=/tmp/env_export; env | grep -vi PS1 > $file &&
+	 //   while read -r line; do
+	 //   escapeQuote=`echo $line | sed 's/"/\\\"/g'` &&
+	 //   newline=`echo $escapeQuote | sed 's/\([A-Za-z_][A-Za-z0-9_]*\)=\(.*\)/\1="\2"/'` &&
+	 //   echo ${prefix}$newline;
+	 //   done < $file > $tmpfile;
+	 //   mv $tmpfile $newfile;
+	 //   echo $SD_STEP_ID $EXITCODE;
+	 // }  && trap finish EXIT;
+
 	shargs := strings.Join(setupCommands, " && ")
+
+	fmt.Print(shargs)
 
 	f.Write([]byte(shargs))
 
@@ -329,7 +347,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, envFilepath)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, env, path, shellBin, exportFile)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
