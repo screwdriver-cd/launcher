@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"strconv"
 	"testing"
 	"time"
 
@@ -158,7 +159,6 @@ func ReadCommand(file string) []string {
 }
 
 func TestUnmocked(t *testing.T) {
-	envFilepath := "/tmp/testUnmocked"
 	var tests = []struct {
 		command string
 		err     error
@@ -175,7 +175,8 @@ func TestUnmocked(t *testing.T) {
 		{"ls", nil, "/bin/bash"},
 	}
 
-	for _, test := range tests {
+	for index, test := range tests {
+		envFilepath := "/tmp/testUnmocked" + strconv.Itoa(index)
 		setupTestCase(t, envFilepath)
 		cmd := screwdriver.CommandDef{
 			Cmd:  test.command,

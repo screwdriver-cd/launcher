@@ -219,21 +219,22 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
-	nops1File := envFilepath + "_nops1"
+	tmpFile := envFilepath + "_tmp"
 	exportFile := envFilepath + "_export"
 	// Command to Export Env
 	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; nops1=" + nops1File + "; newfile=" + exportFile + "; env > $file && " +
+	"prefix='export '; file="+ envFilepath + "; tmpfile=" + tmpFile + "; newfile=" + exportFile + "; " +
 
 	// Remove PS1, this gives some issues if exporting to ""
-	"sed '/^PS1=.*/d' $file > $nops1 && " +
+	"env | grep -vi PS1 > $file && " +
 
 	// Loops through each line
 	"while read -r line; do " +
 	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
 	"echo ${prefix}$newline; " +
-	"done < $nops1 > $newfile"
+	"done < $file > $tmpfile; " +
+	"mv $tmpfile $newfile"
 
 	// Run setup commands
 	setupCommands := []string{
@@ -242,7 +243,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
-		exportEnvCmd + "; " +
+		exportEnvCmd + " ; " +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
@@ -262,6 +263,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	 // }  && trap finish EXIT;
 
 	shargs := strings.Join(setupCommands, " && ")
+
+	fmt.Print(shargs)
 
 	f.Write([]byte(shargs))
 
