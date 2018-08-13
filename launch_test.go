@@ -856,7 +856,11 @@ func TestCreateEnvironment(t *testing.T) {
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	env := createEnvironment(base, secrets, testBuild)
+	env, userShellBin := createEnvironment(base, secrets, testBuild)
+
+	if (userShellBin != "") {
+		t.Errorf("Default userShellBin should be empty string")
+	}
 
 	foundEnv := map[string]bool{}
 	for _, i := range env {
@@ -879,6 +883,24 @@ func TestCreateEnvironment(t *testing.T) {
 
 	if foundEnv["GETSOVERRIDDEN=goesaway"] {
 		t.Errorf("Failed to override the base environment with a secret")
+	}
+}
+
+func TestUserShellBin(t *testing.T) {
+	base := map[string]string{}
+	secrets := screwdriver.Secrets{}
+	buildEnv := map[string]string{
+		"USER_SHELL_BIN": "/bin/bash",
+	}
+
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Environment: buildEnv,
+	}
+	_, userShellBin := createEnvironment(base, secrets, testBuild)
+
+	if (userShellBin != "/bin/bash") {
+		t.Errorf("userShellBin %v, expect %v", userShellBin, "/bin/bash")
 	}
 }
 
