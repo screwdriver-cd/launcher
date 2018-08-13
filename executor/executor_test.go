@@ -15,7 +15,7 @@ import (
 	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
-const TestBuildTimeout = 60
+const TestBuildTimeout = 60*6
 
 var stepFilePath = "/tmp/step.sh"
 
