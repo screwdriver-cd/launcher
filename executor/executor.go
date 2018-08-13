@@ -120,7 +120,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
-		"START_TIME=$SECONDS; while ! [ -f " + exportFile + " ] && [ $(($SECONDS - $START_TIME)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
+		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
 		". " + exportFile + "; " +
 		cmd.Cmd
 
