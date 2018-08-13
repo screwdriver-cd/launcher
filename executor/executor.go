@@ -1,4 +1,3 @@
-//TODO: teardownenvfail FAILED, somehow the _tmp was not complete and _Export is not there, so build hangs
 package executor
 
 import (
@@ -27,6 +26,8 @@ const (
 	ExitUnknown = 254
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
+	// How long should wait for the env file
+	WaitTimeout = 5
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -119,13 +120,11 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
-		"START_TIME=$SECONDS && while ! [ -f " + exportFile + " ] && [ $(($SECONDS - $START_TIME)) -lt 5 ]; do sleep 1; done && " +
-		". " + exportFile + " && " +
+		"START_TIME=$SECONDS; while ! [ -f " + exportFile + " ] && [ $(($SECONDS - $START_TIME)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
+		". " + exportFile + "; " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
-
-	fmt.Print(shargs)
 
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
@@ -226,7 +225,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	exportFile := envFilepath + "_export"
 	// Command to Export Env
 	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; tmpfile=" + tmpFile + "; newfile=" + exportFile + " && " +
+	"prefix='export '; file="+ envFilepath + "; tmpfile=" + tmpFile + "; newfile=" + exportFile + "; " +
 
 	// Remove PS1, this gives some issues if exporting to ""
 	"env | grep -vi PS1 > $file && " +
@@ -265,8 +264,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	 // }  && trap finish EXIT;
 
 	shargs := strings.Join(setupCommands, " && ")
-
-	fmt.Print(shargs + "\n")
 
 	f.Write([]byte(shargs))
 
