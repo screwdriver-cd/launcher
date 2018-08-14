@@ -26,6 +26,8 @@ const (
 	ExitUnknown = 254
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
+	// How long should wait for the env file
+	WaitTimeout = 5
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -118,8 +120,8 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
-		"while ! [ -f  "+ exportFile + " ]; do sleep 1; done && " + // wait for the file to be available
-		". " + exportFile + " && " +
+		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
+		". " + exportFile + "; " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
@@ -228,13 +230,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Remove PS1, this gives some issues if exporting to ""
 	"env | grep -vi PS1 > $file && " +
 
-	// Loops through each line
 	"while read -r line; do " +
 	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
 	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
 	"echo ${prefix}$newline; " +
 	"done < $file > $tmpfile; " +
-	"mv $tmpfile $newfile"
+	"mv $tmpfile $newfile; "
 
 	// Run setup commands
 	setupCommands := []string{
@@ -243,7 +244,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
-		exportEnvCmd + " ; " +
+		exportEnvCmd +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
@@ -263,8 +264,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	 // }  && trap finish EXIT;
 
 	shargs := strings.Join(setupCommands, " && ")
-
-	fmt.Print(shargs)
 
 	f.Write([]byte(shargs))
 
