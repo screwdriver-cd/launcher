@@ -223,19 +223,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	tmpFile := envFilepath + "_tmp"
 	exportFile := envFilepath + "_export"
-	// Command to Export Env
+
+	// Command to Export Env. Use tmpfile just in case export -p takes some time
 	exportEnvCmd :=
-	"prefix='export '; file="+ envFilepath + "; tmpfile=" + tmpFile + "; newfile=" + exportFile + "; " +
-
-	// Remove PS1, this gives some issues if exporting to ""
-	"env | grep -vi PS1 > $file && " +
-
-	"while read -r line; do " +
-	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
-	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
-	"echo ${prefix}$newline; " +
-	"done < $file > $tmpfile; " +
-	"mv $tmpfile $newfile; "
+	"tmpfile=" + tmpFile + "; exportfile=" + exportFile + "; " +
+	"export -p | grep -vi \"PS1=\" > $tmpfile && mv $tmpfile $exportfile; "
 
 	// Run setup commands
 	setupCommands := []string{
@@ -248,20 +240,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
-
-	 // The above script does the following
-	 // export PATH=$PATH:/opt/sd &&
-	 // finish() {
-	 //   EXITCODE=$?;
-	 //   prefix='export '; file=/tmp/env; tmpfile=/tmp/env_tmp; newfile=/tmp/env_export; env | grep -vi PS1 > $file &&
-	 //   while read -r line; do
-	 //   escapeQuote=`echo $line | sed 's/"/\\\"/g'` &&
-	 //   newline=`echo $escapeQuote | sed 's/\([A-Za-z_][A-Za-z0-9_]*\)=\(.*\)/\1="\2"/'` &&
-	 //   echo ${prefix}$newline;
-	 //   done < $file > $tmpfile;
-	 //   mv $tmpfile $newfile;
-	 //   echo $SD_STEP_ID $EXITCODE;
-	 // }  && trap finish EXIT;
 
 	shargs := strings.Join(setupCommands, " && ")
 
