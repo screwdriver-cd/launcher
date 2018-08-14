@@ -26,6 +26,8 @@ const (
 	ExitUnknown = 254
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
+	// How long should wait for the env file
+	WaitTimeout = 15
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -118,11 +120,13 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
-		"while ! [ -f  "+ exportFile + " ]; do sleep 1; done && " + // wait for the file to be available
-		". " + exportFile + " && " +
+		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
+		". " + exportFile + "; " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)
+
+	fmt.Print(shargs)
 
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
@@ -228,13 +232,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Remove PS1, this gives some issues if exporting to ""
 	"env | grep -vi PS1 > $file && " +
 
-	// Loops through each line
-	"while read -r line; do " +
-	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
-	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
-	"echo ${prefix}$newline; " +
-	"done < $file > $tmpfile; " +
-	"mv $tmpfile $newfile"
+	"while read -r line; do echo $line | sed 's/\"/\\\\\\\"/g' | sed 's/$/\\\\n/' | tr -d '\\n' | sed 's/..$//' | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/' | sed 's/^/export /'; done < $file > $tmpfile; mv $tmpfile $newfile; "
 
 	// Run setup commands
 	setupCommands := []string{
@@ -243,30 +241,16 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 		"EXITCODE=$?; " +
-		exportEnvCmd + " ; " +
+		exportEnvCmd +
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
 
-	 // The above script does the following
-	 // export PATH=$PATH:/opt/sd &&
-	 // finish() {
-	 //   EXITCODE=$?;
-	 //   prefix='export '; file=/tmp/env; tmpfile=/tmp/env_tmp; newfile=/tmp/env_export; env | grep -vi PS1 > $file &&
-	 //   while read -r line; do
-	 //   escapeQuote=`echo $line | sed 's/"/\\\"/g'` &&
-	 //   newline=`echo $escapeQuote | sed 's/\([A-Za-z_][A-Za-z0-9_]*\)=\(.*\)/\1="\2"/'` &&
-	 //   echo ${prefix}$newline;
-	 //   done < $file > $tmpfile;
-	 //   mv $tmpfile $newfile;
-	 //   echo $SD_STEP_ID $EXITCODE;
-	 // }  && trap finish EXIT;
-
 	shargs := strings.Join(setupCommands, " && ")
 
-	fmt.Print(shargs)
-
 	f.Write([]byte(shargs))
+
+	fmt.Print(shargs)
 
 	var firstError error
 	var code int
