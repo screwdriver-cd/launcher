@@ -349,7 +349,7 @@ func TestTeardownfail(t *testing.T) {
 	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
-		// {Cmd: "doesnotexit", Name: "sd-teardown-artifacts"},
+		{Cmd: "doesnotexit", Name: "sd-teardown-artifacts"},
 	}
 	testBuild := screwdriver.Build{
 		ID:          12345,
