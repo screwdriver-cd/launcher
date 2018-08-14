@@ -27,7 +27,7 @@ const (
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
 	// How long should wait for the env file
-	WaitTimeout = 15
+	WaitTimeout = 20
 )
 
 // ErrStatus is an error that holds an exit status code
