@@ -231,8 +231,17 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// Remove PS1, this gives some issues if exporting to ""
 	"env | grep -vi PS1 > $file && " +
-
-	"while read -r line; do echo $line | sed 's/\"/\\\\\\\"/g' | sed 's/$/\\\\n/' | tr -d '\\n' | sed 's/..$//' | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/' | sed 's/^/export /'; done < $file > $tmpfile; mv $tmpfile $newfile; "
+	"while read -r line; " +
+	// escape double quote
+	"do echo $line | sed 's/\"/\\\\\\\"/g' " +
+	// replace \n with \n string literal, then remove all newline character, and remove the last \n at end of value)
+	"| sed 's/$/\\\\n/' | tr -d '\\n' | sed 's/..$//' " +
+	// add double quote around values
+	"| sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/' " +
+	// add export to the front
+	"| sed 's/^/export /'; " +
+	"done < $file > $tmpfile; " +
+	"mv $tmpfile $newfile; "
 
 	// Run setup commands
 	setupCommands := []string{
