@@ -126,8 +126,6 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 
 	shargs = append(shargs, cmdStr)
 
-	fmt.Print(shargs)
-
 	c := exec.Command(shellBin, shargs...)
 	emitter.StartCmd(cmd)
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
@@ -258,8 +256,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	shargs := strings.Join(setupCommands, " && ")
 
 	f.Write([]byte(shargs))
-
-	fmt.Print(shargs)
 
 	var firstError error
 	var code int
