@@ -27,7 +27,7 @@ const (
 	// ExitOk is the exit code when a step runs successfully
 	ExitOk = 0
 	// How long should wait for the env file
-	WaitTimeout = 5
+	WaitTimeout = 20
 )
 
 // ErrStatus is an error that holds an exit status code
@@ -229,11 +229,15 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// Remove PS1, this gives some issues if exporting to ""
 	"env | grep -vi PS1 > $file && " +
-
-	"while read -r line; do " +
-	"escapeQuote=`echo $line | sed 's/\"/\\\\\\\"/g'` && " +    //escape double quote
-	"newline=`echo $escapeQuote | sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/'` && " +    // add double quote around
-	"echo ${prefix}$newline; " +
+	"while read -r line; " +
+	// escape double quote
+	"do echo $line | sed 's/\"/\\\\\\\"/g' " +
+	// replace \n with \n string literal, then remove all newline character, and remove the last \n at end of value)
+	"| sed 's/$/\\\\n/' | tr -d '\\n' | sed 's/..$//' " +
+	// add double quote around values
+	"| sed 's/\\([A-Za-z_][A-Za-z0-9_]*\\)=\\(.*\\)/\\1=\"\\2\"/' " +
+	// add export to the front
+	"| sed 's/^/export /'; " +
 	"done < $file > $tmpfile; " +
 	"mv $tmpfile $newfile; "
 
@@ -248,20 +252,6 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		"echo $SD_STEP_ID $EXITCODE; }",    //mv newfile to file
 		"trap finish EXIT;\n",
 	}
-
-	 // The above script does the following
-	 // export PATH=$PATH:/opt/sd &&
-	 // finish() {
-	 //   EXITCODE=$?;
-	 //   prefix='export '; file=/tmp/env; tmpfile=/tmp/env_tmp; newfile=/tmp/env_export; env | grep -vi PS1 > $file &&
-	 //   while read -r line; do
-	 //   escapeQuote=`echo $line | sed 's/"/\\\"/g'` &&
-	 //   newline=`echo $escapeQuote | sed 's/\([A-Za-z_][A-Za-z0-9_]*\)=\(.*\)/\1="\2"/'` &&
-	 //   echo ${prefix}$newline;
-	 //   done < $file > $tmpfile;
-	 //   mv $tmpfile $newfile;
-	 //   echo $SD_STEP_ID $EXITCODE;
-	 // }  && trap finish EXIT;
 
 	shargs := strings.Join(setupCommands, " && ")
 
