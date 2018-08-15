@@ -295,7 +295,7 @@ func TestTeardownEnv(t *testing.T) {
 		{Cmd: "export DOUBLE_QUOTE=\"my \\\" double quote\"", Name: "doublequote"},
 		{Cmd: "export NEWLINE=\"new\\nline\"", Name: "newline"},
 		{Cmd: "doesnotexit", Name: "doesnotexit"},
-		{Cmd: "echo bye", Name: "teardown-bye"},
+		{Cmd: "echo bye", Name: "preteardown-foo"},
 		{Cmd: "if [ \"$FOO\" != 'BAR with spaces' ]; then exit 1; fi", Name: "teardown-foo"},
 		{Cmd: "if [ \"$SINGLE_QUOTE\" != \"my ' single quote\" ]; then exit 1; fi", Name: "teardown-singlequote"},
 		{Cmd: "if [ \"$DOUBLE_QUOTE\" != \"my \\\" double quote\" ]; then exit 1; fi", Name: "sd-teardown-doublequote"},
@@ -306,6 +306,7 @@ func TestTeardownEnv(t *testing.T) {
 		Commands:    commands,
 		Environment: map[string]string{},
 	}
+	runWrapUserTeardown := false
 	runUserTeardown := false
 	runSdTeardown := false
 	testAPI := screwdriver.API(MockAPI{
@@ -318,6 +319,9 @@ func TestTeardownEnv(t *testing.T) {
 		updateStepStop: func(buildID int, stepName string, code int) error {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if stepName == "preteardown-foo" {
+				runWrapUserTeardown = true
 			}
 			if stepName == "teardown-singlequote" {
 				runUserTeardown = true
@@ -333,6 +337,9 @@ func TestTeardownEnv(t *testing.T) {
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	if !runWrapUserTeardown {
+		t.Errorf("step pre user teardown should run")
+	}
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
 	}
