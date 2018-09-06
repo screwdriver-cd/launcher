@@ -1,5 +1,11 @@
 #!/bin/sh
 
+I_AM_ROOT=false
+
+if [ `whoami` = "root" ]; then
+    I_AM_ROOT=true
+fi
+
 smart_run () {
     if ! $I_AM_ROOT; then
         sudo $@
