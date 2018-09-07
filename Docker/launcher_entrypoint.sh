@@ -16,7 +16,8 @@ smart_run () {
 
 # Create FIFO for emitter
 # https://github.com/screwdriver-cd/screwdriver/issues/979
-smart_run mkfifo -m 666 /opt/sd/emitter
+smart_run mkdir -p /sd
+smart_run mkfifo -m 666 /sd/emitter
 
 # Entrypoint
 /opt/sd/tini -- /bin/sh -c "$@"
