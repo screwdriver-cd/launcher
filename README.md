@@ -55,7 +55,7 @@ $ hab pkg exec $HAB_ORIGIN/launcher launcher --help
 
 ## License
 
-Code licensed under the BSD 3-Clause license. See [LICENSE](https://github.com/screwdriver-cd/sd-cmd/blob/master/LICENSE) file for terms.
+Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 
 [version-image]: https://img.shields.io/github/tag/screwdriver-cd/launcher.svg
 [version-url]: https://github.com/screwdriver-cd/launcher/releases
