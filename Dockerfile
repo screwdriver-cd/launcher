@@ -36,6 +36,11 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_linux_amd64' \
       | wget --base=http://github.com/ -i - -O sd-cmd \
    && chmod +x sd-cmd \
+   # Download store-cli
+   && wget -q -O - https://github.com/screwdriver-cd/store-cli/releases/latest \
+      | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
+      | wget --base=http://github.com/ -i - -O store-cli \
+   && chmod +x store-cli \
 
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
