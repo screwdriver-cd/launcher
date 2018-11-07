@@ -75,6 +75,7 @@ RUN set -x \
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
    && /hab/bin/hab pkg install core/bash core/git core/zip core/kmod core/iptables core/docker \
+   && /hab/bin/hab pkg install 7.54.1 core/curl \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
