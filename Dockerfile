@@ -94,8 +94,5 @@ COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh
 # Copy wrapper script to the image
 COPY Docker/run.sh /opt/sd/run.sh
 
-VOLUME /opt/sd
-VOLUME /hab
-
 # Set Entrypoint
 ENTRYPOINT ["/opt/sd/launcher_entrypoint.sh"]
