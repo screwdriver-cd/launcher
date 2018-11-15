@@ -593,6 +593,21 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
+		if len(token) == 0 {
+			log.Println("Error token is not passed.")
+			os.Exit(0)
+		}
+
+		if len(url) == 0 {
+			log.Println("Error API uri is not specified.")
+			os.Exit(0)
+		}
+
+		if len(storeURL) == 0 {
+			log.Println("Error store uri is not specified.")
+			os.Exit(0)
+		}
+
 		if fetchFlag {
 			temporalApi, err := screwdriver.New(url, token)
 			if err != nil {
