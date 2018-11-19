@@ -245,9 +245,6 @@ func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
 }
 
 func TestMain(m *testing.M) {
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
-
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
 	open = func(f string) (*os.File, error) {
@@ -1236,21 +1233,5 @@ func TestFetchEventMetaMarshalError(t *testing.T) {
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
-	}
-}
-
-func TestValidateOptions(t *testing.T) {
-	os.Args = []string{"launch", "--api-uri=http://api.screwdriver/v4", "1234"}
-	exitCalled := false
-	cleanExit = func() {
-		exitCalled = true
-	}
-
-	os.Setenv("SD_TOKEN", "")
-
-	main()
-
-	if !exitCalled {
-		t.Errorf("Explicit exit not called")
 	}
 }
