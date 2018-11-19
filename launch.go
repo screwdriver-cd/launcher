@@ -594,7 +594,7 @@ func main() {
 		}
 
 		if len(token) == 0 {
-			log.Println("Error token is not passed.")
+			log.Println("Error: token is not passed.")
 			cleanExit()
 		}
 
