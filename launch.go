@@ -593,6 +593,11 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
+		if len(token) == 0 {
+			log.Println("Error: token is not passed.")
+			cleanExit()
+		}
+
 		if fetchFlag {
 			temporalApi, err := screwdriver.New(url, token)
 			if err != nil {
