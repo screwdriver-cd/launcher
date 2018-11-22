@@ -115,6 +115,7 @@ type Job struct {
 	ID         int    `json:"id"`
 	PipelineID int    `json:"pipelineId"`
 	Name       string `json:"name"`
+	PRNum      int    `json:"prNum"`
 }
 
 // CommandDef is the definition of a single executable command.

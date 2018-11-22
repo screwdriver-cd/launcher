@@ -413,12 +413,30 @@ func TestCreateWorkspace(t *testing.T) {
 }
 
 func TestPRNumber(t *testing.T) {
-	testJobName := "PR-1:main"
-	wantPrNumber := "1"
+	cases := map[string]struct {
+		jobName       string
+		expectedPRNum string
+	}{
+		"PR": {
+			jobName:       "PR-1:main",
+			expectedPRNum: "1",
+		},
+		"nonPR": {
+			jobName:       "main",
+			expectedPRNum: "",
+		},
+	}
 
-	prNumber := prNumber(testJobName)
-	if prNumber != wantPrNumber {
-		t.Errorf("prNumber == %q, want %q", prNumber, wantPrNumber)
+	for k, v := range cases {
+		k := k
+		v := v
+
+		t.Run(k, func(t *testing.T) {
+			prNum := prNumber(v.jobName)
+			if prNum != v.expectedPRNum {
+				t.Errorf("prNum == %q, want %q", prNum, v.expectedPRNum)
+			}
+		})
 	}
 }
 
@@ -721,8 +739,8 @@ func TestSetEnv(t *testing.T) {
 	defer func() { executorRun = oldExecutorRun }()
 
 	tests := map[string]string{
-		"SCREWDRIVER": "true",
-		"CI":          "true",
+		"SCREWDRIVER":            "true",
+		"CI":                     "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
 		"SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
@@ -741,7 +759,7 @@ func TestSetEnv(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID}), nil
+		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID, PRNum: 1}), nil
 	}
 
 	foundEnv := map[string]string{}
@@ -790,7 +808,7 @@ func TestSetEnv(t *testing.T) {
 func TestEnvSecrets(t *testing.T) {
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID}), nil
+		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID, PRNum: 1}), nil
 	}
 
 	testBuild := FakeBuild{ID: TestBuildID, JobID: TestJobID}

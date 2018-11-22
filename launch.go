@@ -41,6 +41,7 @@ var marshal = json.Marshal
 var unmarshal = json.Unmarshal
 var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
 var blackSprint = color.New(color.FgHiBlack).SprintFunc()
+var r = regexp.MustCompile("^PR-([0-9]+)(?::[\\w-]+)?$")
 
 var cleanExit = func() {
 	os.Exit(0)
@@ -162,17 +163,6 @@ func writeArtifact(aDir string, fName string, artifact interface{}) error {
 	return nil
 }
 
-// prNumber checks to see if the job name is a pull request and returns its number
-func prNumber(jobName string) string {
-	r := regexp.MustCompile("^PR-([0-9]+)(?::[\\w-]+)?$")
-	matched := r.FindStringSubmatch(jobName)
-	if matched == nil || len(matched) != 2 {
-		return ""
-	}
-	log.Println("Build is a PR: ", matched[1])
-	return matched[1]
-}
-
 // convertToArray will convert the interface to an array of ints
 func convertToArray(i interface{}) (array []int) {
 	switch v := i.(type) {
@@ -190,6 +180,17 @@ func convertToArray(i interface{}) (array []int) {
 		var arr = make([]int, 0)
 		return arr
 	}
+}
+
+// prNumber checks to see if the job name is a pull request and returns its number
+func prNumber(jobName string) string {
+	matched := r.FindStringSubmatch(jobName)
+	if matched == nil || len(matched) != 2 {
+		log.Println("This build is not a PR build")
+		return ""
+	}
+	log.Printf("Build is a PR: %v\n", matched[1])
+	return matched[1]
 }
 
 func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int, buildToken string) error {
@@ -352,12 +353,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), w.Src)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
-	oldJobName := job.Name
-	pr := prNumber(job.Name)
-	if pr != "" {
-		job.Name = "main"
-	}
-
 	err = writeArtifact(w.Artifacts, "steps.json", build.Commands)
 	if err != nil {
 		return fmt.Errorf("Creating steps.json artifact: %v", err)
@@ -370,18 +365,25 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	apiURL, _ := api.GetAPIURL()
 
+	prNum := strconv.Itoa(job.PRNum)
+	// zero value for int is 0
+	if prNum == "0" {
+		// for backward compatibility
+		prNum = prNumber(job.Name)
+	}
+
 	defaultEnv := map[string]string{
-		"PS1":         "",
-		"SCREWDRIVER": "true",
-		"CI":          "true",
+		"PS1":                    "",
+		"SCREWDRIVER":            "true",
+		"CI":                     "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_BUILD_ID":            strconv.Itoa(buildID),
 		"SD_JOB_ID":              strconv.Itoa(job.ID),
 		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
 		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
-		"SD_JOB_NAME":            oldJobName,
+		"SD_JOB_NAME":            job.Name,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
-		"SD_PULL_REQUEST":        pr,
+		"SD_PULL_REQUEST":        prNum,
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
