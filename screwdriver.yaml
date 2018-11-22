@@ -7,14 +7,14 @@ jobs:
     main:
         requires: [~pr, ~commit]
         steps:
+            - gover: go version
+            - gofmt: "(! gofmt -s -d . | grep '^')"
             - glide: |
                 export PATH=$PATH:$GOPATH/bin
                 go get -v github.com/Masterminds/glide
             - install: glide install
             - vet: go vet ./...
-            - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
-            - gover: go version
-            - test: GOCACHE=off go test ./...
+            - test: GOCACHE=off go test ./... -v
             # The emitter file is changed by a test, but we want to ignore it
             - ignore-git: git update-index --assume-unchanged data/emitter
             # Ensure we can compile

@@ -124,7 +124,7 @@ type CommandDef struct {
 	Cmd  string `json:"command"`
 }
 
-// Need a generic interface to take in an int or array of ints
+// IntOrArray is a generic interface to take in an int or array of ints
 type IntOrArray interface{}
 
 // Build is a Screwdriver Build

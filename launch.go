@@ -163,6 +163,17 @@ func writeArtifact(aDir string, fName string, artifact interface{}) error {
 	return nil
 }
 
+// prNumber checks to see if the job name is a pull request and returns its number
+func prNumber(jobName string) string {
+	matched := r.FindStringSubmatch(jobName)
+	if matched == nil || len(matched) != 2 {
+		log.Println("This build is not a PR build")
+		return ""
+	}
+	log.Printf("Build is a PR: %v\n", matched[1])
+	return matched[1]
+}
+
 // convertToArray will convert the interface to an array of ints
 func convertToArray(i interface{}) (array []int) {
 	switch v := i.(type) {
@@ -180,17 +191,6 @@ func convertToArray(i interface{}) (array []int) {
 		var arr = make([]int, 0)
 		return arr
 	}
-}
-
-// prNumber checks to see if the job name is a pull request and returns its number
-func prNumber(jobName string) string {
-	matched := r.FindStringSubmatch(jobName)
-	if matched == nil || len(matched) != 2 {
-		log.Println("This build is not a PR build")
-		return ""
-	}
-	log.Printf("Build is a PR: %v\n", matched[1])
-	return matched[1]
 }
 
 func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int, buildToken string) error {
@@ -601,13 +601,13 @@ func main() {
 		}
 
 		if fetchFlag {
-			temporalApi, err := screwdriver.New(url, token)
+			temporalAPI, err := screwdriver.New(url, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace)
 			}
 
-			buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
+			buildToken, err := temporalAPI.GetBuildToken(buildID, c.Int("build-timeout"))
 			if err != nil {
 				log.Printf("Error getting Build Token %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace)

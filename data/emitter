@@ -1,3 +1,8 @@
-{"t":1482188362433,"m":"Workspace created in /var/folders/d6/rwx8bw4s4773s5v75z185j4r001ttj/T/ArtifactDir701279641","s":"sd-setup-launcher"}
-{"t":1482188362433,"m":"Source Dir: /var/folders/d6/rwx8bw4s4773s5v75z185j4r001ttj/T/ArtifactDir701279641/src/github.com/screwdriver-cd/launcher","s":"sd-setup-launcher"}
-{"t":1482188362433,"m":"Artifacts Dir: /var/folders/d6/rwx8bw4s4773s5v75z185j4r001ttj/T/ArtifactDir701279641/artifacts","s":"sd-setup-launcher"}
+{"t":1542876536366,"m":"Screwdriver Launcher information","s":"sd-setup-launcher"}
+{"t":1542876536367,"m":"Version:        vdev","s":"sd-setup-launcher"}
+{"t":1542876536368,"m":"Pipeline:       #3","s":"sd-setup-launcher"}
+{"t":1542876536369,"m":"Job:            main","s":"sd-setup-launcher"}
+{"t":1542876536370,"m":"Build:          #1","s":"sd-setup-launcher"}
+{"t":1542876536370,"m":"Workspace Dir:  /tmp/ArtifactDir990702653","s":"sd-setup-launcher"}
+{"t":1542876536371,"m":"Source Dir:     /tmp/ArtifactDir990702653/src/github.com/screwdriver-cd/launcher","s":"sd-setup-launcher"}
+{"t":1542876536372,"m":"Artifacts Dir:  /tmp/ArtifactDir990702653/artifacts","s":"sd-setup-launcher"}

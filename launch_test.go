@@ -876,7 +876,7 @@ func TestCreateEnvironment(t *testing.T) {
 	}
 	env, userShellBin := createEnvironment(base, secrets, testBuild)
 
-	if (userShellBin != "") {
+	if userShellBin != "" {
 		t.Errorf("Default userShellBin should be empty string")
 	}
 
@@ -917,7 +917,7 @@ func TestUserShellBin(t *testing.T) {
 	}
 	_, userShellBin := createEnvironment(base, secrets, testBuild)
 
-	if (userShellBin != "/bin/bash") {
+	if userShellBin != "/bin/bash" {
 		t.Errorf("userShellBin %v, expect %v", userShellBin, "/bin/bash")
 	}
 }

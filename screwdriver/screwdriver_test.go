@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+var (
+	startTimeRegexp = regexp.MustCompile(`{"startTime":"[\d-]+T[\d:.Z-]+"}`)
+	endTimeRegexp   = regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.Z-]+","code":10}`)
+)
+
 func makeFakeHTTPClient(t *testing.T, code int, body string) *http.Client {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wantToken := "faketoken"
@@ -133,6 +138,8 @@ func TestBuildFromID(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
+
 		JSON := []byte{}
 		err := errors.New("")
 
@@ -454,8 +461,7 @@ func TestUpdateStepStart(t *testing.T) {
 	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		want := regexp.MustCompile(`{"startTime":"[\d-]+T[\d:.Z-]+"}`)
-		if !want.MatchString(buf.String()) {
+		if !startTimeRegexp.MatchString(buf.String()) {
 			t.Errorf("buf.String() = %q", buf.String())
 		}
 	})
@@ -472,8 +478,7 @@ func TestUpdateStepStop(t *testing.T) {
 	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		want := regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.Z-]+","code":10}`)
-		if !want.MatchString(buf.String()) {
+		if !endTimeRegexp.MatchString(buf.String()) {
 			t.Errorf("buf.String() = %q", buf.String())
 		}
 	})
@@ -490,8 +495,7 @@ func TestGetAPIURL(t *testing.T) {
 	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		want := regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.Z-]+","code":10}`)
-		if !want.MatchString(buf.String()) {
+		if !endTimeRegexp.MatchString(buf.String()) {
 			t.Errorf("buf.String() = %q", buf.String())
 		}
 	})
@@ -546,7 +550,10 @@ func TestGetBuildToken(t *testing.T) {
 		}
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		want := regexp.MustCompile(`{"buildTimeout":\d+}`)
+		want, err := regexp.Compile(`{"buildTimeout":\d+}`)
+		if err != nil {
+			t.Fatalf("Unexpected regexp.Compile error: %v", err)
+		}
 		if !want.MatchString(buf.String()) {
 			t.Errorf("buf.String() = %q", buf.String())
 		}
