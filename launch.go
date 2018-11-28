@@ -383,6 +383,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
 		"SD_PULL_REQUEST":        pr,
 		"SD_PR_PARENT_JOB_ID":    strconv.Itoa(job.PrParentJobID),
+		"SD_PARENT_BUILD_ID":     fmt.Sprintf("%v", build.ParentBuildID),
+		"SD_PARENT_EVENT_ID":     strconv.Itoa(event.ParentEventID),
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
