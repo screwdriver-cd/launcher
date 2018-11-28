@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
-	"strings"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -329,7 +329,7 @@ func TestTeardownEnv(t *testing.T) {
 			if stepName == "sd-teardown-doublequote" {
 				runSdTeardown = true
 			}
-			if (code != 0 && stepName != "doesnotexit") {	// all steps should pass except for this step
+			if code != 0 && stepName != "doesnotexit" { // all steps should pass except for this step
 				t.Errorf("step %v failed with exit code %v", stepName, code)
 			}
 			return nil
@@ -561,7 +561,7 @@ func TestUserShell(t *testing.T) {
 		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "sd-setup-step"},
 		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "user-step"},
 		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "teardown-user-step"},
-		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "sd-teardown-step"},	// source is not available in sh
+		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "sd-teardown-step"}, // source is not available in sh
 	}
 	env := map[string]string{
 		"USER_SHELL_BIN": "/bin/bash",

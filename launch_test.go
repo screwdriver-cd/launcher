@@ -728,6 +728,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
 		"SD_PIPELINE_ID":         "3456",
 		"SD_PULL_REQUEST":        "1",
+		"SD_PR_PARENT_JOB_ID":    "111",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 		"SD_META_PATH":           "./data/meta/meta.json",
@@ -741,7 +742,7 @@ func TestSetEnv(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID}), nil
+		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID, PrParentJobID: 111}), nil
 	}
 
 	foundEnv := map[string]string{}
@@ -858,7 +859,7 @@ func TestCreateEnvironment(t *testing.T) {
 	}
 	env, userShellBin := createEnvironment(base, secrets, testBuild)
 
-	if (userShellBin != "") {
+	if userShellBin != "" {
 		t.Errorf("Default userShellBin should be empty string")
 	}
 
@@ -899,7 +900,7 @@ func TestUserShellBin(t *testing.T) {
 	}
 	_, userShellBin := createEnvironment(base, secrets, testBuild)
 
-	if (userShellBin != "/bin/bash") {
+	if userShellBin != "/bin/bash" {
 		t.Errorf("userShellBin %v, expect %v", userShellBin, "/bin/bash")
 	}
 }
