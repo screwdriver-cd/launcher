@@ -20,4 +20,4 @@ smart_run mkdir -p /sd
 smart_run mkfifo -m 666 /sd/emitter
 
 # Entrypoint
-/opt/sd/tini -- /bin/sh -c "$@"
+exec /opt/sd/tini -- /bin/sh -c "$@"
