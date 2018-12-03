@@ -121,7 +121,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
-		". " + exportFile + " || true; " +
+		"if [ -f " + exportFile + " ]; then . " + exportFile + "; fi; " +
 		cmd.Cmd
 
 	shargs = append(shargs, cmdStr)

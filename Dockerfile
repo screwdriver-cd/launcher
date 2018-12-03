@@ -75,6 +75,9 @@ RUN set -x \
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
    && /hab/bin/hab pkg install core/bash core/git core/zip core/kmod core/iptables core/docker \
+   # Install curl 7.54.1 since we use that version in artifact-bookend
+   # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
+   && /hab/bin/hab pkg install core/curl/7.54.1 \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
