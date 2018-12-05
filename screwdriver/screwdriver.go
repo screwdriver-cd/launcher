@@ -112,9 +112,10 @@ type ScmRepo struct {
 
 // Job is a Screwdriver Job.
 type Job struct {
-	ID         int    `json:"id"`
-	PipelineID int    `json:"pipelineId"`
-	Name       string `json:"name"`
+	ID            int    `json:"id"`
+	PipelineID    int    `json:"pipelineId"`
+	Name          string `json:"name"`
+	PrParentJobID int    `json:"prParentJobId"`
 }
 
 // CommandDef is the definition of a single executable command.
