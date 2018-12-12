@@ -7,7 +7,7 @@ jobs:
     main:
         requires: [~pr, ~commit]
         environment:
-            SD_SONAR_OPTS: "-Dsonar.sources=."
+            SD_SONAR_OPTS: "-Dsonar.sources=./"
         steps:
             - glide: |
                 export PATH=$PATH:$GOPATH/bin
