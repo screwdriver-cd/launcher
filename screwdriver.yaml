@@ -6,6 +6,8 @@ shared:
 jobs:
     main:
         requires: [~pr, ~commit]
+        environment:
+            SD_SONAR_OPTS: "-Dsonar.sources=./  -Dsonar.exclusions=**/*_test.go,**/sonar-scanner*/** -Dsonar.go.coverage.reportPaths=/sd/workspace/artifacts/coverage.out"
         steps:
             - glide: |
                 export PATH=$PATH:$GOPATH/bin
@@ -14,7 +16,7 @@ jobs:
             - vet: go vet ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - gover: go version
-            - test: GOCACHE=off go test ./...
+            - test: GOCACHE=off go test -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out -coverpkg=./...
             # The emitter file is changed by a test, but we want to ignore it
             - ignore-git: git update-index --assume-unchanged data/emitter
             # Ensure we can compile
