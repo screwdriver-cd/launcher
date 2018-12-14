@@ -754,7 +754,7 @@ func TestSetEnv(t *testing.T) {
 		}
 
 		for _, e := range env {
-			split := strings.Split(e, "=")
+			split := strings.SplitN(e, "=", 2)
 			if len(split) != 2 {
 				t.Fatalf("Bad environment value passed to executorRun: %s", e)
 			}
@@ -817,7 +817,7 @@ func TestEnvSecrets(t *testing.T) {
 		}
 
 		for _, e := range env {
-			split := strings.Split(e, "=")
+			split := strings.SplitN(e, "=", 2)
 			if len(split) != 2 {
 				t.Fatalf("Bad environment value passed to executorRun: %s", e)
 			}
