@@ -7,7 +7,7 @@ jobs:
     main:
         requires: [~pr, ~commit]
         environment:
-            SD_SONAR_OPTS: "-Dsonar.sources=./ -Dsonar.go.coverage.reportPaths=/sd/workspace/artifacts/coverage.out"
+            SD_SONAR_OPTS: "-Dsonar.sources=./  -Dsonar.exclusions=**/*_test.go,**/sonar-scanner*/** -Dsonar.go.coverage.reportPaths=/sd/workspace/artifacts/coverage.out"
         steps:
             - glide: |
                 export PATH=$PATH:$GOPATH/bin
