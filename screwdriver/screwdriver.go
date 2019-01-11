@@ -335,6 +335,12 @@ func (a api) BuildFromID(buildID int) (build Build, err error) {
 	if err != nil {
 		return build, fmt.Errorf("Parsing JSON response %q: %v", body, err)
 	}
+
+	initCmd := build.Commands[0]
+	if initCmd.Name == "sd-setup-init" {
+		build.Commands = build.Commands[1:]
+	}
+
 	return build, nil
 }
 
