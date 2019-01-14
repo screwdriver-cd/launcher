@@ -92,6 +92,9 @@ func TestBuildFromID(t *testing.T) {
 	}
 
 	testCmds := []CommandDef{}
+	testCmds = append(testCmds, CommandDef{
+		Name: "sd-setup-init",
+	})
 	for _, test := range commands {
 		testCmds = append(testCmds, CommandDef{
 			Name: "test",
@@ -155,6 +158,10 @@ func TestBuildFromID(t *testing.T) {
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from BuildFromID: \n%v\n want \n%v", err.Error(), test.err.Error())
+		}
+
+		if len(test.build.Commands) != 0 {
+			test.build.Commands = test.build.Commands[1:]
 		}
 
 		if !reflect.DeepEqual(build, test.build) {
