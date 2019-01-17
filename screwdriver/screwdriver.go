@@ -71,7 +71,7 @@ func New(url, token string) (API, error) {
 	newapi := api{
 		url,
 		token,
-		&http.Client{Timeout: 10 * time.Second},
+		&http.Client{Timeout: 20 * time.Second},
 	}
 	return API(newapi), nil
 }
