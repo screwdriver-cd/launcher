@@ -241,11 +241,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	parentBuildIDs := convertToArray(build.ParentBuildID)
 	mergedMeta := map[string]interface{}{
 		"pipelineId": strconv.Itoa(job.PipelineID),
-		"eventId": strconv.Itoa(build.EventID),
-		"jobId": strconv.Itoa(job.ID),
-		"buildId": strconv.Itoa(buildID),
-		"jobName": job.Name,
-		"sha": build.SHA,
+		"eventId":    strconv.Itoa(build.EventID),
+		"jobId":      strconv.Itoa(job.ID),
+		"buildId":    strconv.Itoa(buildID),
+		"jobName":    job.Name,
+		"sha":        build.SHA,
 	}
 
 	// If no parent build ID, no parent event, and no event meta, skip fetch meta
@@ -259,8 +259,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 				if err != nil {
 					return fmt.Errorf("Fetching Parent Build ID %d: %v", pbID, err)
 				}
-				if (pb.Meta != nil) {
-						mergedMeta = deepMergeJSON(pb.Meta, mergedMeta)
+				if pb.Meta != nil {
+					mergedMeta = deepMergeJSON(pb.Meta, mergedMeta)
 				}
 			}
 
@@ -289,8 +289,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			if pipeline.ID != parentPipeline.ID {
 				metaFile = "sd@" + strconv.Itoa(parentPipeline.ID) + ":" + parentJob.Name + ".json"
 			}
-			if (parentBuild.Meta != nil) {
-					mergedMeta = deepMergeJSON(parentBuild.Meta, mergedMeta)
+			if parentBuild.Meta != nil {
+				mergedMeta = deepMergeJSON(parentBuild.Meta, mergedMeta)
 			}
 
 			metaLog = fmt.Sprintf(`Build(%v)`, parentBuild.ID)
@@ -300,14 +300,14 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			if err != nil {
 				return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err)
 			}
-			if (parentEvent.Meta != nil) {
+			if parentEvent.Meta != nil {
 				mergedMeta = deepMergeJSON(parentEvent.Meta, mergedMeta)
 			}
 			metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
 		} else { // If has meta, marshal it
 			log.Printf("Fetching Event Meta JSON %v", event.ID)
-			if (event.Meta != nil) {
-					mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
+			if event.Meta != nil {
+				mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
 			}
 		}
 
