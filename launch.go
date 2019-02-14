@@ -239,14 +239,20 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	metaLog := ""
 
 	parentBuildIDs := convertToArray(build.ParentBuildID)
+	mergedMeta := map[string]interface{}{
+		"pipelineId": strconv.Itoa(job.PipelineID),
+		"eventId": strconv.Itoa(build.EventID),
+		"jobId": strconv.Itoa(job.ID),
+		"buildId": strconv.Itoa(buildID),
+		"jobName": job.Name,
+		"SD_BUILD_SHA": build.SHA,
+	}
 
 	// If no parent build ID, no parent event, and no event meta, skip fetch meta
 	if len(parentBuildIDs) == 0 && event.ParentEventID == 0 && len(event.Meta) == 0 {
 		log.Printf("This build has no Parent Build, no Parent Event, and no Event Meta, so fetching Meta is skipped")
 	} else {
 		if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
-			mergedMeta := make(map[string]interface{})
-
 			// Get meta from all parent builds
 			for _, pbID := range parentBuildIDs {
 				pb, err := api.BuildFromID(pbID)
@@ -290,7 +296,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			}
 
 			log.Printf("Fetching Parent Build Meta JSON %v", parentBuild.Meta)
-			metaByte, err = marshal(parentBuild.Meta)
+			mergedMeta = deepMergeJSON(parentBuild.Meta, mergedMeta)
+			metaByte, err = marshal(mergedMeta)
 			if err != nil {
 				return fmt.Errorf("Parsing Parent Build(%d) Meta JSON: %v", parentBuild.ID, err)
 			}
@@ -304,7 +311,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			}
 
 			log.Printf("Fetching Parent Event Meta JSON %v", parentEvent.ID)
-			metaByte, err = marshal(parentEvent.Meta)
+			mergedMeta = deepMergeJSON(parentEvent.Meta, mergedMeta)
+			metaByte, err = marshal(mergedMeta)
 			if err != nil {
 				return fmt.Errorf("Parsing Parent Event(%d) Meta JSON: %v", parentEvent.ID, err)
 			}
@@ -312,6 +320,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 			metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
 		} else { // If has meta, marshal it
 			log.Printf("Fetching Event Meta JSON %v", event.ID)
+			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
 			metaByte, err = marshal(event.Meta)
 			if err != nil {
 				return fmt.Errorf("Parsing Event(%d) Meta JSON: %v", event.ID, err)
