@@ -907,6 +907,36 @@ func TestUserShellBin(t *testing.T) {
 	}
 }
 
+func TestFetchDefaultMeta(t *testing.T) {
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	want := []byte("{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}")
+
+	if err != nil || string(defaultMeta) != string(want) {
+		t.Errorf("Expected defaultMeta is %v, but: %v", want, defaultMeta)
+	}
+}
+
 func TestFetchParentBuildMeta(t *testing.T) {
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
