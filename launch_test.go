@@ -942,7 +942,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	want := []byte("{\"hoge\":\"fuga\"}")
+	want := []byte("{\"buildId\":\"1234\",\"eventId\":\"0\",\"hoge\":\"fuga\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}")
 
 	if err != nil || string(parentMeta) != string(want) {
 		t.Errorf("Expected parentMeta is %v, but: %v", want, parentMeta)
@@ -966,7 +966,7 @@ func TestFetchParentBuildsMetaParseError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	expected := fmt.Sprintf(`Parsing Parent Builds(%v) Meta JSON: Testing parsing parent builds meta`, IDs)
+	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing parent builds meta")
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
@@ -989,7 +989,7 @@ func TestFetchParentEventMetaParseError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	expected := fmt.Sprintf(`Parsing Parent Event(%d) Meta JSON: Testing parsing parent event meta`, TestParentEventID)
+	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing parent event meta")
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
@@ -1024,7 +1024,7 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	expected := fmt.Sprintf(`Parsing Parent Build(%d) Meta JSON: Testing parsing parent build meta`, TestParentBuildID)
+	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing parent build meta")
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
@@ -1206,7 +1206,7 @@ func TestFetchEventMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	want := []byte("{\"spooky\":\"ghost\"}")
+	want := []byte("{\"buildId\":\"1234\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\",\"spooky\":\"ghost\"}")
 
 	if err != nil || string(eventMeta) != string(want) {
 		t.Errorf("Expected eventMeta is %v, but: %v", want, eventMeta)
@@ -1232,7 +1232,7 @@ func TestFetchEventMetaMarshalError(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	expected := fmt.Sprintf(`Parsing Event(%d) Meta JSON: Testing parsing event meta`, TestEventID)
+	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing event meta")
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
