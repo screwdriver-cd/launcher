@@ -305,26 +305,26 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		if event.Meta != nil {
 			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
 		}
+	}
 
-		log.Println("Marshalling Merged Meta JSON")
-		metaByte, err = marshal(mergedMeta)
+	log.Println("Marshalling Merged Meta JSON")
+	metaByte, err = marshal(mergedMeta)
 
-		if err != nil {
-			return fmt.Errorf("Parsing Meta JSON: %v", err)
-		}
+	if err != nil {
+		return fmt.Errorf("Parsing Meta JSON: %v", err)
+	}
 
-		// Create meta space
+	// Create meta space
 
-		log.Printf("Creating Meta Space in %v", metaSpace)
-		err = createMetaSpace(metaSpace)
-		if err != nil {
-			return err
-		}
+	log.Printf("Creating Meta Space in %v", metaSpace)
+	err = createMetaSpace(metaSpace)
+	if err != nil {
+		return err
+	}
 
-		err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
-		if err != nil {
-			return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
-		}
+	err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
+	if err != nil {
+		return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
 	}
 
 	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
