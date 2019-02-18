@@ -239,13 +239,16 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	metaLog := ""
 
 	parentBuildIDs := convertToArray(build.ParentBuildID)
-	mergedMeta := map[string]interface{}{
+	buildMeta := map[string]interface{}{
 		"pipelineId": strconv.Itoa(job.PipelineID),
 		"eventId":    strconv.Itoa(build.EventID),
 		"jobId":      strconv.Itoa(job.ID),
 		"buildId":    strconv.Itoa(buildID),
 		"jobName":    job.Name,
 		"sha":        build.SHA,
+	}
+	mergedMeta := map[string]interface{}{
+		"build": buildMeta,
 	}
 
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
