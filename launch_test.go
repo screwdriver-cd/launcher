@@ -930,10 +930,10 @@ func TestFetchDefaultMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	want := []byte("{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
 
 	if err != nil || string(defaultMeta) != string(want) {
-		t.Errorf("Expected defaultMeta is %v, but: %v", want, defaultMeta)
+		t.Errorf("Expected defaultMeta is %v, but: %v", string(want), string(defaultMeta))
 	}
 }
 
@@ -972,10 +972,10 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	want := []byte("{\"buildId\":\"1234\",\"eventId\":\"0\",\"hoge\":\"fuga\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"hoge\":\"fuga\"}")
 
 	if err != nil || string(parentMeta) != string(want) {
-		t.Errorf("Expected parentMeta is %v, but: %v", want, parentMeta)
+		t.Errorf("Expected parentMeta is %v, but: %v", string(want), string(parentMeta))
 	}
 }
 
@@ -1236,10 +1236,10 @@ func TestFetchEventMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	want := []byte("{\"buildId\":\"1234\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\",\"spooky\":\"ghost\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
 
 	if err != nil || string(eventMeta) != string(want) {
-		t.Errorf("Expected eventMeta is %v, but: %v", want, eventMeta)
+		t.Errorf("Expected eventMeta is %v, but: %v", string(want), string(eventMeta))
 	}
 }
 
