@@ -57,7 +57,7 @@ type FakeScmRepo screwdriver.ScmRepo
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
 		buildFromID: func(buildID int) (screwdriver.Build, error) {
-			return screwdriver.Build(FakeBuild{ID: testBuildID, EventID: TestEventID, JobID: testJobID, SHA: TestSHA, ParentBuildID: 1234}), nil
+			return screwdriver.Build(FakeBuild{ID: testBuildID, EventID: TestEventID, JobID: testJobID, SHA: TestSHA, ParentBuildID: float64(1234)}), nil
 		},
 		eventFromID: func(eventID int) (screwdriver.Event, error) {
 			return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
@@ -738,7 +738,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
 		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
 		"SD_TOKEN":               "foobar",
-		"SD_PARENT_BUILD_ID":     "1234",
+		"SD_PARENT_BUILD_ID":     "[1234]",
 		"SD_PARENT_EVENT_ID":     "3345",
 	}
 
@@ -1180,6 +1180,9 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 	defer func() { marshal = oldMarshal }()
 
 	api := mockAPI(t, TestEventID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA, }), nil
+	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestParentEventID {
 			return screwdriver.Event(FakeEvent{ID: TestParentEventID}), nil
