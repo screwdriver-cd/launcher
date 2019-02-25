@@ -1225,6 +1225,9 @@ func TestFetchEventMeta(t *testing.T) {
 	var eventMeta []byte
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA, }), nil
+	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestEventID {
 			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: mockMeta}), nil

@@ -154,7 +154,6 @@ func writeArtifact(aDir string, fName string, artifact interface{}) error {
 	}
 
 	pathToCreate := path.Join(aDir, fName)
-
 	err = writeFile(pathToCreate, data, 0644)
 	if err != nil {
 		return fmt.Errorf("Creating file %q : %v", pathToCreate, err)
@@ -252,7 +251,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"build": buildMeta,
 	}
 
-	fmt.Printf("=================parentbuildIds %v\n", parentBuildIDs)
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
 		// Get meta from all parent builds
 		for _, pbID := range parentBuildIDs {
@@ -267,7 +265,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 		metaLog = fmt.Sprintf(`Builds(%v)`, parentBuildIDs)
 	} else if len(parentBuildIDs) == 1 { // If has parent build, fetch from parent build
-		fmt.Printf("*****************%v\n",parentBuildIDs[0])
 		log.Printf("Fetching Parent Build %d", parentBuildIDs[0])
 		parentBuild, err := api.BuildFromID(parentBuildIDs[0])
 		if err != nil {
@@ -296,14 +293,13 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		}
 
 		metaLog = fmt.Sprintf(`Build(%v)`, parentBuild.ID)
-		fmt.Println("=======================1")
-		fmt.Println(metaLog)
 	} else if event.ParentEventID != 0 { // If has parent event, fetch meta from parent event
 		log.Printf("Fetching Parent Event %d", event.ParentEventID)
 		parentEvent, err := api.EventFromID(event.ParentEventID)
 		if err != nil {
 			return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err)
 		}
+
 		if parentEvent.Meta != nil {
 			mergedMeta = deepMergeJSON(parentEvent.Meta, mergedMeta)
 		}
@@ -372,9 +368,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	apiURL, _ := api.GetAPIURL()
-
-	fmt.Println("====================")
-	fmt.Print(parentBuildIDs)
 
 	defaultEnv := map[string]string{
 		"PS1":         "",
