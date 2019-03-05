@@ -289,6 +289,15 @@ func TestMulti(t *testing.T) {
 func TestTeardownEnv(t *testing.T) {
 	envFilepath := "/tmp/testTeardownEnv"
 	setupTestCase(t, envFilepath)
+
+	baseEnv := []string{
+		"com.apple=test",
+		"var0=xxx",
+		"var1=foo",
+		"var2=bar",
+		"VAR3=baz",
+	}
+
 	commands := []screwdriver.CommandDef{
 		{Cmd: "export FOO=\"BAR with spaces\"", Name: "foo"},
 		{Cmd: "export SINGLE_QUOTE=\"my ' single quote\"", Name: "singlequote"},
@@ -300,6 +309,7 @@ func TestTeardownEnv(t *testing.T) {
 		{Cmd: "if [ \"$SINGLE_QUOTE\" != \"my ' single quote\" ]; then exit 1; fi", Name: "teardown-singlequote"},
 		{Cmd: "if [ \"$DOUBLE_QUOTE\" != \"my \\\" double quote\" ]; then exit 1; fi", Name: "sd-teardown-doublequote"},
 		{Cmd: "if [ \"$NEWLINE\" != \"new\\nline\" ]; then exit 1; fi", Name: "sd-teardown-newline"},
+		{Cmd: "if [ \"$VAR3\" != \"baz\" ]; then exit 1; fi", Name: "sd-teardown-baseenv"},
 	}
 	testBuild := screwdriver.Build{
 		ID:          12345,
@@ -335,7 +345,7 @@ func TestTeardownEnv(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", baseEnv, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runWrapUserTeardown {
 		t.Errorf("step pre user teardown should run")
@@ -424,6 +434,7 @@ func TestEnv(t *testing.T) {
 	envFilepath := "/tmp/testEnv"
 	setupTestCase(t, envFilepath)
 	baseEnv := []string{
+		"com.apple=test",
 		"var0=xxx",
 		"var1=foo",
 		"var2=bar",
