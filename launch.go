@@ -192,7 +192,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, shellBin string, buildTimeout int, buildToken string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken string) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -370,28 +370,29 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	apiURL, _ := api.GetAPIURL()
 
 	defaultEnv := map[string]string{
-		"PS1":         "",
-		"SCREWDRIVER": "true",
-		"CI":          "true",
+		"PS1":                    "",
+		"SCREWDRIVER":            "true",
+		"CI":                     "true",
 		"CONTINUOUS_INTEGRATION": "true",
-		"SD_BUILD_ID":            strconv.Itoa(buildID),
-		"SD_JOB_ID":              strconv.Itoa(job.ID),
-		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
-		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
-		"SD_PULL_REQUEST":        pr,
-		"SD_PR_PARENT_JOB_ID":    strconv.Itoa(job.PrParentJobID),
+		"SD_BUILD_ID":            strconv.Itoa(buildID),
+		"SD_JOB_ID":              strconv.Itoa(job.ID),
+		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
+		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
 		"SD_PARENT_BUILD_ID":     fmt.Sprintf("%v", parentBuildIDs),
+		"SD_PR_PARENT_JOB_ID":    strconv.Itoa(job.PrParentJobID),
 		"SD_PARENT_EVENT_ID":     strconv.Itoa(event.ParentEventID),
 		"SD_SOURCE_DIR":          w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 		"SD_META_PATH":           metaSpace + "/" + metaFile,
+		"SD_BUILD_SHA":           build.SHA,
+		"SD_PULL_REQUEST":        pr,
 		"SD_API_URL":             apiURL,
 		"SD_BUILD_URL":           apiURL + "builds/" + strconv.Itoa(buildID),
-		"SD_BUILD_SHA":           build.SHA,
 		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
+		"SD_UI_URL":              fmt.Sprintf("%s/", uiURL),
 		"SD_TOKEN":               buildToken,
 	}
 
@@ -469,10 +470,10 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, shellBin string, buildTimeout int, buildToken string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken string) error {
 	log.Printf("Starting Build %v\n", buildID)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, shellBin, buildTimeout, buildToken); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -562,6 +563,11 @@ func main() {
 			Value: "http://localhost:8081",
 		},
 		cli.StringFlag{
+			Name:  "ui-uri",
+			Usage: "UI URI for Screwdriver",
+			Value: "http://localhost:4200",
+		},
+		cli.StringFlag{
 			Name:   "shell-bin",
 			Usage:  "Shell to use when executing commands",
 			Value:  "/bin/sh",
@@ -586,6 +592,7 @@ func main() {
 		emitterPath := c.String("emitter")
 		metaSpace := c.String("meta-space")
 		storeURL := c.String("store-uri")
+		uiURL := c.String("ui-uri")
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 		buildTimeoutSeconds := c.Int("build-timeout") * 60
@@ -626,7 +633,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, shellBin, buildTimeoutSeconds, token)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")

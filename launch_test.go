@@ -28,7 +28,8 @@ const (
 	TestParentPipelineID = 1113
 	TestMetaSpace        = "./data/meta"
 	TestShellBin         = "/bin/sh"
-	TestStoreURL         = "http://store.screwdriver.cd"
+	TestStoreURL         = "https://store.screwdriver.cd"
+	TestUiURL            = "https://screwdriver.cd"
 	TestBuildToken       = "foobar"
 
 	TestScmURI = "github.com:123456:master"
@@ -92,7 +93,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			return nil
 		},
 		getAPIURL: func() (string, error) {
-			return "http://foo.bar", nil
+			return "https://api.screwdriver.cd/v4/", nil
 		},
 		getCoverageInfo: func() (screwdriver.Coverage, error) {
 			return screwdriver.Coverage(FakeCoverage{EnvVars: TestEnvVars}), nil
@@ -264,7 +265,7 @@ func TestMain(m *testing.M) {
 func TestBuildJobPipelineFromID(t *testing.T) {
 	testPipelineID := 9999
 	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "RUNNING")
-	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 }
 
 func TestBuildFromIdError(t *testing.T) {
@@ -275,7 +276,7 @@ func TestBuildFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -294,7 +295,7 @@ func TestEventFromIdError(t *testing.T) {
 		},
 	}
 
-	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), 0, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -312,7 +313,7 @@ func TestJobFromIdError(t *testing.T) {
 		return screwdriver.Job(FakeJob{}), err
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err == nil {
 		t.Errorf("err should not be nil")
 	}
@@ -331,7 +332,7 @@ func TestPipelineFromIdError(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{}), err
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err == nil {
 		t.Fatalf("err should not be nil")
 	}
@@ -438,7 +439,7 @@ func TestCreateWorkspaceError(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 
 	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher\": Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
@@ -472,7 +473,7 @@ func TestUpdateBuildStatusError(t *testing.T) {
 		return fmt.Errorf("Spooky error")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 
 	want := "Updating build status to RUNNING: Spooky error"
 	if err.Error() != want {
@@ -500,7 +501,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 	tmp, cleanup := setupTempDirectoryAndSocket(t)
 	defer cleanup()
 
-	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket"), TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken); err != nil {
+	if err := launchAction(screwdriver.API(api), 0, tmp, path.Join(tmp, "socket"), TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -537,7 +538,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 		return executor.ErrStatus{Status: 1}
 	}
 
-	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err = launchAction(screwdriver.API(api), 1, tmp, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
@@ -707,7 +708,7 @@ func TestEmitterClose(t *testing.T) {
 		}, nil
 	}
 
-	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken); err != nil {
+	if err := launchAction(screwdriver.API(api), 1, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken); err != nil {
 		t.Errorf("Unexpected error from launch: %v", err)
 	}
 
@@ -721,30 +722,37 @@ func TestSetEnv(t *testing.T) {
 	defer func() { executorRun = oldExecutorRun }()
 
 	tests := map[string]string{
-		"SCREWDRIVER": "true",
-		"CI":          "true",
+		"PS1":                    "",
+		"SCREWDRIVER":            "true",
+		"CI":                     "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
 		"SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
+		"SD_BUILD_ID":            "1234",
+		"SD_JOB_ID":							"2345",
+		"SD_EVENT_ID":            "2234",
 		"SD_PIPELINE_ID":         "3456",
-		"SD_PULL_REQUEST":        "1",
+		"SD_PARENT_BUILD_ID":     "[1234]",
 		"SD_PR_PARENT_JOB_ID":    "111",
+		"SD_PARENT_EVENT_ID":     "3345",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
+		"SD_ROOT_DIR":            "/sd/workspace",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
 		"SD_META_PATH":           "./data/meta/meta.json",
-		"SD_BUILD_ID":            "1234",
 		"SD_BUILD_SHA":           "abc123",
-		"SD_STORE_URL":           "http://store.screwdriver.cd/v1/",
+		"SD_PULL_REQUEST":        "1",
+		"SD_API_URL":             "https://api.screwdriver.cd/v4/",
+		"SD_BUILD_URL":           "https://api.screwdriver.cd/v4/builds/1234",
+		"SD_STORE_URL":           "https://store.screwdriver.cd/v1/",
+		"SD_UI_URL":              "https://screwdriver.cd/",
+		"SD_TOKEN":               "foobar",
 		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
 		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
-		"SD_TOKEN":               "foobar",
-		"SD_PARENT_BUILD_ID":     "[1234]",
-		"SD_PARENT_EVENT_ID":     "3345",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{Name: "PR-1", PipelineID: TestPipelineID, PrParentJobID: 111}), nil
+		return screwdriver.Job(FakeJob{ID: TestJobID, Name: "PR-1", PipelineID: TestPipelineID, PrParentJobID: 111}), nil
 	}
 
 	foundEnv := map[string]string{}
@@ -764,7 +772,7 @@ func TestSetEnv(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -779,7 +787,7 @@ func TestSetEnv(t *testing.T) {
 	delete(tests, "SD_SONAR_HOST")
 	TestEnvVars = map[string]string{}
 	foundEnv = map[string]string{}
-	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -827,7 +835,7 @@ func TestEnvSecrets(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	if err != nil {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
@@ -929,7 +937,7 @@ func TestFetchDefaultMeta(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
 
 	if err != nil || string(defaultMeta) != string(want) {
@@ -971,7 +979,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"hoge\":\"fuga\"}")
 
 	if err != nil || string(parentMeta) != string(want) {
@@ -995,7 +1003,7 @@ func TestFetchParentBuildsMetaParseError(t *testing.T) {
 		return nil, fmt.Errorf("Testing parsing parent builds meta")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing parent builds meta")
 
 	if err.Error() != expected {
@@ -1018,7 +1026,7 @@ func TestFetchParentEventMetaParseError(t *testing.T) {
 		return nil, fmt.Errorf("Testing parsing parent event meta")
 	}
 
-	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing parent event meta")
 
 	if err.Error() != expected {
@@ -1053,7 +1061,7 @@ func TestFetchParentBuildMetaParseError(t *testing.T) {
 		return nil, fmt.Errorf("Testing parsing parent build meta")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing parent build meta")
 
 	if err.Error() != expected {
@@ -1088,7 +1096,7 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 		return fmt.Errorf("Testing writing parent build meta")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	expected := fmt.Sprintf(`Writing Parent Build(%d) Meta JSON: Testing writing parent build meta`, TestParentBuildID)
 
 	if err.Error() != expected {
@@ -1140,7 +1148,7 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 		return nil, fmt.Errorf("Testing parsing parent event meta")
 	}
 
-	_ = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	_ = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 
 	if !reflect.DeepEqual(actual["foo"], ExpectedMetaDeep) {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["foo"], ExpectedMetaDeep)
@@ -1169,7 +1177,7 @@ func TestNoParentEventID(t *testing.T) {
 		return nil, fmt.Errorf("Testing parsing parent event meta")
 	}
 
-	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 }
 
 func TestFetchParentEventMetaWriteError(t *testing.T) {
@@ -1208,7 +1216,7 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 		return fmt.Errorf("Testing writing parent event meta")
 	}
 
-	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestEventID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	expected := fmt.Sprintf(`Writing Parent Event(%d) Meta JSON: Testing writing parent event meta`, TestParentEventID)
 
 	if err.Error() != expected {
@@ -1241,7 +1249,7 @@ func TestFetchEventMeta(t *testing.T) {
 		return nil
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
 
 	if err != nil || string(eventMeta) != string(want) {
@@ -1267,7 +1275,7 @@ func TestFetchEventMetaMarshalError(t *testing.T) {
 		return nil, fmt.Errorf("Testing parsing event meta")
 	}
 
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 	expected := fmt.Sprint("Parsing Meta JSON: Testing parsing event meta")
 
 	if err.Error() != expected {
