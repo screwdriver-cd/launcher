@@ -1,4 +1,4 @@
-FROM alpine:3.4
+FROM alpine:3.8
 MAINTAINER The Screwdrivers <screwdriver.cd>
 
 WORKDIR /opt/sd
