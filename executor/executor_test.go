@@ -140,6 +140,7 @@ func cleanup(filename string) {
 func setupTestCase(t *testing.T, filename string) {
 	t.Log("setup test case")
 	cleanup(filename)
+	cleanup(filename + "_base")
 	cleanup(filename + "_tmp")
 	cleanup(filename + "_export")
 }
@@ -201,7 +202,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, envFilepath)
+		err := Run("", "", &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, envFilepath)
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -273,7 +274,7 @@ func TestMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", "", &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
@@ -290,13 +291,13 @@ func TestTeardownEnv(t *testing.T) {
 	envFilepath := "/tmp/testTeardownEnv"
 	setupTestCase(t, envFilepath)
 
-	baseEnv := []string{
-		"com.apple=test",
-		"var0=xxx",
-		"var1=foo",
-		"var2=bar",
-		"VAR3=baz",
-	}
+	baseEnv := strings.Join([]string{
+		"export apple=test",
+		"export var0=xxx",
+		"export var1=foo",
+		"export var2=bar",
+		"export VAR3=baz",
+	}, "\n")
 
 	commands := []screwdriver.CommandDef{
 		{Cmd: "export FOO=\"BAR with spaces\"", Name: "foo"},
@@ -381,7 +382,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", "", &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -423,7 +424,7 @@ func TestTimeout(t *testing.T) {
 		},
 	}
 	testTimeout := 3
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, envFilepath)
+	err := Run("", "", &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, envFilepath)
 	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -433,13 +434,13 @@ func TestTimeout(t *testing.T) {
 func TestEnv(t *testing.T) {
 	envFilepath := "/tmp/testEnv"
 	setupTestCase(t, envFilepath)
-	baseEnv := []string{
-		"com.apple=test",
-		"var0=xxx",
-		"var1=foo",
-		"var2=bar",
-		"VAR3=baz",
-	}
+	baseEnv := strings.Join([]string{
+		"export apple=test",
+		"export var0=xxx",
+		"export var1=foo",
+		"export var2=bar",
+		"export VAR3=baz",
+	}, "\n")
 
 	want := map[string]string{
 		"var1": "foo",
@@ -548,7 +549,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", "", &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -590,7 +591,7 @@ func TestUserShell(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/bash", TestBuildTimeout, envFilepath)
+	err := Run("", "", &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/bash", TestBuildTimeout, envFilepath)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
