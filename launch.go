@@ -424,7 +424,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
 }
 
-func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {
+func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) (string, string) {
 	var userShellBin string
 
 	combined := map[string]string{}
@@ -454,13 +454,13 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 	}
 
 	// Create the final string slice
-	envStrings := []string{}
+	envStrings := ""
 	for k, v := range combined {
-		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
+		envStrings += "export " + k + "=" + v + "\n"
 	}
 
 	for k, v := range build.Environment {
-		envStrings = append(envStrings, strings.Join([]string{k, v}, "="))
+		envStrings += "export " + k + "=" + v + "\n"
 		if k == "USER_SHELL_BIN" {
 			userShellBin = v
 		}

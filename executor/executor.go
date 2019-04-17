@@ -117,7 +117,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env []string, path, shellBin string, exportFile string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env string, path, shellBin string, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
@@ -132,8 +132,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	c.Stdout = emitter
 	c.Stderr = emitter
 	c.Dir = path
-	c.Env = append(env, c.Env...)
-
+	// add env
 	if err := c.Start(); err != nil {
 		return ExitLaunch, fmt.Errorf("Launching command %q: %v", cmd.Cmd, err)
 	}
@@ -210,19 +209,28 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath string) error {
+func Run(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath string) error {
+	envFile := envFilepath + "_initial"
+	tmpFile := envFilepath + "_tmp"
+	exportFile := envFilepath + "_export"
+
+
 	// Set up a single pseudo-terminal
 	c := exec.Command(shellBin)
 	c.Dir = path
-	c.Env = append(env, c.Env...)
+
+	file, err := os.Create(envFile)
+	if err != nil {
+			log.Fatal("Cannot create file", err)
+	}
+	defer file.Close()
+
+	fmt.Fprintf(file, env)
 
 	f, err := pty.Start(c)
 	if err != nil {
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
-
-	tmpFile := envFilepath + "_tmp"
-	exportFile := envFilepath + "_export"
 
 	// Command to Export Env. Use tmpfile just in case export -p takes some time
 	exportEnvCmd :=
@@ -233,6 +241,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	setupCommands := []string{
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
+		". " + envFile,
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 			"EXITCODE=$?; " +
