@@ -117,7 +117,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env string, path, shellBin string, baseEnvFile string, exportFile string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, env, path, shellBin, baseEnvFile, exportFile string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && . " + baseEnvFile + " && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
