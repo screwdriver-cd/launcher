@@ -251,7 +251,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -534,7 +534,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, env []string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, env string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
@@ -722,32 +722,32 @@ func TestSetEnv(t *testing.T) {
 	defer func() { executorRun = oldExecutorRun }()
 
 	tests := map[string]string{
-		"PS1":                    "",
-		"SCREWDRIVER":            "true",
-		"CI":                     "true",
-		"CONTINUOUS_INTEGRATION": "true",
-		"SD_JOB_NAME":            "PR-1",
-		"SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
-		"SD_BUILD_ID":            "1234",
-		"SD_JOB_ID":							"2345",
-		"SD_EVENT_ID":            "2234",
-		"SD_PIPELINE_ID":         "3456",
-		"SD_PARENT_BUILD_ID":     "[1234]",
-		"SD_PR_PARENT_JOB_ID":    "111",
-		"SD_PARENT_EVENT_ID":     "3345",
-		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
-		"SD_ROOT_DIR":            "/sd/workspace",
-		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
-		"SD_META_PATH":           "./data/meta/meta.json",
-		"SD_BUILD_SHA":           "abc123",
-		"SD_PULL_REQUEST":        "1",
-		"SD_API_URL":             "https://api.screwdriver.cd/v4/",
-		"SD_BUILD_URL":           "https://api.screwdriver.cd/v4/builds/1234",
-		"SD_STORE_URL":           "https://store.screwdriver.cd/v1/",
-		"SD_UI_URL":              "https://screwdriver.cd/",
-		"SD_TOKEN":               "foobar",
-		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
-		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
+		"export PS1":                    "",
+		"export SCREWDRIVER":            "true",
+		"export CI":                     "true",
+		"export CONTINUOUS_INTEGRATION": "true",
+		"export SD_JOB_NAME":            "PR-1",
+		"export SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
+		"export SD_BUILD_ID":            "1234",
+		"export SD_JOB_ID":							"2345",
+		"export SD_EVENT_ID":            "2234",
+		"export SD_PIPELINE_ID":         "3456",
+		"export SD_PARENT_BUILD_ID":     "[1234]",
+		"export SD_PR_PARENT_JOB_ID":    "111",
+		"export SD_PARENT_EVENT_ID":     "3345",
+		"export SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
+		"export SD_ROOT_DIR":            "/sd/workspace",
+		"export SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
+		"export SD_META_PATH":           "./data/meta/meta.json",
+		"export SD_BUILD_SHA":           "abc123",
+		"export SD_PULL_REQUEST":        "1",
+		"export SD_API_URL":             "https://api.screwdriver.cd/v4/",
+		"export SD_BUILD_URL":           "https://api.screwdriver.cd/v4/builds/1234",
+		"export SD_STORE_URL":           "https://store.screwdriver.cd/v1/",
+		"export SD_UI_URL":              "https://screwdriver.cd/",
+		"export SD_TOKEN":               "foobar",
+		"export SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
+		"export SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
@@ -756,17 +756,20 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	foundEnv := map[string]string{}
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
 
-		for _, e := range env {
+		envArr := strings.Split(env, "\n")
+		for _, e := range envArr {
 			split := strings.SplitN(e, "=", 2)
-			if len(split) != 2 {
-				t.Fatalf("Bad environment value passed to executorRun: %s", e)
+			if e != "" {	// last line can be "", do not fail
+				if len(split) != 2 {
+					t.Fatalf("Bad environment value passed to executorRun: %s", e)
+				}
+				foundEnv[split[0]] = split[1]
 			}
-			foundEnv[split[0]] = split[1]
 		}
 
 		return nil
@@ -783,8 +786,8 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	// in case of no coverage plugins
-	delete(tests, "SD_SONAR_AUTH_URL")
-	delete(tests, "SD_SONAR_HOST")
+	delete(tests, "export SD_SONAR_AUTH_URL")
+	delete(tests, "export SD_SONAR_HOST")
 	TestEnvVars = map[string]string{}
 	foundEnv = map[string]string{}
 	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
@@ -819,17 +822,20 @@ func TestEnvSecrets(t *testing.T) {
 	foundEnv := map[string]string{}
 	oldExecutorRun := executorRun
 	defer func() { executorRun = oldExecutorRun }()
-	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
 
-		for _, e := range env {
+		envArr := strings.Split(env, "\n")
+		for _, e := range envArr {
 			split := strings.SplitN(e, "=", 2)
-			if len(split) != 2 {
-				t.Fatalf("Bad environment value passed to executorRun: %s", e)
+			if e != "" {	// last line can be "", do not fail
+				if len(split) != 2 {
+					t.Fatalf("Bad environment value passed to executorRun: %s", e)
+				}
+				foundEnv[split[0]] = split[1]
 			}
-			foundEnv[split[0]] = split[1]
 		}
 
 		return nil
@@ -840,7 +846,7 @@ func TestEnvSecrets(t *testing.T) {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
 
-	if foundEnv["FOONAME"] != "barvalue" {
+	if foundEnv["export FOONAME"] != "barvalue" {
 		t.Errorf("secret not set in environment %v, want FOONAME=barvalue", foundEnv)
 	}
 }
@@ -868,24 +874,25 @@ func TestCreateEnvironment(t *testing.T) {
 		Environment: buildEnv,
 	}
 	env, userShellBin := createEnvironment(base, secrets, testBuild)
+	envArr := strings.Split(env, "\n")
 
 	if userShellBin != "" {
 		t.Errorf("Default userShellBin should be empty string")
 	}
 
 	foundEnv := map[string]bool{}
-	for _, i := range env {
+	for _, i := range envArr {
 		foundEnv[i] = true
 	}
 
 	for _, want := range []string{
-		"SD_TOKEN=1234",
-		"FOO=bar",
-		"THINGWITHEQUALS=abc=def",
-		"secret1=secret1value",
-		"GETSOVERRIDDEN=override",
-		"OSENVWITHEQUALS=foo=bar=",
-		"GOPATH=/go/path",
+		"export SD_TOKEN=1234",
+		"export FOO=bar",
+		"export THINGWITHEQUALS=abc=def",
+		"export secret1=secret1value",
+		"export GETSOVERRIDDEN=override",
+		"export OSENVWITHEQUALS=foo=bar=",
+		"export GOPATH=/go/path",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
