@@ -234,7 +234,6 @@ func Run(path string, env string, emitter screwdriver.Emitter, build screwdriver
 	setupCommands := []string{
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
-		". " + baseEnvFile,
 		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 			"EXITCODE=$?; " +
@@ -263,6 +262,11 @@ func Run(path string, env string, emitter screwdriver.Emitter, build screwdriver
 		// Start set up & user steps if previous steps succeed
 		if firstError != nil {
 			break
+		}
+
+		// override the setup launcher step to source the env
+		if cmd.Name == "sd-setup-launcher" {
+			cmd.Cmd = ". " + baseEnvFile
 		}
 
 		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {

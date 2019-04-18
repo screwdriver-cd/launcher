@@ -450,6 +450,9 @@ func TestEnv(t *testing.T) {
 
 	cmds := []screwdriver.CommandDef{
 		{
+			Name: "sd-setup-launcher",
+		},
+		{
 			Cmd:  "env",
 			Name: "test",
 		},
@@ -466,8 +469,8 @@ func TestEnv(t *testing.T) {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
 			}
-			if stepName != "test" {
-				t.Errorf("wrong step name got %v, want %v", stepName, "test")
+			if (stepName != "test" && stepName != "sd-setup-launcher") {
+				t.Errorf("wrong step name got %v, want %v ", stepName, "sd-setup-launcher or test")
 			}
 			return nil
 		},

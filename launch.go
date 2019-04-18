@@ -417,10 +417,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		shellBin = userShellBin
 	}
 
-	if err := api.UpdateStepStop(buildID, "sd-setup-launcher", 0); err != nil {
-		return fmt.Errorf("Updating sd-setup-launcher stop: %v", err)
-	}
-
 	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
 }
 
