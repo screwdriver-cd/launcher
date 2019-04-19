@@ -251,7 +251,7 @@ func TestMain(m *testing.M) {
 	open = func(f string) (*os.File, error) {
 		return os.Open("data/screwdriver.yaml")
 	}
-	executorRun = func(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, osEnv []string, buildEnv string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -534,7 +534,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	oldRun := executorRun
 	defer func() { executorRun = oldRun }()
-	executorRun = func(path string, env string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, osEnv []string, env string, out screwdriver.Emitter, build screwdriver.Build, a screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		return executor.ErrStatus{Status: 1}
 	}
 
@@ -756,7 +756,7 @@ func TestSetEnv(t *testing.T) {
 	}
 
 	foundEnv := map[string]string{}
-	executorRun = func(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, osEnv []string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
@@ -822,7 +822,7 @@ func TestEnvSecrets(t *testing.T) {
 	foundEnv := map[string]string{}
 	oldExecutorRun := executorRun
 	defer func() { executorRun = oldExecutorRun }()
-	executorRun = func(path string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
+	executorRun = func(path string, osEnv []string, env string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath string) error {
 		if len(env) == 0 {
 			t.Fatalf("Unexpected empty environment passed to executorRun")
 		}
@@ -873,7 +873,8 @@ func TestCreateEnvironment(t *testing.T) {
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	env, userShellBin := createEnvironment(base, secrets, testBuild)
+
+	osEnv, env, userShellBin := createEnvironment(base, secrets, testBuild)
 	envArr := strings.Split(env, "\n")
 
 	if userShellBin != "" {
@@ -881,17 +882,21 @@ func TestCreateEnvironment(t *testing.T) {
 	}
 
 	foundEnv := map[string]bool{}
+	for _, i := range osEnv {
+		foundEnv[i] = true
+	}
+
 	for _, i := range envArr {
 		foundEnv[i] = true
 	}
 
 	for _, want := range []string{
+		"OSENVWITHEQUALS=foo=bar=",
 		"export SD_TOKEN=1234",
 		"export FOO=bar",
 		"export THINGWITHEQUALS=abc=def",
 		"export secret1=secret1value",
 		"export GETSOVERRIDDEN=override",
-		"export OSENVWITHEQUALS=foo=bar=",
 		"export GOPATH=/go/path",
 	} {
 		if !foundEnv[want] {
@@ -915,7 +920,7 @@ func TestUserShellBin(t *testing.T) {
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	_, userShellBin := createEnvironment(base, secrets, testBuild)
+	_, _, userShellBin := createEnvironment(base, secrets, testBuild)
 
 	if userShellBin != "/bin/bash" {
 		t.Errorf("userShellBin %v, expect %v", userShellBin, "/bin/bash")
