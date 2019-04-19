@@ -462,6 +462,8 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 		}
 	}
 
+	envStrings += "export PATH=$PATH:/opt/sd"
+
 	return envStrings, userShellBin
 }
 
