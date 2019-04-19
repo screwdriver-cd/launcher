@@ -1,8 +1,8 @@
 package executor
 
 import (
-	// "bufio"
-	// "bytes"
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -431,86 +431,90 @@ func TestTimeout(t *testing.T) {
 	}
 }
 
-// func TestEnv(t *testing.T) {
-// 	envFilepath := "/tmp/testEnv"
-// 	setupTestCase(t, envFilepath)
-// 	baseEnv := strings.Join([]string{
-// 		"export apple=test",
-// 		"export var0=xxx",
-// 		"export var1=foo",
-// 		"export var2=bar",
-// 		"export VAR3=baz",
-// 	}, "\n")
-//
-// 	want := map[string]string{
-// 		"var1": "foo",
-// 		"var2": "bar",
-// 		"VAR3": "baz",
-// 	}
-//
-// 	cmds := []screwdriver.CommandDef{
-// 		{
-// 			Name: "sd-setup-launcher",
-// 		},
-// 		{
-// 			Cmd:  "env",
-// 			Name: "test",
-// 		},
-// 	}
-//
-// 	testBuild := screwdriver.Build{
-// 		ID:       9999,
-// 		Commands: cmds,
-// 	}
-//
-// 	output := MockEmitter{}
-// 	testAPI := screwdriver.API(MockAPI{
-// 		updateStepStart: func(buildID int, stepName string) error {
-// 			if buildID != testBuild.ID {
-// 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
-// 			}
-// 			if (stepName != "test" && stepName != "sd-setup-launcher") {
-// 				t.Errorf("wrong step name got %v, want %v ", stepName, "sd-setup-launcher or test")
-// 			}
-// 			return nil
-// 		},
-// 	})
-// 	wantFlattened := []string{}
-// 	for k, v := range want {
-// 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
-// 	}
-// 	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
-// 	if err != nil {
-// 		t.Errorf("Unexpected error: %v", err)
-// 	}
-//
-// 	found := map[string]string{}
-// 	var foundCmd string
-//
-// 	scanner := bufio.NewScanner(bytes.NewReader(output.found))
-// 	for scanner.Scan() {
-// 		line := scanner.Text()
-// 		split := strings.Split(line, "=")
-// 		if len(split) != 2 {
-// 			// Capture that "$ env" output line
-// 			if strings.HasPrefix(line, "$") {
-// 				foundCmd = line
-// 			}
-// 			continue
-// 		}
-// 		found[split[0]] = split[1]
-// 	}
-//
-// 	if foundCmd != "$ env" {
-// 		t.Errorf("foundCmd = %q, want %q", foundCmd, "env")
-// 	}
-//
-// 	for k, v := range want {
-// 		if found[k] != v {
-// 			t.Errorf("%v=%q, want %v", k, found[k], v)
-// 		}
-// 	}
-// }
+func TestEnv(t *testing.T) {
+	envFilepath := "/tmp/testEnv"
+	setupTestCase(t, envFilepath)
+	osEnv := []string{
+		"com.apple=test",
+	}
+	baseEnv := strings.Join([]string{
+		"export var0=xxx",
+		"export var1=foo",
+		"export var2=bar",
+		"export VAR3=baz",
+	}, "\n")
+
+	want := map[string]string{
+		"com.apple": "test",
+		"var0": "xxx",
+		"var1": "foo",
+		"var2": "bar",
+		"VAR3": "baz",
+	}
+
+	cmds := []screwdriver.CommandDef{
+		{
+			Name: "sd-setup-launcher",
+		},
+		{
+			Cmd:  "env",
+			Name: "test",
+		},
+	}
+
+	testBuild := screwdriver.Build{
+		ID:       9999,
+		Commands: cmds,
+	}
+
+	output := MockEmitter{}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if (stepName != "test" && stepName != "sd-setup-launcher") {
+				t.Errorf("wrong step name got %v, want %v ", stepName, "sd-setup-launcher or test")
+			}
+			return nil
+		},
+	})
+	wantFlattened := []string{}
+	for k, v := range want {
+		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
+	}
+	err := Run("", osEnv, baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	found := map[string]string{}
+	var foundCmd string
+
+	scanner := bufio.NewScanner(bytes.NewReader(output.found))
+	for scanner.Scan() {
+		line := scanner.Text()
+		split := strings.Split(line, "=")
+		if len(split) != 2 {
+			// Capture that "$ env" output line
+			if strings.HasPrefix(line, "$") {
+				foundCmd = line
+			}
+			continue
+		}
+		found[split[0]] = split[1]
+	}
+
+	if foundCmd != "$ env" {
+		t.Errorf("foundCmd = %q, want %q", foundCmd, "env")
+	}
+
+	for k, v := range want {
+		if found[k] != v {
+			t.Errorf("%v=%q, want %v", k, found[k], v)
+		}
+	}
+}
 
 func TestEmitter(t *testing.T) {
 	envFilepath := "/tmp/testEmitter"
