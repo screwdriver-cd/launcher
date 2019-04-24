@@ -722,32 +722,32 @@ func TestSetEnv(t *testing.T) {
 	defer func() { executorRun = oldExecutorRun }()
 
 	tests := map[string]string{
-		"export PS1":                    "",
-		"export SCREWDRIVER":            "true",
-		"export CI":                     "true",
-		"export CONTINUOUS_INTEGRATION": "true",
-		"export SD_JOB_NAME":            "PR-1",
-		"export SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
-		"export SD_BUILD_ID":            "1234",
-		"export SD_JOB_ID":							"2345",
-		"export SD_EVENT_ID":            "2234",
-		"export SD_PIPELINE_ID":         "3456",
-		"export SD_PARENT_BUILD_ID":     "[1234]",
-		"export SD_PR_PARENT_JOB_ID":    "111",
-		"export SD_PARENT_EVENT_ID":     "3345",
-		"export SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
-		"export SD_ROOT_DIR":            "/sd/workspace",
-		"export SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
-		"export SD_META_PATH":           "./data/meta/meta.json",
-		"export SD_BUILD_SHA":           "abc123",
-		"export SD_PULL_REQUEST":        "1",
-		"export SD_API_URL":             "https://api.screwdriver.cd/v4/",
-		"export SD_BUILD_URL":           "https://api.screwdriver.cd/v4/builds/1234",
-		"export SD_STORE_URL":           "https://store.screwdriver.cd/v1/",
-		"export SD_UI_URL":              "https://screwdriver.cd/",
-		"export SD_TOKEN":               "foobar",
-		"export SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
-		"export SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
+		"export PS1":                    "\"\"",
+		"export SCREWDRIVER":            "\"true\"",
+		"export CI":                     "\"true\"",
+		"export CONTINUOUS_INTEGRATION": "\"true\"",
+		"export SD_JOB_NAME":            "\"PR-1\"",
+		"export SD_PIPELINE_NAME":       "\"screwdriver-cd/launcher\"",
+		"export SD_BUILD_ID":            "\"1234\"",
+		"export SD_JOB_ID":							 "\"2345\"",
+		"export SD_EVENT_ID":            "\"2234\"",
+		"export SD_PIPELINE_ID":         "\"3456\"",
+		"export SD_PARENT_BUILD_ID":     "\"[1234]\"",
+		"export SD_PR_PARENT_JOB_ID":    "\"111\"",
+		"export SD_PARENT_EVENT_ID":     "\"3345\"",
+		"export SD_SOURCE_DIR":          "\"/sd/workspace/src/github.com/screwdriver-cd/launcher\"",
+		"export SD_ROOT_DIR":            "\"/sd/workspace\"",
+		"export SD_ARTIFACTS_DIR":       "\"/sd/workspace/artifacts\"",
+		"export SD_META_PATH":           "\"./data/meta/meta.json\"",
+		"export SD_BUILD_SHA":           "\"abc123\"",
+		"export SD_PULL_REQUEST":        "\"1\"",
+		"export SD_API_URL":             "\"https://api.screwdriver.cd/v4/\"",
+		"export SD_BUILD_URL":           "\"https://api.screwdriver.cd/v4/builds/1234\"",
+		"export SD_STORE_URL":           "\"https://store.screwdriver.cd/v1/\"",
+		"export SD_UI_URL":              "\"https://screwdriver.cd/\"",
+		"export SD_TOKEN":               "\"foobar\"",
+		"export SD_SONAR_AUTH_URL":      "\"https://api.screwdriver.cd/v4/coverage/token\"",
+		"export SD_SONAR_HOST":          "\"https://sonar.screwdriver.cd\"",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
@@ -846,7 +846,7 @@ func TestEnvSecrets(t *testing.T) {
 		t.Fatalf("Unexpected error from launch: %v", err)
 	}
 
-	if foundEnv["export FOONAME"] != "barvalue" {
+	if foundEnv["export FOONAME"] != "\"barvalue\"" {
 		t.Errorf("secret not set in environment %v, want FOONAME=barvalue", foundEnv)
 	}
 }
@@ -892,12 +892,12 @@ func TestCreateEnvironment(t *testing.T) {
 
 	for _, want := range []string{
 		"OSENVWITHEQUALS=foo=bar=",
-		"export SD_TOKEN=1234",
-		"export FOO=bar",
-		"export THINGWITHEQUALS=abc=def",
-		"export secret1=secret1value",
-		"export GETSOVERRIDDEN=override",
-		"export GOPATH=/go/path",
+		"export SD_TOKEN=\"1234\"",
+		"export FOO=\"bar\"",
+		"export THINGWITHEQUALS=\"abc=def\"",
+		"export secret1=\"secret1value\"",
+		"export GETSOVERRIDDEN=\"override\"",
+		"export GOPATH=\"/go/path\"",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)

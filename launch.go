@@ -455,17 +455,17 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 		buildEnvMap[s.Name] = s.Value
 	}
 
-	// Create the final string slice
-	buildEnv := ""
-	for k, v := range buildEnvMap {
-		buildEnv += "export " + k + "=" + v + "\n"
-	}
-
 	for k, v := range build.Environment {
-		buildEnv += "export " + k + "=" + v + "\n"
+		buildEnvMap[k] = v
 		if k == "USER_SHELL_BIN" {
 			userShellBin = v
 		}
+	}
+
+	// Create the final string slice
+	buildEnv := ""
+	for k, v := range buildEnvMap {
+		buildEnv += "export " + k + "=\"" + v + "\"\n"
 	}
 
 	return osEnv, buildEnv, userShellBin
