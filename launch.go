@@ -250,6 +250,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	mergedMeta := map[string]interface{}{
 		"build": buildMeta,
 	}
+	if build.Meta != nil {
+		mergedMeta = deepMergeJSON(build.Meta, mergedMeta)
+	}
 
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
 		// Get meta from all parent builds
