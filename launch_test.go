@@ -722,14 +722,14 @@ func TestSetEnv(t *testing.T) {
 	defer func() { executorRun = oldExecutorRun }()
 
 	tests := map[string]string{
-		"PS1":                    "",
-		"SCREWDRIVER":            "true",
-		"CI":                     "true",
+		"PS1":         "",
+		"SCREWDRIVER": "true",
+		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
 		"SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
 		"SD_BUILD_ID":            "1234",
-		"SD_JOB_ID":							"2345",
+		"SD_JOB_ID":              "2345",
 		"SD_EVENT_ID":            "2234",
 		"SD_PIPELINE_ID":         "3456",
 		"SD_PARENT_BUILD_ID":     "[1234]",
@@ -861,6 +861,7 @@ func TestCreateEnvironment(t *testing.T) {
 
 	buildEnv := map[string]string{
 		"GOPATH": "/go/path",
+		"EXPAND": "${GOPATH}/expand",
 	}
 
 	testBuild := screwdriver.Build{
@@ -886,6 +887,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"GETSOVERRIDDEN=override",
 		"OSENVWITHEQUALS=foo=bar=",
 		"GOPATH=/go/path",
+		"EXPAND=/go/path/expand",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
@@ -1189,7 +1191,7 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 
 	api := mockAPI(t, TestEventID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA, }), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestParentEventID {
@@ -1234,7 +1236,7 @@ func TestFetchEventMeta(t *testing.T) {
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA, }), nil
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestEventID {

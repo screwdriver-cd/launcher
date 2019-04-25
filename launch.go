@@ -370,9 +370,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	apiURL, _ := api.GetAPIURL()
 
 	defaultEnv := map[string]string{
-		"PS1":                    "",
-		"SCREWDRIVER":            "true",
-		"CI":                     "true",
+		"PS1":         "",
+		"SCREWDRIVER": "true",
+		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
@@ -431,6 +431,7 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 
 	for k, v := range build.Environment {
 		os.Setenv(k, os.ExpandEnv(v))
+
 		if k == "USER_SHELL_BIN" {
 			userShellBin = v
 		}
