@@ -373,9 +373,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	apiURL, _ := api.GetAPIURL()
 
 	defaultEnv := map[string]string{
-		"PS1":                    "",
-		"SCREWDRIVER":            "true",
-		"CI":                     "true",
+		"PS1":         "",
+		"SCREWDRIVER": "true",
+		"CI":          "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
@@ -415,21 +415,43 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Fetching secrets for build %v", build.ID)
 	}
 
-	osEnv, buildEnv , userShellBin := createEnvironment(defaultEnv, secrets, build)
+	env, userShellBin := createEnvironment(defaultEnv, secrets, build)
 	if userShellBin != "" {
 		shellBin = userShellBin
 	}
 
-	return executorRun(w.Src, osEnv, buildEnv, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
 }
 
-func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string, string) {
+func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {
 	var userShellBin string
-
-	osEnvMap := map[string]string{}
 	buildEnvMap := map[string]string{}
 
-	// Start with the current environment
+	// Add the default environment values
+	for k, v := range base {
+		os.Setenv(k, v)
+	}
+
+	for k, v := range build.Environment {
+		os.Setenv(k, os.ExpandEnv(v))
+
+		if k == "USER_SHELL_BIN" {
+			userShellBin = v
+		}
+	}
+
+	// Add secrets to the environment
+	for _, s := range secrets {
+		os.Setenv(s.Name, os.ExpandEnv(s.Value))
+	}
+
+	for k, v := range buildEnvMap {
+		os.Setenv(k, os.ExpandEnv(v))
+	}
+
+	envMap := map[string]string{}
+
+	// Make an environment variables map
 	for _, e := range os.Environ() {
 		pieces := strings.SplitAfterN(e, "=", 2)
 		if len(pieces) != 2 {
@@ -440,38 +462,15 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 		k := pieces[0][:len(pieces[0])-1] // Drop the "=" off the end
 		v := pieces[1]
 
-		osEnvMap[k] = v
+		envMap[k] = v
 	}
 
-	osEnv := []string{}
-	for k, v := range osEnvMap {
-		osEnv = append(osEnv, strings.Join([]string{k, v}, "="))
+	env := []string{}
+	for k, v := range envMap {
+		env = append(env, strings.Join([]string{k, v}, "="))
 	}
 
-	// Add the default environment values
-	for k, v := range base {
-		buildEnvMap[k] = v
-	}
-
-	// Add secrets to the environment
-	for _, s := range secrets {
-		buildEnvMap[s.Name] = s.Value
-	}
-
-	// Create the final string slice
-	buildEnv := ""
-	for k, v := range buildEnvMap {
-		buildEnv += "export " + k + "=" + v + "\n"
-	}
-
-	for k, v := range build.Environment {
-		buildEnv += "export " + k + "=" + v + "\n"
-		if k == "USER_SHELL_BIN" {
-			userShellBin = v
-		}
-	}
-
-	return osEnv, buildEnv, userShellBin
+	return env, userShellBin
 }
 
 // Executes the command based on arguments from the CLI
