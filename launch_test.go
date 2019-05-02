@@ -872,7 +872,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"SD_PIPELINE_ID":  "888",
 	}
 	cluster := map[string]string{
-		"SD_PROJECT":        "$SD_PIPELINE_ID",
+		"SD_PROJECT": "$SD_PIPELINE_ID",
 	}
 
 	secrets := screwdriver.Secrets{
@@ -880,10 +880,9 @@ func TestCreateEnvironment(t *testing.T) {
 		{Name: "GETSOVERRIDDEN", Value: "override"},
 	}
 
-	buildEnv := map[string]string{
-		"GOPATH": "/go/path",
-		"EXPAND": "${GOPATH}/expand",
-	}
+	var buildEnv []map[string]string
+	buildEnv = append(buildEnv, map[string]string{"GOPATH": "/go/path"})
+	buildEnv = append(buildEnv, map[string]string{"EXPAND": "${GOPATH}/expand"})
 
 	testBuild := screwdriver.Build{
 		ID:          12345,
@@ -925,9 +924,8 @@ func TestUserShellBin(t *testing.T) {
 	base := map[string]string{}
 	cluster := map[string]string{}
 	secrets := screwdriver.Secrets{}
-	buildEnv := map[string]string{
-		"USER_SHELL_BIN": "/bin/bash",
-	}
+	var buildEnv []map[string]string
+	buildEnv = append(buildEnv, map[string]string{"USER_SHELL_BIN": "/bin/bash"})
 
 	testBuild := screwdriver.Build{
 		ID:          12345,

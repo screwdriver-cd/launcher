@@ -74,10 +74,10 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 }
 
 type scmPath struct {
-	Host   	string
-	Org    	string
-	Repo   	string
-	Branch 	string
+	Host    string
+	Org     string
+	Repo    string
+	Branch  string
 	RootDir string
 }
 
@@ -91,10 +91,10 @@ func parseScmURI(scmURI, scmName string) (scmPath, error) {
 	}
 
 	parsed := scmPath{
-		Host:   uri[0],
-		Org:    orgRepo[0],
-		Repo:   orgRepo[1],
-		Branch: uri[2],
+		Host:    uri[0],
+		Org:     orgRepo[0],
+		Repo:    orgRepo[1],
+		Branch:  uri[2],
 		RootDir: "",
 	}
 
@@ -455,7 +455,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 func createEnvironment(base, cluster map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {
 	var userShellBin string
-	buildEnvMap := map[string]string{}
 
 	// Add the default environment values
 	for k, v := range base {
@@ -466,11 +465,13 @@ func createEnvironment(base, cluster map[string]string, secrets screwdriver.Secr
 		os.Setenv(k, os.ExpandEnv(v))
 	}
 
-	for k, v := range build.Environment {
-		os.Setenv(k, os.ExpandEnv(v))
+	for _, env := range build.Environment {
+		for k, v := range env {
+			os.Setenv(k, os.ExpandEnv(v))
 
-		if k == "USER_SHELL_BIN" {
-			userShellBin = v
+			if k == "USER_SHELL_BIN" {
+				userShellBin = v
+			}
 		}
 	}
 
@@ -479,13 +480,9 @@ func createEnvironment(base, cluster map[string]string, secrets screwdriver.Secr
 		os.Setenv(s.Name, os.ExpandEnv(s.Value))
 	}
 
-	for k, v := range buildEnvMap {
-		os.Setenv(k, os.ExpandEnv(v))
-	}
-
 	envMap := map[string]string{}
 
-	// Make an environment variables map
+	// Go through environment and make an environment variables map
 	for _, e := range os.Environ() {
 		pieces := strings.SplitAfterN(e, "=", 2)
 		if len(pieces) != 2 {
