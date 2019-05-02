@@ -871,24 +871,23 @@ func TestCreateEnvironment(t *testing.T) {
 		"GETSOVERRIDDEN":  "goesaway",
 		"SD_PIPELINE_ID":  "888",
 	}
-	cluster := map[string]string{
-		"SD_PROJECT": "$SD_PIPELINE_ID",
-	}
 
 	secrets := screwdriver.Secrets{
 		{Name: "secret1", Value: "secret1value"},
 		{Name: "GETSOVERRIDDEN", Value: "override"},
+		{Name: "MYSECRETPATH", Value: "secretpath"},
 	}
 
 	var buildEnv []map[string]string
 	buildEnv = append(buildEnv, map[string]string{"GOPATH": "/go/path"})
-	buildEnv = append(buildEnv, map[string]string{"EXPAND": "${GOPATH}/expand"})
+	buildEnv = append(buildEnv, map[string]string{"EXPANDENV": "${GOPATH}/expand"})
+	buildEnv = append(buildEnv, map[string]string{"EXPANDSECRET": "$MYSECRETPATH/home"})
 
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	env, userShellBin := createEnvironment(base, cluster, secrets, testBuild)
+	env, userShellBin := createEnvironment(base, secrets, testBuild)
 
 	if userShellBin != "" {
 		t.Errorf("Default userShellBin should be empty string")
@@ -907,8 +906,8 @@ func TestCreateEnvironment(t *testing.T) {
 		"GETSOVERRIDDEN=override",
 		"OSENVWITHEQUALS=foo=bar=",
 		"GOPATH=/go/path",
-		"EXPAND=/go/path/expand",
-		"SD_PROJECT=888",
+		"EXPANDENV=/go/path/expand",
+		"EXPANDSECRET=secretpath/home",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
@@ -922,7 +921,6 @@ func TestCreateEnvironment(t *testing.T) {
 
 func TestUserShellBin(t *testing.T) {
 	base := map[string]string{}
-	cluster := map[string]string{}
 	secrets := screwdriver.Secrets{}
 	var buildEnv []map[string]string
 	buildEnv = append(buildEnv, map[string]string{"USER_SHELL_BIN": "/bin/bash"})
@@ -931,7 +929,7 @@ func TestUserShellBin(t *testing.T) {
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	_, userShellBin := createEnvironment(base, cluster, secrets, testBuild)
+	_, userShellBin := createEnvironment(base, secrets, testBuild)
 
 	if userShellBin != "/bin/bash" {
 		t.Errorf("userShellBin %v, expect %v", userShellBin, "/bin/bash")
