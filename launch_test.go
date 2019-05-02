@@ -869,7 +869,6 @@ func TestCreateEnvironment(t *testing.T) {
 		"FOO":             "bar",
 		"THINGWITHEQUALS": "abc=def",
 		"GETSOVERRIDDEN":  "goesaway",
-		"SD_PIPELINE_ID":  "888",
 	}
 
 	secrets := screwdriver.Secrets{
