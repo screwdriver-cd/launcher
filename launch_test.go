@@ -869,10 +869,6 @@ func TestCreateEnvironment(t *testing.T) {
 		"FOO":             "bar",
 		"THINGWITHEQUALS": "abc=def",
 		"GETSOVERRIDDEN":  "goesaway",
-		"SD_PIPELINE_ID":  "888",
-	}
-	cluster := map[string]string{
-		"SD_PROJECT":        "$SD_PIPELINE_ID",
 	}
 
 	secrets := screwdriver.Secrets{
@@ -889,7 +885,7 @@ func TestCreateEnvironment(t *testing.T) {
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	env, userShellBin := createEnvironment(base, cluster, secrets, testBuild)
+	env, userShellBin := createEnvironment(base, secrets, testBuild)
 
 	if userShellBin != "" {
 		t.Errorf("Default userShellBin should be empty string")
@@ -909,7 +905,6 @@ func TestCreateEnvironment(t *testing.T) {
 		"OSENVWITHEQUALS=foo=bar=",
 		"GOPATH=/go/path",
 		"EXPAND=/go/path/expand",
-		"SD_PROJECT=888",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
@@ -923,7 +918,6 @@ func TestCreateEnvironment(t *testing.T) {
 
 func TestUserShellBin(t *testing.T) {
 	base := map[string]string{}
-	cluster := map[string]string{}
 	secrets := screwdriver.Secrets{}
 	buildEnv := map[string]string{
 		"USER_SHELL_BIN": "/bin/bash",
@@ -933,7 +927,7 @@ func TestUserShellBin(t *testing.T) {
 		ID:          12345,
 		Environment: buildEnv,
 	}
-	_, userShellBin := createEnvironment(base, cluster, secrets, testBuild)
+	_, userShellBin := createEnvironment(base, secrets, testBuild)
 
 	if userShellBin != "/bin/bash" {
 		t.Errorf("userShellBin %v, expect %v", userShellBin, "/bin/bash")
