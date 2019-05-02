@@ -874,15 +874,15 @@ func TestCreateEnvironment(t *testing.T) {
 	cluster := map[string]string{
 		"SD_PROJECT":        "$SD_PIPELINE_ID",
 	}
-
 	secrets := screwdriver.Secrets{
 		{Name: "secret1", Value: "secret1value"},
 		{Name: "GETSOVERRIDDEN", Value: "override"},
+		{Name: "SECRETPATH", Value: "mysecretpath"},
 	}
-
 	buildEnv := map[string]string{
 		"GOPATH": "/go/path",
 		"EXPAND": "${GOPATH}/expand",
+		"MYSECRET": "$SECRETPATH/home",
 	}
 
 	testBuild := screwdriver.Build{
@@ -910,6 +910,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"GOPATH=/go/path",
 		"EXPAND=/go/path/expand",
 		"SD_PROJECT=888",
+		"MYSECRET=mysecretpath/home",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)

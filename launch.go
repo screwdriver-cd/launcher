@@ -412,7 +412,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	clusterEnv := map[string]string{
-		"SD_ZIP_ARTIFACTS": "true",
 		"SD_PROJECT":       "$SD_PIPELINE_ID",
 		"JOB":              "$SD_JOB_NAME",
 		"SD_JOB":           "$SD_JOB_NAME",
