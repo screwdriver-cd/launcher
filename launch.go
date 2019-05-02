@@ -411,6 +411,24 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_TOKEN":               buildToken,
 	}
 
+	clusterEnv := map[string]string{
+		"SD_ZIP_ARTIFACTS": "true",
+		"SD_PROJECT":       "$SD_PIPELINE_ID",
+		"JOB":              "$SD_JOB_NAME",
+		"SD_JOB":           "$SD_JOB_NAME",
+		"SD_BUILD":         "$SD_BUILD_ID",
+		"ARTIFACTS_DIR":    "$SD_ARTIFACTS_DIR",
+		"TEST_DIR":         "$SD_ARTIFACTS_DIR/test",
+		"COVERAGE_DIR":     "$SD_ARTIFACTS_DIR/coverage",
+		"DOCS_DIR":         "$SD_ARTIFACTS_DIR/docs",
+		"PUBLISH_DIR":      "$SD_ARTIFACTS_DIR/publish",
+		"CACHE_DIR":        "/cache",
+		"TEMP_DIR":         "/tmp",
+		"BUILD_URL":        "$SD_BUILD_URL",
+		"SD_VERSION":       "4",
+		"GIT_COMMIT":       "$SD_BUILD_SHA",
+	}
+
 	// Add coverage env vars
 	coverageInfo, err := api.GetCoverageInfo()
 	if err != nil {
@@ -427,7 +445,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Fetching secrets for build %v", build.ID)
 	}
 
-	env, userShellBin := createEnvironment(defaultEnv, secrets, build)
+	env, userShellBin := createEnvironment(defaultEnv, clusterEnv, secrets, build)
 	if userShellBin != "" {
 		shellBin = userShellBin
 	}
@@ -435,13 +453,20 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
 }
 
-func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {
+func createEnvironment(base, cluster map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {
 	var userShellBin string
-	buildEnvMap := map[string]string{}
 
 	// Add the default environment values
 	for k, v := range base {
-		os.Setenv(k, v)
+		os.Setenv(k, os.ExpandEnv(v))
+	}
+
+	for k, v := range cluster {
+		os.Setenv(k, os.ExpandEnv(v))
+	}
+
+	for _, s := range secrets {
+		os.Setenv(s.Name, os.ExpandEnv(s.Value))
 	}
 
 	for k, v := range build.Environment {
@@ -450,15 +475,6 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 		if k == "USER_SHELL_BIN" {
 			userShellBin = v
 		}
-	}
-
-	// Add secrets to the environment
-	for _, s := range secrets {
-		os.Setenv(s.Name, os.ExpandEnv(s.Value))
-	}
-
-	for k, v := range buildEnvMap {
-		os.Setenv(k, os.ExpandEnv(v))
 	}
 
 	envMap := map[string]string{}
