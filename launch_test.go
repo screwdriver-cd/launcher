@@ -874,12 +874,13 @@ func TestCreateEnvironment(t *testing.T) {
 	secrets := screwdriver.Secrets{
 		{Name: "secret1", Value: "secret1value"},
 		{Name: "GETSOVERRIDDEN", Value: "override"},
+		{Name: "MYSECRETPATH", Value: "secretpath"},
 	}
 
-	buildEnv := map[string]string{
-		"GOPATH": "/go/path",
-		"EXPAND": "${GOPATH}/expand",
-	}
+	var buildEnv []map[string]string
+	buildEnv = append(buildEnv, map[string]string{"GOPATH": "/go/path"})
+	buildEnv = append(buildEnv, map[string]string{"EXPANDENV": "${GOPATH}/expand"})
+	buildEnv = append(buildEnv, map[string]string{"EXPANDSECRET": "$MYSECRETPATH/home"})
 
 	testBuild := screwdriver.Build{
 		ID:          12345,
@@ -904,7 +905,8 @@ func TestCreateEnvironment(t *testing.T) {
 		"GETSOVERRIDDEN=override",
 		"OSENVWITHEQUALS=foo=bar=",
 		"GOPATH=/go/path",
-		"EXPAND=/go/path/expand",
+		"EXPANDENV=/go/path/expand",
+		"EXPANDSECRET=secretpath/home",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)
@@ -919,9 +921,8 @@ func TestCreateEnvironment(t *testing.T) {
 func TestUserShellBin(t *testing.T) {
 	base := map[string]string{}
 	secrets := screwdriver.Secrets{}
-	buildEnv := map[string]string{
-		"USER_SHELL_BIN": "/bin/bash",
-	}
+	var buildEnv []map[string]string
+	buildEnv = append(buildEnv, map[string]string{"USER_SHELL_BIN": "/bin/bash"})
 
 	testBuild := screwdriver.Build{
 		ID:          12345,
