@@ -187,7 +187,7 @@ func TestUnmocked(t *testing.T) {
 			Commands: []screwdriver.CommandDef{
 				cmd,
 			},
-			Environment: []map[string]string{},
+			Environment: map[string]string{},
 		}
 		testAPI := screwdriver.API(MockAPI{
 			updateStepStart: func(buildID int, stepName string) error {
@@ -237,7 +237,7 @@ func TestMulti(t *testing.T) {
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,
-		Environment: []map[string]string{},
+		Environment: map[string]string{},
 	}
 	runTeardown := false
 	runUserTeardown := false
@@ -314,7 +314,7 @@ func TestTeardownEnv(t *testing.T) {
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,
-		Environment: []map[string]string{},
+		Environment: map[string]string{},
 	}
 	runWrapUserTeardown := false
 	runUserTeardown := false
@@ -371,7 +371,7 @@ func TestTeardownfail(t *testing.T) {
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,
-		Environment: []map[string]string{},
+		Environment: map[string]string{},
 	}
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
@@ -401,7 +401,7 @@ func TestTimeout(t *testing.T) {
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,
-		Environment: []map[string]string{},
+		Environment: map[string]string{},
 	}
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
@@ -574,10 +574,9 @@ func TestUserShell(t *testing.T) {
 		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "teardown-user-step"},
 		{Cmd: "if [ $0 != /bin/bash ]; then exit 1; fi", Name: "sd-teardown-step"}, // source is not available in sh
 	}
-	var env []map[string]string
-	env = append(env, map[string]string{
+	env := map[string]string{
 		"USER_SHELL_BIN": "/bin/bash",
-	})
+	}
 	testBuild := screwdriver.Build{
 		ID:          12345,
 		Commands:    commands,

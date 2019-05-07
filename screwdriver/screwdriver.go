@@ -133,7 +133,7 @@ type Build struct {
 	JobID         int                    `json:"jobId"`
 	SHA           string                 `json:"sha"`
 	Commands      []CommandDef           `json:"steps"`
-	Environment   []map[string]string    `json:"environment"`
+	Environment   map[string]string      `json:"environment"`
 	ParentBuildID IntOrArray             `json:"parentBuildId"`
 	Meta          map[string]interface{} `json:"meta"`
 	EventID       int                    `json:"eventId"`
