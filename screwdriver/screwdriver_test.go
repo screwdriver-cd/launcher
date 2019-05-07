@@ -86,9 +86,10 @@ func TestBuildFromID(t *testing.T) {
 		{"neverexecuted", nil},
 	}
 
-	var testEnv []map[string]string
-	testEnv = append(testEnv, map[string]string{"foo": "bar"})
-	testEnv = append(testEnv, map[string]string{"baz": "bah"})
+	testEnv := map[string]string{
+		"foo": "bar",
+		"baz": "bah",
+	}
 
 	testCmds := []CommandDef{}
 	testCmds = append(testCmds, CommandDef{
