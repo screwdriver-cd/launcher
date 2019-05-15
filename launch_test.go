@@ -256,7 +256,6 @@ func TestMain(m *testing.M) {
 	}
 	cleanExit = func() {}
 	writeFile = func(string, []byte, os.FileMode) error { return nil }
-	createMetaSpace = func(metaspace string) (err error) { return nil }
 	readFile = func(filename string) (data []byte, err error) { return nil, nil }
 	unmarshal = func(data []byte, v interface{}) (err error) { return nil }
 	os.Exit(m.Run())
@@ -434,14 +433,13 @@ func TestCreateWorkspaceError(t *testing.T) {
 	mkdirAll = func(path string, perm os.FileMode) (err error) {
 		return fmt.Errorf("Spooky error")
 	}
-	createMetaSpace = func(metaspace string) (err error) { return nil }
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
 		return nil
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
 
-	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/github.com/screwdriver-cd/launcher\": Spooky error" {
+	if err.Error() != "Cannot create meta-space path \"./data/meta\": Spooky error" {
 		t.Errorf("Error is wrong, got %v", err)
 	}
 }
@@ -1003,6 +1001,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	var mockMeta map[string]interface{}
 	mockMeta = make(map[string]interface{})
 	var parentMeta []byte
+	var buildMeta []byte
 
 	mockMeta["hoge"] = "fuga"
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
@@ -1028,14 +1027,22 @@ func TestFetchParentBuildMeta(t *testing.T) {
 		if path == "./data/meta/sd@1113:component.json" {
 			parentMeta = data
 		}
+		if path == "./data/meta/meta.json" {
+			buildMeta = data;
+		}
 		return nil
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"hoge\":\"fuga\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
+	wantParent := []byte("{\"hoge\":\"fuga\"}")
 
-	if err != nil || string(parentMeta) != string(want) {
+	if err != nil || string(parentMeta) != string(wantParent) {
 		t.Errorf("Expected parentMeta is %v, but: %v", string(want), string(parentMeta))
+	}
+
+	if err != nil || string(buildMeta) != string(want) {
+		t.Errorf("Expected build meta is %v, but: %v", string(want), string(buildMeta))
 	}
 }
 

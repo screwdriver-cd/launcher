@@ -147,12 +147,28 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	return w, nil
 }
 
-var createMetaSpace = func(metaSpace string) error {
+func createMetaSpace(metaSpace string) error {
 	err := mkdirAll(metaSpace, 0777)
 	if err != nil {
 		return fmt.Errorf("Cannot create meta-space path %q: %v", metaSpace, err)
 	}
 	return nil
+}
+
+func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]interface{}) error {
+	metaByte := []byte("")
+	log.Println("Marshalling Merged Meta JSON")
+	metaByte, err := marshal(mergedMeta)
+
+	if err != nil {
+		return fmt.Errorf("Parsing Meta JSON: %v", err)
+	}
+
+	err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
+	if err != nil {
+		return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
+	}
+	return nil;
 }
 
 func writeArtifact(aDir string, fName string, artifact interface{}) error {
@@ -262,6 +278,13 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		mergedMeta = deepMergeJSON(build.Meta, mergedMeta)
 	}
 
+	// Create meta space
+	log.Printf("Creating Meta Space in %v", metaSpace)
+	err = createMetaSpace(metaSpace)
+	if err != nil {
+		return err
+	}
+
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
 		// Get meta from all parent builds
 		for _, pbID := range parentBuildIDs {
@@ -297,12 +320,15 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		// If build is triggered by an external pipeline, write to "sd@123:component.json"
 		// where sd@123:component is the triggering job
 		if pipeline.ID != parentPipeline.ID {
-			metaFile = "sd@" + strconv.Itoa(parentPipeline.ID) + ":" + parentJob.Name + ".json"
+			externalMetaFile := "sd@" + strconv.Itoa(parentPipeline.ID) + ":" + parentJob.Name + ".json"
+			if parentBuild.Meta != nil {
+				writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
+			}
+		} else {
+			if parentBuild.Meta != nil {
+				mergedMeta = deepMergeJSON(parentBuild.Meta, mergedMeta)
+			}
 		}
-		if parentBuild.Meta != nil {
-			mergedMeta = deepMergeJSON(parentBuild.Meta, mergedMeta)
-		}
-
 		metaLog = fmt.Sprintf(`Build(%v)`, parentBuild.ID)
 	} else if event.ParentEventID != 0 { // If has parent event, fetch meta from parent event
 		log.Printf("Fetching Parent Event %d", event.ParentEventID)
@@ -327,14 +353,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	if err != nil {
 		return fmt.Errorf("Parsing Meta JSON: %v", err)
-	}
-
-	// Create meta space
-
-	log.Printf("Creating Meta Space in %v", metaSpace)
-	err = createMetaSpace(metaSpace)
-	if err != nil {
-		return err
 	}
 
 	err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
