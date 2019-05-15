@@ -74,6 +74,8 @@ RUN set -x \
    && chmod +x /hab/bin/hab \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
+   # Accept hab licnese
+   && hab license accept \
    # Install Habitat packages
    && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker core/wget core/sed \
    # Install curl 7.54.1 since we use that version in artifact-bookend
