@@ -68,7 +68,7 @@ RUN set -x \
    # Install Habitat
    && mkdir -p /hab/bin /opt/sd/bin \
    # Download Habitat Binary
-   && wget -O hab.tar.gz 'https://api.bintray.com/content/habitat/stable/linux/x86_64/hab-$latest-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux' \
+   && wget -O hab.tar.gz 'https://api.bintray.com/content/habitat/stable/linux/x86_64/hab-0.79.1-20190410220617-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux' \
    && tar -C . -ozxvf hab.tar.gz \
    && mv hab-*/hab /hab/bin/hab \
    && chmod +x /hab/bin/hab \
