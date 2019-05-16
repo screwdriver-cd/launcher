@@ -733,6 +733,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PARENT_BUILD_ID":     "[1234]",
 		"SD_PR_PARENT_JOB_ID":    "111",
 		"SD_PARENT_EVENT_ID":     "3345",
+		"SD_CHECKOUT_DIR":				"/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ROOT_DIR":            "/sd/workspace",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
@@ -783,6 +784,23 @@ func TestSetEnv(t *testing.T) {
 	// in case of no coverage plugins
 	delete(tests, "SD_SONAR_AUTH_URL")
 	delete(tests, "SD_SONAR_HOST")
+	TestEnvVars = map[string]string{}
+	foundEnv = map[string]string{}
+	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
+	for k, v := range tests {
+		if foundEnv[k] != v {
+			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
+		}
+	}
+
+	// set SD_SOURCE_DIR correctly with scm.RootDir
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI + ":lib", ScmRepo: TestScmRepo}), nil
+	}
+	tests["SD_SOURCE_DIR"] = tests["SD_SOURCE_DIR"] + "/lib"
 	TestEnvVars = map[string]string{}
 	foundEnv = map[string]string{}
 	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken)
