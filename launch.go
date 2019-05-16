@@ -78,7 +78,6 @@ type scmPath struct {
 	Org     string
 	Repo    string
 	Branch  string
-	RootDir string
 }
 
 // e.g. scmUri: "github:123456:master", scmName: "screwdriver-cd/launcher"
@@ -90,19 +89,12 @@ func parseScmURI(scmURI, scmName string) (scmPath, error) {
 		return scmPath{}, fmt.Errorf("Unable to parse scmUri %v and scmName %v", scmURI, scmName)
 	}
 
-	parsed := scmPath{
+	return scmPath{
 		Host:    uri[0],
 		Org:     orgRepo[0],
 		Repo:    orgRepo[1],
 		Branch:  uri[2],
-		RootDir: "",
-	}
-
-	if len(uri) > 3 {
-		parsed.RootDir = uri[3]
-	}
-
-	return parsed, nil
+	}, nil
 }
 
 // A Workspace is a description of the paths available to a Screwdriver build
@@ -370,10 +362,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	if err != nil {
 		return err
 	}
-	sourceDir := w.Src
-	if scm.RootDir != "" {
-		sourceDir = sourceDir + "/" + scm.RootDir
-	}
 
 	cyanFprintf(emitter, "Screwdriver Launcher information\n")
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Version:        v"), version)
@@ -381,7 +369,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), job.Name)
 	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Build:          #"), buildID)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Workspace Dir:  "), w.Root)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), sourceDir)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), w.Src)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
 	oldJobName := job.Name
@@ -416,7 +404,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_PARENT_BUILD_ID":     fmt.Sprintf("%v", parentBuildIDs),
 		"SD_PR_PARENT_JOB_ID":    strconv.Itoa(job.PrParentJobID),
 		"SD_PARENT_EVENT_ID":     strconv.Itoa(event.ParentEventID),
-		"SD_SOURCE_DIR":          sourceDir,
+		"SD_SOURCE_DIR":          w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 		"SD_META_PATH":           metaSpace + "/meta.json",
