@@ -381,6 +381,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), job.Name)
 	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Build:          #"), buildID)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Workspace Dir:  "), w.Root)
+	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Checkout Dir:     "), w.Src)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), sourceDir)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
@@ -417,6 +418,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_PR_PARENT_JOB_ID":    strconv.Itoa(job.PrParentJobID),
 		"SD_PARENT_EVENT_ID":     strconv.Itoa(event.ParentEventID),
 		"SD_SOURCE_DIR":          sourceDir,
+		"SD_CHECKOUT_DIR":        w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
 		"SD_META_PATH":           metaSpace + "/meta.json",

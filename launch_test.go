@@ -733,6 +733,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PARENT_BUILD_ID":     "[1234]",
 		"SD_PR_PARENT_JOB_ID":    "111",
 		"SD_PARENT_EVENT_ID":     "3345",
+		"SD_CHECKOUT_DIR":				"/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ROOT_DIR":            "/sd/workspace",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
