@@ -874,6 +874,7 @@ func TestCreateEnvironment(t *testing.T) {
 		{Name: "secret1", Value: "secret1value"},
 		{Name: "GETSOVERRIDDEN", Value: "override"},
 		{Name: "MYSECRETPATH", Value: "secretpath"},
+		{Name: "WITHDOLLAR", Value: "$FOO"},
 	}
 
 	var buildEnv []map[string]string
@@ -906,6 +907,7 @@ func TestCreateEnvironment(t *testing.T) {
 		"GOPATH=/go/path",
 		"EXPANDENV=/go/path/expand",
 		"EXPANDSECRET=secretpath/home",
+		"WITHDOLLAR=$FOO",
 	} {
 		if !foundEnv[want] {
 			t.Errorf("Did not receive expected environment setting %q", want)

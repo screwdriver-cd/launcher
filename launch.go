@@ -464,7 +464,7 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 	}
 
 	for _, s := range secrets {
-		os.Setenv(s.Name, os.ExpandEnv(s.Value))
+		os.Setenv(s.Name, s.Value)
 	}
 
 	for _, env := range build.Environment {
