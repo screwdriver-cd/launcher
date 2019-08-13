@@ -452,7 +452,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		shellBin = userShellBin
 	}
 
-	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath)
+	return executorRun(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath, sourceDir)
 }
 
 func createEnvironment(base map[string]string, secrets screwdriver.Secrets, build screwdriver.Build) ([]string, string) {

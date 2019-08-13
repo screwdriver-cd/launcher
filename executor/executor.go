@@ -117,7 +117,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile, sourceDir string) (int, error) {
 	shargs := []string{"-e", "-c"}
 	cmdStr := "export PATH=$PATH:/opt/sd && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
@@ -131,7 +131,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 	c.Stdout = emitter
 	c.Stderr = emitter
-	c.Dir = path
+	c.Dir = sourceDir
 
 	if err := c.Start(); err != nil {
 		return ExitLaunch, fmt.Errorf("Launching command %q: %v", cmd.Cmd, err)
@@ -209,7 +209,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath string) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath, sourceDir string) error {
 	tmpFile := envFilepath + "_tmp"
 	exportFile := envFilepath + "_export"
 
@@ -323,7 +323,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir)
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)

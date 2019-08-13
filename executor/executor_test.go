@@ -201,7 +201,7 @@ func TestUnmocked(t *testing.T) {
 			},
 		})
 
-		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, envFilepath)
+		err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, test.shell, TestBuildTimeout, envFilepath, "")
 		commands := ReadCommand(stepFilePath)
 
 		if !reflect.DeepEqual(err, test.err) {
@@ -273,7 +273,7 @@ func TestMulti(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
@@ -345,7 +345,7 @@ func TestTeardownEnv(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", baseEnv, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", baseEnv, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
 	if !runWrapUserTeardown {
 		t.Errorf("step pre user teardown should run")
@@ -381,7 +381,7 @@ func TestTeardownfail(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 	expectedErr := ErrStatus{127}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -423,7 +423,7 @@ func TestTimeout(t *testing.T) {
 		},
 	}
 	testTimeout := 3
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, envFilepath)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", testTimeout, envFilepath, "")
 	expectedErr := fmt.Errorf("Timeout of %vs seconds exceeded", testTimeout)
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
@@ -475,7 +475,7 @@ func TestEnv(t *testing.T) {
 	for k, v := range want {
 		wantFlattened = append(wantFlattened, strings.Join([]string{k, v}, "="))
 	}
-	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", baseEnv, &output, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -548,7 +548,7 @@ func TestEmitter(t *testing.T) {
 		},
 	})
 
-	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath)
+	err := Run("", nil, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -591,7 +591,7 @@ func TestUserShell(t *testing.T) {
 			return nil
 		},
 	})
-	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/bash", TestBuildTimeout, envFilepath)
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/bash", TestBuildTimeout, envFilepath, "")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
