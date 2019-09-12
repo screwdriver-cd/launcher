@@ -31,7 +31,7 @@ jobs:
             - glide: |
                 export PATH=$PATH:$GOPATH/bin
                 go get -v github.com/Masterminds/glide
-            - get: glide install
+            - get: go mod download
             - tag: ./ci/git-tag.sh
             - release: "curl -sL https://git.io/goreleaser | bash"
         secrets:
