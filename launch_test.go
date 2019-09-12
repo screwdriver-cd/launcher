@@ -720,9 +720,9 @@ func TestSetEnv(t *testing.T) {
 	defer func() { executorRun = oldExecutorRun }()
 
 	tests := map[string]string{
-		"PS1":         "",
-		"SCREWDRIVER": "true",
-		"CI":          "true",
+		"PS1":                    "",
+		"SCREWDRIVER":            "true",
+		"CI":                     "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            "PR-1",
 		"SD_PIPELINE_NAME":       "screwdriver-cd/launcher",
@@ -733,7 +733,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PARENT_BUILD_ID":     "[1234]",
 		"SD_PR_PARENT_JOB_ID":    "111",
 		"SD_PARENT_EVENT_ID":     "3345",
-		"SD_CHECKOUT_DIR":				"/sd/workspace/src/github.com/screwdriver-cd/launcher",
+		"SD_CHECKOUT_DIR":        "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_SOURCE_DIR":          "/sd/workspace/src/github.com/screwdriver-cd/launcher",
 		"SD_ROOT_DIR":            "/sd/workspace",
 		"SD_ARTIFACTS_DIR":       "/sd/workspace/artifacts",
@@ -1031,7 +1031,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 			parentMeta = data
 		}
 		if path == "./data/meta/meta.json" {
-			buildMeta = data;
+			buildMeta = data
 		}
 		return nil
 	}
