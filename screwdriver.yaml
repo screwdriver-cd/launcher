@@ -2,7 +2,7 @@ shared:
     image: golang:1.13
     environment:
         GOPATH: /sd/workspace
-
+        GO111MODULE: on
 jobs:
     main:
         requires: [~pr, ~commit]
