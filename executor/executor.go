@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/kr/pty.v1"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"gopkg.in/kr/pty.v1"
 	"gopkg.in/myesui/uuid.v1"
 )
 
