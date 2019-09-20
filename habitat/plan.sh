@@ -16,8 +16,8 @@ pkg_bin_dirs=(bin)
 scaffolding_go_base_path="github.com/screwdriver-cd"
 scaffolding_go_build_deps=(
     github.com/creack/pty
+    github.com/urfave/cli
     gopkg.in/myesui/uuid.v1
-    gopkg.in/urfave/cli.v1
     gopkg.in/fatih/color.v1
 )
 

@@ -17,8 +17,8 @@ import (
 	"github.com/peterbourgon/mergemap"
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"github.com/urfave/cli"
 	"gopkg.in/fatih/color.v1"
-	"gopkg.in/urfave/cli.v1"
 )
 
 // These variables get set by the build script via the LDFLAGS
