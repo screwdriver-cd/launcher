@@ -17,8 +17,8 @@ import (
 	"github.com/peterbourgon/mergemap"
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"github.com/urfave/cli"
 	"gopkg.in/fatih/color.v1"
-	"gopkg.in/urfave/cli.v1"
 )
 
 // These variables get set by the build script via the LDFLAGS
@@ -168,7 +168,7 @@ func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]in
 	if err != nil {
 		return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
 	}
-	return nil;
+	return nil
 }
 
 func writeArtifact(aDir string, fName string, artifact interface{}) error {
@@ -404,9 +404,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	apiURL, _ := api.GetAPIURL()
 
 	defaultEnv := map[string]string{
-		"PS1":         "",
-		"SCREWDRIVER": "true",
-		"CI":          "true",
+		"PS1":                    "",
+		"SCREWDRIVER":            "true",
+		"CI":                     "true",
 		"CONTINUOUS_INTEGRATION": "true",
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,

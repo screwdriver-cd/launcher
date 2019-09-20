@@ -15,9 +15,9 @@ pkg_bin_dirs=(bin)
 # Scaffolding based on https://github.com/habitat-sh/core-plans/tree/master/scaffolding-go
 scaffolding_go_base_path="github.com/screwdriver-cd"
 scaffolding_go_build_deps=(
-    gopkg.in/kr/pty.v1
+    github.com/creack/pty
+    github.com/urfave/cli
     gopkg.in/myesui/uuid.v1
-    gopkg.in/urfave/cli.v1
     gopkg.in/fatih/color.v1
 )
 
