@@ -429,9 +429,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
 		"SD_UI_URL":              fmt.Sprintf("%s/", uiURL),
 		"SD_TOKEN":               buildToken,
-		"SD_PIPELINE_CACHE_DIR"   pipelineCacheDir,
-		"SD_JOB_CACHE_DIR"        jobCacheDir,
-		"SD_EVENT_CACHE_DIR"      eventCacheDir
+		"SD_PIPELINE_CACHE_DIR":  pipelineCacheDir,
+		"SD_JOB_CACHE_DIR":       jobCacheDir,
+		"SD_EVENT_CACHE_DIR":     eventCacheDir,
 	}
 
 	// Add coverage env vars
@@ -633,7 +633,7 @@ func main() {
 			Name:   "event-cache-dir",
 			Usage:  "Event cache path",
 			Value:  "",
-		}
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
