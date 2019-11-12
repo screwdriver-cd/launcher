@@ -216,7 +216,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken string, pipelineCacheDir string, jobCacheDir string, eventCacheDir string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken string, cacheStrategy string, pipelineCacheDir string, jobCacheDir string, eventCacheDir string) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -429,6 +429,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
 		"SD_UI_URL":              fmt.Sprintf("%s/", uiURL),
 		"SD_TOKEN":               buildToken,
+		"SD_CACHE_STRATEGY":      cacheStrategy,
 		"SD_PIPELINE_CACHE_DIR":  pipelineCacheDir,
 		"SD_JOB_CACHE_DIR":       jobCacheDir,
 		"SD_EVENT_CACHE_DIR":     eventCacheDir,
@@ -505,11 +506,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken string, pipelineCacheDir string, jobCacheDir string, eventCacheDir string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken string, cacheStrategy string, pipelineCacheDir string, jobCacheDir string, eventCacheDir string) error {
 	log.Printf("Starting Build %v\n", buildID)
-	log.Printf("Local cache path: %v, %v, %v\n", pipelineCacheDir, jobCacheDir, eventCacheDir)
+	log.Printf("Cache strategy & directories (pipeline, job, event): %v, %v, %v, %v\n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, pipelineCacheDir, jobCacheDir, eventCacheDir); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -620,18 +621,23 @@ func main() {
 			Usage: "Only fetching build token",
 		},
 		cli.StringFlag{
-			Name:   "pipeline-cache-dir",
-			Usage:  "Pipeline cache path",
+			Name:   "cache-strategy",
+			Usage:  "Cache strategy",
 			Value:  "",
 		},
 		cli.StringFlag{
-			Name:   "job-cache-dir",
-			Usage:  "Job cache path",
+			Name:   "pipeline-cache-dir",
+			Usage:  "Pipeline cache directory",
 			Value:  "",
 		},
+        cli.StringFlag{
+            Name:   "job-cache-dir",
+            Usage:  "Job cache directory",
+            Value:  "",
+        },
 		cli.StringFlag{
 			Name:   "event-cache-dir",
-			Usage:  "Event cache path",
+			Usage:  "Event cache directory",
 			Value:  "",
 		},
 	}
@@ -648,6 +654,7 @@ func main() {
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 		buildTimeoutSeconds := c.Int("build-timeout") * 60
 		fetchFlag := c.Bool("only-fetch-token")
+        cacheStrategy := c.String("cache-strategy")
         pipelineCacheDir := c.String("pipeline-cache-dir")
         jobCacheDir := c.String("job-cache-dir")
         eventCacheDir := c.String("event-cache-dir")
@@ -687,7 +694,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, pipelineCacheDir, jobCacheDir, eventCacheDir)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
