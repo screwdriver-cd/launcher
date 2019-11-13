@@ -867,10 +867,10 @@ func TestEnvSecrets(t *testing.T) {
 func TestCreateEnvironment(t *testing.T) {
 	os.Setenv("OSENVWITHEQUALS", "foo=bar=")
 	base := map[string]string{
-		"SD_TOKEN":              "1234",
-		"FOO":                   "bar",
-		"THINGWITHEQUALS":       "abc=def",
-		"GETSOVERRIDDEN":        "goesaway",
+		"SD_TOKEN":        "1234",
+		"FOO":             "bar",
+		"THINGWITHEQUALS": "abc=def",
+		"GETSOVERRIDDEN":  "goesaway",
 	}
 
 	secrets := screwdriver.Secrets{
@@ -886,8 +886,8 @@ func TestCreateEnvironment(t *testing.T) {
 	buildEnv = append(buildEnv, map[string]string{"EXPANDSECRET": "$MYSECRETPATH/home"})
 	buildEnv = append(buildEnv, map[string]string{"SD_CACHE_STRATEGY": "disk"})
 	buildEnv = append(buildEnv, map[string]string{"SD_PIPELINE_CACHE_DIR": "/opt/sd/cache/pipeline"})
-    buildEnv = append(buildEnv, map[string]string{"SD_JOB_CACHE_DIR": "/opt/sd/cache/job"})
-    buildEnv = append(buildEnv, map[string]string{"SD_EVENT_CACHE_DIR": "/opt/sd/cache/event"})
+	buildEnv = append(buildEnv, map[string]string{"SD_JOB_CACHE_DIR": "/opt/sd/cache/job"})
+	buildEnv = append(buildEnv, map[string]string{"SD_EVENT_CACHE_DIR": "/opt/sd/cache/event"})
 
 	testBuild := screwdriver.Build{
 		ID:          12345,
