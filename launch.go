@@ -630,11 +630,11 @@ func main() {
 			Usage:  "Pipeline cache directory",
 			Value:  "",
 		},
-        cli.StringFlag{
-            Name:   "job-cache-dir",
-            Usage:  "Job cache directory",
-            Value:  "",
-        },
+		cli.StringFlag{
+			Name:   "job-cache-dir",
+			Usage:  "Job cache directory",
+			Value:  "",
+		},
 		cli.StringFlag{
 			Name:   "event-cache-dir",
 			Usage:  "Event cache directory",
@@ -654,10 +654,10 @@ func main() {
 		buildID, err := strconv.Atoi(c.Args().Get(0))
 		buildTimeoutSeconds := c.Int("build-timeout") * 60
 		fetchFlag := c.Bool("only-fetch-token")
-        cacheStrategy := c.String("cache-strategy")
-        pipelineCacheDir := c.String("pipeline-cache-dir")
-        jobCacheDir := c.String("job-cache-dir")
-        eventCacheDir := c.String("event-cache-dir")
+		cacheStrategy := c.String("cache-strategy")
+		pipelineCacheDir := c.String("pipeline-cache-dir")
+		jobCacheDir := c.String("job-cache-dir")
+		eventCacheDir := c.String("event-cache-dir")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
