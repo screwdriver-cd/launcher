@@ -216,7 +216,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken string, cacheStrategy string, pipelineCacheDir string, jobCacheDir string, eventCacheDir string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -506,7 +506,7 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken string, cacheStrategy string, pipelineCacheDir string, jobCacheDir string, eventCacheDir string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string) error {
 	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event): %v, %v, %v, %v\n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
 
