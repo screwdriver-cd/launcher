@@ -660,6 +660,8 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
+		log.Printf("cache strategy n directories (pipeline, job, event): %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
+
 		if len(token) == 0 {
 			log.Println("Error: token is not passed.")
 			cleanExit()
