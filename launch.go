@@ -624,22 +624,18 @@ func main() {
 		cli.StringFlag{
 			Name:   "cache-strategy",
 			Usage:  "Cache strategy",
-			Value:  "",
 		},
 		cli.StringFlag{
 			Name:   "pipeline-cache-dir",
 			Usage:  "Pipeline cache directory",
-			Value:  "",
 		},
 		cli.StringFlag{
 			Name:   "job-cache-dir",
 			Usage:  "Job cache directory",
-			Value:  "",
 		},
 		cli.StringFlag{
 			Name:   "event-cache-dir",
 			Usage:  "Event cache directory",
-			Value:  "",
 		},
 	}
 
@@ -663,6 +659,8 @@ func main() {
 		if err != nil {
 			return cli.ShowAppHelp(c)
 		}
+
+		log.Printf("cache strategy n directories (pipeline, job, event): %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
 
 		if len(token) == 0 {
 			log.Println("Error: token is not passed.")
