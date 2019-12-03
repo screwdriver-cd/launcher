@@ -653,7 +653,7 @@ func main() {
 			Usage:  "Do md5 check",
 		},
 		cli.IntFlag{
-			Name:   "cache-maxsizemb",
+			Name:   "cache-max-size-mb",
 			Usage:  "Cache allowed max size in mb",
 		},
 	}
@@ -676,7 +676,7 @@ func main() {
 		eventCacheDir := c.String("event-cache-dir")
 		cacheCompress := c.Bool("cache-compress")
 		cacheMd5Check := c.Bool("cache-md5check")
-		cacheMaxSizeInMB := c.Int64("cache-maxsizemb")
+		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
