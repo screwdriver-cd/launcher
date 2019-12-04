@@ -422,6 +422,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_CHECKOUT_DIR":        w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
+		"SD_META_DIR":         	  metaSpace,
 		"SD_META_PATH":           metaSpace + "/meta.json",
 		"SD_BUILD_SHA":           build.SHA,
 		"SD_PULL_REQUEST":        pr,
