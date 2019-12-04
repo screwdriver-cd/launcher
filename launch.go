@@ -216,7 +216,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check bool, cacheMaxSizeInMB int64) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -435,6 +435,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_PIPELINE_CACHE_DIR":  pipelineCacheDir,
 		"SD_JOB_CACHE_DIR":       jobCacheDir,
 		"SD_EVENT_CACHE_DIR":     eventCacheDir,
+		"SD_CACHE_COMPRESS":	  fmt.Sprintf("%v", cacheCompress),
+		"SD_CACHE_MD5CHECK": 	  fmt.Sprintf("%v", cacheMd5Check),
+		"SD_CACHE_MAX_SIZE_MB":	  fmt.Sprintf("%v", cacheMaxSizeInMB),
 	}
 
 	// Add coverage env vars
@@ -508,11 +511,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check bool, cacheMaxSizeInMB int64) error {
 	log.Printf("Starting Build %v\n", buildID)
-	log.Printf("Cache strategy & directories (pipeline, job, event): %v, %v, %v, %v\n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
+	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -638,6 +641,22 @@ func main() {
 			Name:   "event-cache-dir",
 			Usage:  "Event cache directory",
 		},
+		cli.StringFlag{
+			Name:   "event-cache-dir",
+			Usage:  "Event cache directory",
+		},
+		cli.BoolFlag{
+			Name:   "cache-compress",
+			Usage:  "To compress and store cache",
+		},
+		cli.BoolFlag{
+			Name:   "cache-md5check",
+			Usage:  "Do md5 check",
+		},
+		cli.IntFlag{
+			Name:   "cache-max-size-mb",
+			Usage:  "Cache allowed max size in mb",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -656,12 +675,15 @@ func main() {
 		pipelineCacheDir := c.String("pipeline-cache-dir")
 		jobCacheDir := c.String("job-cache-dir")
 		eventCacheDir := c.String("event-cache-dir")
+		cacheCompress := c.Bool("cache-compress")
+		cacheMd5Check := c.Bool("cache-md5check")
+		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
 		}
 
-		log.Printf("cache strategy n directories (pipeline, job, event): %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
+		log.Printf("cache strategy, directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
 		if len(token) == 0 {
 			log.Println("Error: token is not passed.")
@@ -694,7 +716,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
