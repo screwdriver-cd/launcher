@@ -641,10 +641,6 @@ func main() {
 			Name:   "event-cache-dir",
 			Usage:  "Event cache directory",
 		},
-		cli.StringFlag{
-			Name:   "event-cache-dir",
-			Usage:  "Event cache directory",
-		},
 		cli.BoolFlag{
 			Name:   "cache-compress",
 			Usage:  "To compress and store cache",
