@@ -671,8 +671,8 @@ func main() {
 		pipelineCacheDir := c.String("pipeline-cache-dir")
 		jobCacheDir := c.String("job-cache-dir")
 		eventCacheDir := c.String("event-cache-dir")
-		cacheCompress := c.Bool("cache-compress")
-		cacheMd5Check := c.Bool("cache-md5check")
+		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
+		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
 		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
 
 		if err != nil {
