@@ -641,15 +641,15 @@ func main() {
 			Name:   "event-cache-dir",
 			Usage:  "Event cache directory",
 		},
-		cli.BoolFlag{
+		cli.StringFlag{
 			Name:   "cache-compress",
 			Usage:  "To compress and store cache",
 		},
-		cli.BoolFlag{
+		cli.StringFlag{
 			Name:   "cache-md5check",
 			Usage:  "Do md5 check",
 		},
-		cli.IntFlag{
+		cli.Int64Flag{
 			Name:   "cache-max-size-mb",
 			Usage:  "Cache allowed max size in mb",
 		},
