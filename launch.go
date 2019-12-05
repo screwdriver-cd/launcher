@@ -422,7 +422,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_CHECKOUT_DIR":        w.Src,
 		"SD_ROOT_DIR":            w.Root,
 		"SD_ARTIFACTS_DIR":       w.Artifacts,
-		"SD_META_DIR":         	  metaSpace,
+		"SD_META_DIR":            metaSpace,
 		"SD_META_PATH":           metaSpace + "/meta.json",
 		"SD_BUILD_SHA":           build.SHA,
 		"SD_PULL_REQUEST":        pr,
@@ -435,9 +435,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_PIPELINE_CACHE_DIR":  pipelineCacheDir,
 		"SD_JOB_CACHE_DIR":       jobCacheDir,
 		"SD_EVENT_CACHE_DIR":     eventCacheDir,
-		"SD_CACHE_COMPRESS":	  fmt.Sprintf("%v", cacheCompress),
-		"SD_CACHE_MD5CHECK": 	  fmt.Sprintf("%v", cacheMd5Check),
-		"SD_CACHE_MAX_SIZE_MB":	  fmt.Sprintf("%v", cacheMaxSizeInMB),
+		"SD_CACHE_COMPRESS":      fmt.Sprintf("%v", cacheCompress),
+		"SD_CACHE_MD5CHECK":      fmt.Sprintf("%v", cacheMd5Check),
+		"SD_CACHE_MAX_SIZE_MB":   fmt.Sprintf("%v", cacheMaxSizeInMB),
 	}
 
 	// Add coverage env vars
@@ -626,32 +626,32 @@ func main() {
 			Usage: "Only fetching build token",
 		},
 		cli.StringFlag{
-			Name:   "cache-strategy",
-			Usage:  "Cache strategy",
+			Name:  "cache-strategy",
+			Usage: "Cache strategy",
 		},
 		cli.StringFlag{
-			Name:   "pipeline-cache-dir",
-			Usage:  "Pipeline cache directory",
+			Name:  "pipeline-cache-dir",
+			Usage: "Pipeline cache directory",
 		},
 		cli.StringFlag{
-			Name:   "job-cache-dir",
-			Usage:  "Job cache directory",
+			Name:  "job-cache-dir",
+			Usage: "Job cache directory",
 		},
 		cli.StringFlag{
-			Name:   "event-cache-dir",
-			Usage:  "Event cache directory",
+			Name:  "event-cache-dir",
+			Usage: "Event cache directory",
 		},
-		cli.BoolFlag{
-			Name:   "cache-compress",
-			Usage:  "To compress and store cache",
+		cli.StringFlag{
+			Name:  "cache-compress",
+			Usage: "To compress and store cache",
 		},
-		cli.BoolFlag{
-			Name:   "cache-md5check",
-			Usage:  "Do md5 check",
+		cli.StringFlag{
+			Name:  "cache-md5check",
+			Usage: "Do md5 check",
 		},
-		cli.IntFlag{
-			Name:   "cache-max-size-mb",
-			Usage:  "Cache allowed max size in mb",
+		cli.Int64Flag{
+			Name:  "cache-max-size-mb",
+			Usage: "Cache allowed max size in mb",
 		},
 	}
 
