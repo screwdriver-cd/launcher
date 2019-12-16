@@ -403,12 +403,14 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	apiURL, _ := api.GetAPIURL()
 
+	isCI := strconv.FormatBool(!api.IsLocal())
+
 	defaultEnv := map[string]string{
 		"PS1":                    "",
-		"SCREWDRIVER":            "true",
-		"CI":                     "true",
+		"SCREWDRIVER":            isCI,
+		"CI":                     isCI,
 		"GIT_PAGER":              "cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
-		"CONTINUOUS_INTEGRATION": "true",
+		"CONTINUOUS_INTEGRATION": isCI,
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
 		"SD_BUILD_ID":            strconv.Itoa(buildID),
@@ -653,6 +655,18 @@ func main() {
 			Name:  "cache-max-size-mb",
 			Usage: "Cache allowed max size in mb",
 		},
+		cli.BoolFlag{
+			Name:  "local-mode",
+			Usage: "Enable local mode",
+		},
+		cli.StringFlag{
+			Name:  "local-build-json",
+			Usage: "Build information for local mode",
+		},
+		cli.StringFlag{
+			Name:  "local-job-name",
+			Usage: "Job name for local mode",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -674,6 +688,9 @@ func main() {
 		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
 		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
 		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
+		isLocal := c.Bool("local-mode")
+		localBuildJson := c.String("local-build-json")
+		localJobName := c.String("local-job-name")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -704,7 +721,24 @@ func main() {
 			cleanExit()
 		}
 
-		api, err := screwdriver.New(url, token)
+		var api screwdriver.API
+		if isLocal {
+			if len(localBuildJson) == 0 {
+				log.Println("Error: local-build-json is not passed.")
+				cleanExit()
+			}
+
+			var localBuild screwdriver.Build
+			err := json.Unmarshal([]byte(localBuildJson), &localBuild)
+			if err != nil {
+				log.Printf("Failed to parse localBuildJson: %v", err)
+				cleanExit()
+			}
+
+			api, err = screwdriver.NewLocal(url, localJobName, localBuild)
+		} else {
+			api, err = screwdriver.New(url, token)
+		}
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)
