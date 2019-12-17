@@ -111,6 +111,9 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			}
 			return "foobar", nil
 		},
+		isLocal: func() bool {
+			return false
+		},
 	}
 }
 
@@ -126,6 +129,7 @@ type MockAPI struct {
 	getAPIURL         func() (string, error)
 	getCoverageInfo   func() (screwdriver.Coverage, error)
 	getBuildToken     func(buildID int, buildTimeoutMinutes int) (string, error)
+	isLocal           func() bool
 }
 
 func (f MockAPI) GetAPIURL() (string, error) {
@@ -197,6 +201,10 @@ func (f MockAPI) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, er
 		return f.getBuildToken(buildID, buildTimeoutMinutes)
 	}
 	return "foobar", nil
+}
+
+func (f MockAPI) IsLocal() bool {
+	return f.isLocal()
 }
 
 type MockEmitter struct {

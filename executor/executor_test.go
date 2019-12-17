@@ -74,6 +74,10 @@ func (f MockAPI) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, er
 	return "foobar", nil
 }
 
+func (f MockAPI) IsLocal() bool {
+	return false
+}
+
 type MockEmitter struct {
 	startCmd func(screwdriver.CommandDef)
 	write    func([]byte) (int, error)
