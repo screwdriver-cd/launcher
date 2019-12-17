@@ -50,7 +50,7 @@ const DefaultTimeout = 90 // 90 minutes
 
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
-	if api != nil {
+	if api != nil && !api.IsLocal() {
 		var metaInterface map[string]interface{}
 
 		log.Printf("Loading meta from %q/meta.json", metaSpace)
@@ -147,7 +147,11 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	return w, nil
 }
 
-func createMetaSpace(metaSpace string) error {
+func createMetaSpace(metaSpace string, isLocal bool) error {
+	if isLocal {
+		return nil
+	}
+
 	err := mkdirAll(metaSpace, 0777)
 	if err != nil {
 		return fmt.Errorf("Cannot create meta-space path %q: %v", metaSpace, err)
@@ -155,7 +159,11 @@ func createMetaSpace(metaSpace string) error {
 	return nil
 }
 
-func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]interface{}) error {
+func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]interface{}, isLocal bool) error {
+	if isLocal {
+		return nil
+	}
+
 	metaByte := []byte("")
 	log.Println("Marshalling Merged Meta JSON")
 	metaByte, err := marshal(mergedMeta)
@@ -280,7 +288,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	// Create meta space
 	log.Printf("Creating Meta Space in %v", metaSpace)
-	err = createMetaSpace(metaSpace)
+	err = createMetaSpace(metaSpace, api.IsLocal())
 	if err != nil {
 		return err
 	}
@@ -322,7 +330,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		if pipeline.ID != parentPipeline.ID {
 			externalMetaFile := "sd@" + strconv.Itoa(parentPipeline.ID) + ":" + parentJob.Name + ".json"
 			if parentBuild.Meta != nil {
-				writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
+				writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta, api.IsLocal())
 			}
 		} else {
 			if parentBuild.Meta != nil {
@@ -355,9 +363,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return fmt.Errorf("Parsing Meta JSON: %v", err)
 	}
 
-	err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
-	if err != nil {
-		return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
+	if !api.IsLocal() {
+		err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
+		if err != nil {
+			return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
+		}
 	}
 
 	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
