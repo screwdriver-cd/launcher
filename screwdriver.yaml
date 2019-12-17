@@ -11,7 +11,7 @@ jobs:
         steps:
             - install: go mod download
             - vet: go vet ./...
-            - gofmt: "find . -name '*.go' | xargs gofmt -d"
+            - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
             - gover: go version
             - test: go test -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out -coverpkg=./...
             # The emitter file is changed by a test, but we want to ignore it
