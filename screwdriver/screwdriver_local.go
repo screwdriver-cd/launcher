@@ -48,7 +48,7 @@ func (a localApi) JobFromID(jobID int) (job Job, err error) {
 		0,
 	}
 
-	return job, err
+	return job, nil
 }
 
 func (a localApi) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
@@ -58,7 +58,7 @@ func (a localApi) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) 
 		"github.com:123456:master",
 	}
 
-	return pipeline, err
+	return pipeline, nil
 }
 
 func (a localApi) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error {

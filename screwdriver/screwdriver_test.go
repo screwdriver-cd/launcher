@@ -568,3 +568,26 @@ func TestGetBuildToken(t *testing.T) {
 		t.Errorf("t=%q, want %q", token, wantToken)
 	}
 }
+
+func TestIsLocal(t *testing.T) {
+	testResponse := `{"token": "foobar"}`
+	http := makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
+		wantURL, _ := url.Parse("http://fakeurl/v4/builds/1111/token")
+		if r.URL.String() != wantURL.String() {
+			t.Errorf("Secrets URL=%q, want %q", r.URL, wantURL)
+		}
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		want := regexp.MustCompile(`{"buildTimeout":\d+}`)
+		if !want.MatchString(buf.String()) {
+			t.Errorf("buf.String() = %q", buf.String())
+		}
+	})
+	testAPI := api{"http://fakeurl", "faketoken", http}
+	expected := false
+
+	actual := testAPI.IsLocal()
+	if actual != expected {
+		t.Errorf("actual: %t, expected: %t", actual, expected)
+	}
+}
