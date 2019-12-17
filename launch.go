@@ -698,7 +698,7 @@ func main() {
 
 		log.Printf("cache strategy, directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-		if len(token) == 0 {
+		if !isLocal && len(token) == 0 {
 			log.Println("Error: token is not passed.")
 			cleanExit()
 		}
