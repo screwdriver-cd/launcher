@@ -670,6 +670,7 @@ func main() {
 			Usage: "Enable local mode",
 		},
 		cli.StringFlag{
+			//Pass JSON in the same format as payload from /v4/builds/{id}
 			Name:  "local-build-json",
 			Usage: "Build information for local mode",
 		},
