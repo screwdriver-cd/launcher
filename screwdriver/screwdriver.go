@@ -47,7 +47,6 @@ type API interface {
 	GetAPIURL() (string, error)
 	GetCoverageInfo() (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
-	IsLocal() bool
 }
 
 // SDError is an error response from the Screwdriver API
@@ -523,8 +522,4 @@ func (a api) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 	}
 
 	return buildToken.Token, nil
-}
-
-func (a api) IsLocal() bool {
-	return false
 }

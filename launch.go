@@ -217,7 +217,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check bool, cacheMaxSizeInMB int64) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -403,7 +403,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	apiURL, _ := api.GetAPIURL()
 
-	isCI := strconv.FormatBool(!api.IsLocal())
+	isCI := strconv.FormatBool(!isLocal)
 
 	defaultEnv := map[string]string{
 		"PS1":                    "",
@@ -513,11 +513,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check bool, cacheMaxSizeInMB int64) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64) error {
 	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -747,7 +747,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")

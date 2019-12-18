@@ -94,7 +94,3 @@ func (a localApi) GetCoverageInfo() (Coverage, error) {
 func (a localApi) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error) {
 	return "", nil
 }
-
-func (a localApi) IsLocal() bool {
-	return true
-}

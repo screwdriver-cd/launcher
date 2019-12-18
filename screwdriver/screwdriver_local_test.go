@@ -150,13 +150,3 @@ func TestGetBuildTokenLocal(t *testing.T) {
 		t.Errorf("actual: %v\nexpected: %v", err.Error(), nil)
 	}
 }
-
-func TestIsLocalLocal(t *testing.T) {
-	testAPI := localApi{"http://fakeurl", "testJob", Build{}}
-	expected := true
-
-	actual := testAPI.IsLocal()
-	if actual != expected {
-		t.Errorf("actual: %t, expected: %t", actual, expected)
-	}
-}
