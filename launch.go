@@ -152,6 +152,7 @@ func createMetaSpace(metaSpace string, isLocal bool) error {
 		return nil
 	}
 
+	log.Printf("Creating Meta Space in %v", metaSpace)
 	err := mkdirAll(metaSpace, 0777)
 	if err != nil {
 		return fmt.Errorf("Cannot create meta-space path %q: %v", metaSpace, err)
@@ -287,7 +288,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Create meta space
-	log.Printf("Creating Meta Space in %v", metaSpace)
 	err = createMetaSpace(metaSpace, api.IsLocal())
 	if err != nil {
 		return err
