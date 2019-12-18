@@ -14,8 +14,6 @@ jobs:
             - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
             - gover: go version
             - test: go test -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out -coverpkg=./...
-            # The emitter file is changed by a test, but we want to ignore it
-            - ignore-git: git update-index --assume-unchanged data/emitter
             # Ensure we can compile
             - build: go build -a -o /dev/null
             # Test cross-compiling as well
