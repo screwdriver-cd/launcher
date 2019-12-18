@@ -280,12 +280,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Create meta space
-<<<<<<< HEAD
-	err = createMetaSpace(metaSpace, api.IsLocal())
-=======
-	log.Printf("Creating Meta Space in %v", metaSpace)
 	err = createMetaSpace(metaSpace)
->>>>>>> parent of f3b74ff... unuse meta in local-mode
 	if err != nil {
 		return err
 	}
