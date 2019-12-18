@@ -32,9 +32,9 @@ func (a localApi) BuildFromID(buildID int) (build Build, err error) {
 
 func (a localApi) EventFromID(eventID int) (event Event, err error) {
 	event = Event{
-		0,
-		make(map[string]interface{}),
-		0,
+		ID:            0,
+		Meta:          make(map[string]interface{}),
+		ParentEventID: 0,
 	}
 
 	return event, nil
@@ -42,10 +42,10 @@ func (a localApi) EventFromID(eventID int) (event Event, err error) {
 
 func (a localApi) JobFromID(jobID int) (job Job, err error) {
 	job = Job{
-		0,
-		0,
-		a.jobName,
-		0,
+		ID:            0,
+		PipelineID:    0,
+		Name:          a.jobName,
+		PrParentJobID: 0,
 	}
 
 	return job, nil
@@ -53,9 +53,9 @@ func (a localApi) JobFromID(jobID int) (job Job, err error) {
 
 func (a localApi) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
 	pipeline = Pipeline{
-		0,
-		ScmRepo{"screwdriver-cd/screwdriver"},
-		"github.com:123456:master",
+		ID:      0,
+		ScmRepo: ScmRepo{"screwdriver-cd/screwdriver"},
+		ScmURI:  "github.com:123456:master",
 	}
 
 	return pipeline, nil
