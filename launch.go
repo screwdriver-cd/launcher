@@ -148,6 +148,7 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 }
 
 func createMetaSpace(metaSpace string) error {
+	log.Printf("Creating Meta Space in %v", metaSpace)
 	err := mkdirAll(metaSpace, 0777)
 	if err != nil {
 		return fmt.Errorf("Cannot create meta-space path %q: %v", metaSpace, err)
@@ -216,7 +217,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check bool, cacheMaxSizeInMB int64) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -279,7 +280,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Create meta space
-	log.Printf("Creating Meta Space in %v", metaSpace)
 	err = createMetaSpace(metaSpace)
 	if err != nil {
 		return err
@@ -403,12 +403,14 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	apiURL, _ := api.GetAPIURL()
 
+	isCI := strconv.FormatBool(!isLocal)
+
 	defaultEnv := map[string]string{
 		"PS1":                    "",
-		"SCREWDRIVER":            "true",
-		"CI":                     "true",
+		"SCREWDRIVER":            isCI,
+		"CI":                     isCI,
 		"GIT_PAGER":              "cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
-		"CONTINUOUS_INTEGRATION": "true",
+		"CONTINUOUS_INTEGRATION": isCI,
 		"SD_JOB_NAME":            oldJobName,
 		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
 		"SD_BUILD_ID":            strconv.Itoa(buildID),
@@ -511,11 +513,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check bool, cacheMaxSizeInMB int64) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64) error {
 	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -653,6 +655,19 @@ func main() {
 			Name:  "cache-max-size-mb",
 			Usage: "Cache allowed max size in mb",
 		},
+		cli.BoolFlag{
+			Name:  "local-mode",
+			Usage: "Enable local mode",
+		},
+		cli.StringFlag{
+			//Pass JSON in the same format as payload from /v4/builds/{id}
+			Name:  "local-build-json",
+			Usage: "Build information for local mode",
+		},
+		cli.StringFlag{
+			Name:  "local-job-name",
+			Usage: "Job name for local mode",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -674,6 +689,9 @@ func main() {
 		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
 		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
 		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
+		isLocal := c.Bool("local-mode")
+		localBuildJson := c.String("local-build-json")
+		localJobName := c.String("local-job-name")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -681,7 +699,7 @@ func main() {
 
 		log.Printf("cache strategy, directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-		if len(token) == 0 {
+		if !isLocal && len(token) == 0 {
 			log.Println("Error: token is not passed.")
 			cleanExit()
 		}
@@ -704,7 +722,24 @@ func main() {
 			cleanExit()
 		}
 
-		api, err := screwdriver.New(url, token)
+		var api screwdriver.API
+		if isLocal {
+			if len(localBuildJson) == 0 {
+				log.Println("Error: local-build-json is not passed.")
+				cleanExit()
+			}
+
+			var localBuild screwdriver.Build
+			err := json.Unmarshal([]byte(localBuildJson), &localBuild)
+			if err != nil {
+				log.Printf("Failed to parse localBuildJson: %v", err)
+				cleanExit()
+			}
+
+			api, err = screwdriver.NewLocal(url, localJobName, localBuild)
+		} else {
+			api, err = screwdriver.New(url, token)
+		}
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)
@@ -712,7 +747,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
