@@ -688,7 +688,7 @@ func main() {
 		eventCacheDir := c.String("event-cache-dir")
 		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
 		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
-		cacheMaxSizeInMB, _ := strconv.ParseInt(c.String("cache-max-size-mb"), 10, 64);
+		cacheMaxSizeInMB, _ := strconv.ParseInt(c.String("cache-max-size-mb"), 10, 64)
 		isLocal := c.Bool("local-mode")
 		localBuildJson := c.String("local-build-json")
 		localJobName := c.String("local-job-name")
