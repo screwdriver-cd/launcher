@@ -654,7 +654,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "cache-max-size-mb",
 			Usage: "Cache allowed max size in mb",
-			Value:  "0",
+			Value: "0",
 		},
 		cli.BoolFlag{
 			Name:  "local-mode",
