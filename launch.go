@@ -651,7 +651,7 @@ func main() {
 			Name:  "cache-md5check",
 			Usage: "Do md5 check",
 		},
-		cli.Int64Flag{
+		cli.StringFlag{
 			Name:  "cache-max-size-mb",
 			Usage: "Cache allowed max size in mb",
 		},
@@ -688,7 +688,7 @@ func main() {
 		eventCacheDir := c.String("event-cache-dir")
 		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
 		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
-		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
+		cacheMaxSizeInMB, _ := strconv.ParseInt(c.String("cache-max-size-mb"), 10, 64);
 		isLocal := c.Bool("local-mode")
 		localBuildJson := c.String("local-build-json")
 		localJobName := c.String("local-job-name")
