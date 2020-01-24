@@ -651,9 +651,10 @@ func main() {
 			Name:  "cache-md5check",
 			Usage: "Do md5 check",
 		},
-		cli.Int64Flag{
+		cli.StringFlag{
 			Name:  "cache-max-size-mb",
 			Usage: "Cache allowed max size in mb",
+			Value: "0",
 		},
 		cli.BoolFlag{
 			Name:  "local-mode",
