@@ -745,7 +745,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_BUILD_URL":           "https://api.screwdriver.cd/v4/builds/1234",
 		"SD_STORE_URL":           "https://store.screwdriver.cd/v1/",
 		"SD_UI_URL":              "https://screwdriver.cd/",
-		"SD_UI_BUILD_URL":        "https://screwdriver.cd/builds/1234",
+		"SD_UI_BUILD_URL":        "https://screwdriver.cd/pipelines/3456/builds/1234",
 		"SD_TOKEN":               "foobar",
 		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
 		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
