@@ -176,8 +176,6 @@ func tokenHeader(token string) string {
 }
 
 func handleResponse(res *http.Response) ([]byte, error) {
-	defer res.Body.Close()
-
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
@@ -235,6 +233,8 @@ func (a api) get(url *url.URL) ([]byte, error) {
 			return nil, err
 		}
 
+		defer res.Body.Close()
+
 		if res.StatusCode/100 == 5 {
 			log.Printf("WARNING: received response %d from GET %s "+
 				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
@@ -274,6 +274,8 @@ func (a api) write(url *url.URL, requestType string, bodyType string, payload io
 				"(attempt %d of %d)", requestType, url.String(), err, attemptNumber, maxAttempts)
 			return nil, err
 		}
+
+		defer res.Body.Close()
 
 		if res.StatusCode/100 == 5 {
 			log.Printf("WARNING: received response %d from %s "+
