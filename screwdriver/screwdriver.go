@@ -185,18 +185,22 @@ func handleResponse(res *http.Response) ([]byte, error) {
 		var err SDError
 		parserr := json.Unmarshal(body, &err)
 		if parserr != nil {
-			return nil, fmt.Errorf("Unparseable error response from Screwdriver: %v", parserr)
+			return nil, SDError{Message: fmt.Sprintf("Unparseable error response from Screwdriver: %v", parserr)}
 		}
 		return nil, err
 	}
 	return body, nil
 }
 
-func retry(attempts int, callback func() error) (err error) {
+func retry(attempts int, callback func() ([]byte, error)) (data []byte, err error) {
 	for i := 0; ; i++ {
-		err = callback()
-		if err == nil {
-			return nil
+		data, err = callback()
+
+		switch err := err.(type) {
+		case nil:
+			return data, nil
+		case SDError:
+			return nil, err
 		}
 
 		if i >= (attempts - 1) {
@@ -207,7 +211,7 @@ func retry(attempts int, callback func() error) (err error) {
 		duration := time.Duration(math.Pow(2, float64(i+1)))
 		sleep(duration * time.Second)
 	}
-	return fmt.Errorf("After %d attempts, Last error: %s", attempts, err)
+	return nil, fmt.Errorf("After %d attempts, Last error: %v", attempts, err)
 }
 
 func (a api) get(url *url.URL) ([]byte, error) {
@@ -220,31 +224,26 @@ func (a api) get(url *url.URL) ([]byte, error) {
 	res := &http.Response{}
 	attemptNumber := 0
 
-	err = retry(maxAttempts, func() error {
+	return retry(maxAttempts, func() ([]byte, error) {
 		attemptNumber++
 		res, err = a.client.Do(req)
 		if err != nil {
 			log.Printf("WARNING: received error from GET(%s): %v "+
 				"(attempt %d of %d)", url.String(), err, attemptNumber, maxAttempts)
-			return err
+			return nil, err
 		}
+
+		defer res.Body.Close()
 
 		if res.StatusCode/100 == 5 {
 			log.Printf("WARNING: received response %d from GET %s "+
 				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
-			return fmt.Errorf("GET retries exhausted: %d returned from GET %s",
+			return nil, fmt.Errorf("GET retries exhausted: %d returned from GET %s",
 				res.StatusCode, url.String())
 		}
-		return nil
+
+		return handleResponse(res)
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-
-	return handleResponse(res)
 }
 
 func (a api) write(url *url.URL, requestType string, bodyType string, payload io.Reader) ([]byte, error) {
@@ -256,14 +255,14 @@ func (a api) write(url *url.URL, requestType string, bodyType string, payload io
 	req := &http.Request{}
 	attemptNumber := 0
 
-	err := retry(maxAttempts, func() error {
+	return retry(maxAttempts, func() ([]byte, error) {
 		attemptNumber++
 		var err error
 		req, err = http.NewRequest(requestType, url.String(), strings.NewReader(p))
 		if err != nil {
 			log.Printf("WARNING: received error generating new request for %s(%s): %v "+
 				"(attempt %v of %v)", requestType, url.String(), err, attemptNumber, maxAttempts)
-			return err
+			return nil, err
 		}
 
 		req.Header.Set("Authorization", tokenHeader(a.token))
@@ -273,25 +272,19 @@ func (a api) write(url *url.URL, requestType string, bodyType string, payload io
 		if err != nil {
 			log.Printf("WARNING: received error from %s(%s): %v "+
 				"(attempt %d of %d)", requestType, url.String(), err, attemptNumber, maxAttempts)
-			return err
+			return nil, err
 		}
+
+		defer res.Body.Close()
 
 		if res.StatusCode/100 == 5 {
 			log.Printf("WARNING: received response %d from %s "+
 				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
-			return fmt.Errorf("retries exhausted: %d returned from %s",
+			return nil, fmt.Errorf("retries exhausted: %d returned from %s",
 				res.StatusCode, url.String())
 		}
-		return nil
+		return handleResponse(res)
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-
-	return handleResponse(res)
 }
 
 func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
