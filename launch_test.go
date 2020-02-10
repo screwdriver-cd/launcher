@@ -382,7 +382,7 @@ func TestCreateWorkspace(t *testing.T) {
 		madeDirs[path] = perm
 		return nil
 	}
-	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
+	workspace, err := createWorkspace(false, TestWorkspace, "screwdriver-cd", "launcher")
 
 	if err != nil {
 		t.Errorf("Unexpected error creating workspace: %v", err)
@@ -454,7 +454,7 @@ func TestCreateWorkspaceBadStat(t *testing.T) {
 
 	wantWorkspace := Workspace{}
 
-	workspace, err := createWorkspace(TestWorkspace, "screwdriver-cd", "launcher")
+	workspace, err := createWorkspace(false, TestWorkspace, "screwdriver-cd", "launcher")
 
 	if err.Error() != "Cannot create workspace path \"/sd/workspace/src/screwdriver-cd/launcher\", path already exists." {
 		t.Errorf("Error is wrong, got %v", err)
