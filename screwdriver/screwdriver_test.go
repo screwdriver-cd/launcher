@@ -460,7 +460,7 @@ func TestUpdateStepStart(t *testing.T) {
 	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		want := regexp.MustCompile(`{"startTime":"[\d-]+T[\d:.Z-]+"}`)
+		want := regexp.MustCompile(`{"startTime":"[\d-]+T[\d:.(Z-|Z+)]+"}`)
 		if !want.MatchString(buf.String()) {
 			t.Errorf("buf.String() = %q", buf.String())
 		}
@@ -478,7 +478,7 @@ func TestUpdateStepStop(t *testing.T) {
 	http := makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		want := regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.Z-]+","code":10}`)
+		want := regexp.MustCompile(`{"endTime":"[\d-]+T[\d:.(Z-|Z+)]+","code":10}`)
 		if !want.MatchString(buf.String()) {
 			t.Errorf("buf.String() = %q", buf.String())
 		}
