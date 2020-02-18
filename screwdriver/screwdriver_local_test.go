@@ -62,8 +62,8 @@ func TestPipelineFromIDLocal(t *testing.T) {
 	testAPI := localApi{"http://fakeurl", "testJob", Build{}}
 	expected := Pipeline{
 		0,
-		ScmRepo{"screwdriver-cd/screwdriver"},
-		"github.com:123456:master",
+		ScmRepo{"sd-local/local-build"},
+		"screwdriver.cd:123456:master",
 	}
 
 	actual, err := testAPI.PipelineFromID(0)

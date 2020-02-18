@@ -116,7 +116,7 @@ type Workspace struct {
 // e.g. ["github.com", "screwdriver-cd" "screwdriver"] creates
 //     /sd/workspace/src/github.com/screwdriver-cd/screwdriver
 //     /sd/workspace/artifacts
-func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
+func createWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspace, error) {
 	srcPaths = append([]string{"src"}, srcPaths...)
 	src := path.Join(srcPaths...)
 
@@ -129,7 +129,7 @@ func createWorkspace(rootDir string, srcPaths ...string) (Workspace, error) {
 	}
 	for _, p := range paths {
 		_, err := stat(p)
-		if err == nil {
+		if err == nil && !isLocal {
 			msg := "Cannot create workspace path %q, path already exists."
 			return Workspace{}, fmt.Errorf(msg, p)
 		}
@@ -366,7 +366,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	log.Printf("Creating Workspace in %v", rootDir)
-	w, err := createWorkspace(rootDir, scm.Host, scm.Org, scm.Repo)
+	w, err := createWorkspace(isLocal, rootDir, scm.Host, scm.Org, scm.Repo)
 	if err != nil {
 		return err
 	}
