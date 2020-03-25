@@ -2,7 +2,7 @@
 
 # push data to prometheus via pushgateway url
 function pushToPrometheus {
-  curl -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd$1" || true
+  curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd$1" &>/dev/null &
 }
 
 # Get push gateway url and container image from env variable
