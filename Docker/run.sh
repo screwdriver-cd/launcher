@@ -2,14 +2,14 @@
 
 # push data to prometheus via pushgateway url
 pushToPrometheus() {
-  curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd$1" &>/dev/null &
+  curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$1" &>/dev/null &
 }
 
 # Get push gateway url and container image from env variable
 if [[ ! -z "$PUSHGATEWAY_URL" ]] && [[ ! -z "$CONTAINER_IMAGE" ]] && [[ ! -z "$SD_PIPELINE_ID" ]]; then
   echo "Push metrics to prometheus"
   cat <<EOF | pushToPrometheus "$5"
-sd_build_image{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$5"} 1
+sd_build_image{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID"} 1
 EOF
 fi
 
