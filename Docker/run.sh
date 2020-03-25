@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # push data to prometheus via pushgateway url
-function pushToPrometheus {
+pushToPrometheus() {
   curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd$1" &>/dev/null &
 }
 
