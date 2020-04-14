@@ -107,6 +107,7 @@ func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, set
 		t      string
 		err    error
 		reader = bufio.NewReader(r)
+		reEcho = regexp.MustCompile("echo ;")
 	)
 
 	shargs := strings.Join(setupCommands, " && ")
@@ -115,10 +116,18 @@ func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, set
 
 	t, err = readln(reader)
 	for err == nil {
-		if t == "" {
+		echoCmd := reEcho.FindStringSubmatch(t)
+		if len(echoCmd) != 0 {
+			_, werr := fmt.Fprintln(emitter, t)
+			if werr != nil {
+				return fmt.Errorf("Error piping logs to emitter: %v", werr)
+			}
 			return nil
 		}
-		fmt.Fprintln(emitter, t)
+		_, werr := fmt.Fprintln(emitter, t)
+		if werr != nil {
+			return fmt.Errorf("Error piping logs to emitter: %v", werr)
+		}
 		t, err = readln(reader)
 	}
 	if err != nil {
