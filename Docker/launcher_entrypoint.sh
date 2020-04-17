@@ -32,15 +32,15 @@ date
 smart_run mkdir -p /sd
 smart_run mkfifo -m 666 /sd/emitter
 
-echo 'Waiting for log pipe and launch to be ready'
+echo 'Waiting for log pipe to be ready'
 date
 # Make sure everything is ready
-while ! [ -p /sd/emitter ] || ! [ -f /opt/sd/launch ]
+while ! [ -p /sd/emitter ]
 do
     sleep 1
 done
 
-echo 'Symlink hab, log pipe and launch are ready'
+echo 'Symlink hab cache, log pipe is ready'
 date
 
 # Entrypoint
