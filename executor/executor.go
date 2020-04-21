@@ -102,6 +102,40 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 	return ExitOk, nil
 }
 
+func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, setupCommands []string) error {
+	var (
+		t      string
+		err    error
+		reader = bufio.NewReader(r)
+		reEcho = regexp.MustCompile("echo ;")
+	)
+
+	shargs := strings.Join(setupCommands, " && ")
+
+	f.Write([]byte(shargs))
+
+	t, err = readln(reader)
+	for err == nil {
+		echoCmd := reEcho.FindStringSubmatch(t)
+		if len(echoCmd) != 0 {
+			_, werr := fmt.Fprintln(emitter, t)
+			if werr != nil {
+				return fmt.Errorf("Error piping logs to emitter: %v", werr)
+			}
+			return nil
+		}
+		_, werr := fmt.Fprintln(emitter, t)
+		if werr != nil {
+			return fmt.Errorf("Error piping logs to emitter: %v", werr)
+		}
+		t, err = readln(reader)
+	}
+	if err != nil {
+		return fmt.Errorf("Error with reader: %v", err)
+	}
+	return nil
+}
+
 func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fReader io.Reader) (int, error) {
 	executionCommand := []string{
 		"export SD_STEP_ID=" + guid,
@@ -237,12 +271,13 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish EXIT;\n",
+		"trap finish EXIT;\necho ;\n",
 	}
 
-	shargs := strings.Join(setupCommands, " && ")
-
-	f.Write([]byte(shargs))
+	setupReader := bufio.NewReader(f)
+	if err := doRunSetupCommand(emitter, f, setupReader, setupCommands); err != nil {
+		return err
+	}
 
 	var firstError error
 	var code int
