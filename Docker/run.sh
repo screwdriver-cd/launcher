@@ -8,6 +8,7 @@ if ([ ! -z "$PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PI
   [ -z "$launcherstartts" ] && launcherstartts=$ts
   launcherendts=$(cat /workspace/metrics | grep launcher_end_ts | awk -F':' '{print $2}')
   [ -z "$launcherendts" ] && launcherendts=$ts
+  export SD_LAUNCHER_END_TS=$launcherendts
   duration=$(($ts - $launcherendts))
   launcherduration=$(($launcherendts - $launcherstartts))
   echo "sd_build_scheduled{image_name=\"$CONTAINER_IMAGE\", pipeline_id=\"$SD_PIPELINE_ID\", node=\"$NODE_ID\"} 1" | curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
