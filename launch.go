@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,10 +16,11 @@ import (
 	"time"
 
 	"github.com/peterbourgon/mergemap"
-	"github.com/screwdriver-cd/launcher/executor"
-	"github.com/screwdriver-cd/launcher/screwdriver"
 	"github.com/urfave/cli"
 	"gopkg.in/fatih/color.v1"
+
+	"github.com/screwdriver-cd/launcher/executor"
+	"github.com/screwdriver-cd/launcher/screwdriver"
 )
 
 // These variables get set by the build script via the LDFLAGS
@@ -41,12 +43,70 @@ var marshal = json.Marshal
 var unmarshal = json.Unmarshal
 var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
 var blackSprint = color.New(color.FgHiBlack).SprintFunc()
+var pushgatewayUrlTimeout = 10
 
 var cleanExit = func() {
 	os.Exit(0)
 }
 
+var client *http.Client
+
 const DefaultTimeout = 90 // 90 minutes
+
+type scmPath struct {
+	Host    string
+	Org     string
+	Repo    string
+	Branch  string
+	RootDir string
+}
+
+/* push metrics to prometheus
+metrics - sd_build_completed, sd_build_run_duration_secs
+status => sd build status
+buildID => sd build id
+*/
+func pushMetrics(status string, buildID int) error {
+	// push metrics if pushgateway url is available
+	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && buildID > 0 {
+		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
+		client.Timeout = timeout
+		url := "http://" + os.Getenv("PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+		defer client.CloseIdleConnections()
+		image := os.Getenv("CONTAINER_IMAGE")
+		pipelineId := os.Getenv("SD_PIPELINE_ID")
+		node := os.Getenv("NODE_ID")
+		jobId := os.Getenv("SD_JOB_ID")
+		jobName := os.Getenv("SD_JOB_NAME")
+		scmUrl := os.Getenv("SCM_URL")
+		ts := time.Now().Unix()
+		launcherEndTS := ts
+		if strings.TrimSpace(os.Getenv("SD_LAUNCHER_END_TS")) != "" {
+			launcherEndTS, _ = strconv.ParseInt(os.Getenv("SD_LAUNCHER_END_TS"), 10, 64)
+		}
+		durationSecs := ts - launcherEndTS
+
+		// data need to be specified in this format for pushgateway
+		data := `sd_build_completed{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} 1
+sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(durationSecs, 10) + `
+`
+		body := strings.NewReader(data)
+		res, err := client.Post(url, "", body)
+		if res != nil {
+			defer res.Body.Close()
+		}
+		if err != nil {
+			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", url, buildID, err)
+			return nil
+		}
+		if res.StatusCode/100 != 2 {
+			log.Printf("pushMetrics: failed to push metrics to[%v], buildId:[%v], respose status code:[%v]", url, buildID, res.StatusCode)
+			return nil
+		}
+		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
+	}
+	return nil
+}
 
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
@@ -70,15 +130,8 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
+	pushMetrics(status.String(), buildID)
 	cleanExit()
-}
-
-type scmPath struct {
-	Host    string
-	Org     string
-	Repo    string
-	Branch  string
-	RootDir string
 }
 
 // e.g. scmUri: "github:123456:master", scmName: "screwdriver-cd/launcher"

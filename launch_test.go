@@ -4,11 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
@@ -1379,5 +1384,99 @@ func TestFetchEventMetaMarshalError(t *testing.T) {
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
+	}
+}
+
+func fakeHttpClient() *http.Client {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data := strings.Split(r.URL.String(), "&")
+		code, _ := strconv.Atoi(data[1])
+		body := data[1]
+		timeout, _ := strconv.Atoi(data[2])
+		timeoutDuration := time.Duration(timeout) * time.Second
+		w.WriteHeader(code)
+		if timeout > 0 {
+			time.Sleep(timeoutDuration)
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(body))
+		}
+	}))
+
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			return url.Parse(server.URL)
+		},
+	}
+
+	return &http.Client{Transport: transport}
+}
+
+func TestPushMetrics(t *testing.T) {
+	httpTest := fakeHttpClient()
+	client = httpTest
+	ts := time.Now().Unix() - 2000
+
+	// PUSHGATEWAY_URL null
+	os.Setenv("PUSHGATEWAY_URL", "")
+	err := pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// build id 0
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	err = pushMetrics("success", 0)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// 200 success
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	err = pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// 200 success, launcher end timestamp null / blank
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_LAUNCHER_END_TS", "")
+	err = pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// 400
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&400&0")
+	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	err = pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// 200 success
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	err = pushMetrics("failed", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// 500 success
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&500&0")
+	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	err = pushMetrics("failed", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// 504
+	pushgatewayUrlTimeout = 1
+	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&504&3")
+	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	err = pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
 }
