@@ -29,7 +29,7 @@ echo 'Creating workspace and log pipe'
 date
 # Create FIFO for emitter
 # https://github.com/screwdriver-cd/screwdriver/issues/979
-smart_run mkdir -p /sd
+smart_run mkdir -p -m 777 /sd
 smart_run mkfifo -m 666 /sd/emitter
 
 echo 'Waiting for log pipe to be ready'
