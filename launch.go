@@ -91,6 +91,7 @@ func pushMetrics(status string, buildID int) error {
 sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(durationSecs, 10) + `
 `
 		body := strings.NewReader(data)
+		log.Printf("pushMetrics: post metrics to [%v]", url)
 		res, err := client.Post(url, "", body)
 		if res != nil {
 			defer res.Body.Close()
@@ -104,6 +105,8 @@ sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineI
 			return nil
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
+	} else {
+		log.Printf("pushMetrics: pushgatewayUrl:[%v] or buildID:[%v] is empty ", os.Getenv("PUSHGATEWAY_URL"), buildID)
 	}
 	return nil
 }
@@ -130,7 +133,7 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
-	pushMetrics(status.String(), buildID)
+	_ = pushMetrics(status.String(), buildID)
 	cleanExit()
 }
 
