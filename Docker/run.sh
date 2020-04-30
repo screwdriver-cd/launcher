@@ -6,14 +6,17 @@ if ([ ! -z "$PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PI
   echo "push build image metrics to prometheus"
   launcherstartts=$(cat /workspace/metrics | grep launcher_start_ts | awk -F':' '{print $2}')
   [ -z "$launcherstartts" ] && launcherstartts=$ts
+  export SD_LAUNCHER_START_TS=$launcherstartts
   launcherendts=$(cat /workspace/metrics | grep launcher_end_ts | awk -F':' '{print $2}')
   [ -z "$launcherendts" ] && launcherendts=$ts
   export SD_LAUNCHER_END_TS=$launcherendts
   duration=$(($ts - $launcherendts))
   launcherduration=$(($launcherendts - $launcherstartts))
-  echo "sd_build_scheduled{image_name=\"$CONTAINER_IMAGE\", pipeline_id=\"$SD_PIPELINE_ID\", node=\"$NODE_ID\"} 1" | curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
-  echo "sd_build_image_pull_duration_secs{image_name=\"$CONTAINER_IMAGE\", pipeline_id=\"$SD_PIPELINE_ID\", node=\"$NODE_ID\"} $duration" | curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
-  echo "sd_build_launcher_duration_secs{image_name=\"$CONTAINER_IMAGE\", pipeline_id=\"$SD_PIPELINE_ID\", node=\"$NODE_ID\"} $launcherduration" | curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
+  cat <<EOF | curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
+sd_build_scheduled{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID"} 1
+sd_build_image_pull_time_secs{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID"} $duration
+sd_build_launcher_time_secs{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID"} $launcherduration
+EOF
 fi
 
 echo "run launch"
