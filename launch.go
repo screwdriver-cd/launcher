@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -49,7 +49,7 @@ var cleanExit = func() {
 	os.Exit(0)
 }
 
-var client *http.Client
+var client *retryablehttp.Client
 
 const DefaultTimeout = 90 // 90 minutes
 
@@ -61,6 +61,10 @@ type scmPath struct {
 	RootDir string
 }
 
+func init() {
+	client = retryablehttp.NewClient()
+}
+
 /* push metrics to prometheus
 metrics - sd_build_completed, sd_build_run_duration_secs
 status => sd build status
@@ -70,9 +74,9 @@ func pushMetrics(status string, buildID int) error {
 	// push metrics if pushgateway url is available
 	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
-		client.Timeout = timeout
+		client.HTTPClient.Timeout = timeout
 		url := "http://" + os.Getenv("PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
-		defer client.CloseIdleConnections()
+		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
 		node := os.Getenv("NODE_ID")
@@ -92,7 +96,7 @@ sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineI
 `
 		body := strings.NewReader(data)
 		log.Printf("pushMetrics: post metrics to [%v]", url)
-		res, err := client.Post(url, "", body)
+		res, err := client.HTTPClient.Post(url, "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}
