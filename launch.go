@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -49,7 +49,7 @@ var cleanExit = func() {
 	os.Exit(0)
 }
 
-var client *http.Client
+var client *retryablehttp.Client
 
 const DefaultTimeout = 90 // 90 minutes
 
@@ -61,6 +61,10 @@ type scmPath struct {
 	RootDir string
 }
 
+func init() {
+	client = retryablehttp.NewClient()
+}
+
 /* push metrics to prometheus
 metrics - sd_build_completed, sd_build_run_duration_secs
 status => sd build status
@@ -70,9 +74,9 @@ func pushMetrics(status string, buildID int) error {
 	// push metrics if pushgateway url is available
 	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
-		client.Timeout = timeout
+		client.HTTPClient.Timeout = timeout
 		url := "http://" + os.Getenv("PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
-		defer client.CloseIdleConnections()
+		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
 		node := os.Getenv("NODE_ID")
@@ -91,7 +95,8 @@ func pushMetrics(status string, buildID int) error {
 sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(durationSecs, 10) + `
 `
 		body := strings.NewReader(data)
-		res, err := client.Post(url, "", body)
+		log.Printf("pushMetrics: post metrics to [%v]", url)
+		res, err := client.HTTPClient.Post(url, "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}
@@ -104,6 +109,8 @@ sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineI
 			return nil
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
+	} else {
+		log.Printf("pushMetrics: pushgatewayUrl:[%v] or buildID:[%v] is empty ", os.Getenv("PUSHGATEWAY_URL"), buildID)
 	}
 	return nil
 }
@@ -130,7 +137,7 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
-	pushMetrics(status.String(), buildID)
+	_ = pushMetrics(status.String(), buildID)
 	cleanExit()
 }
 

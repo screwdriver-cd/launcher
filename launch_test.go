@@ -1414,7 +1414,7 @@ func fakeHttpClient() *http.Client {
 
 func TestPushMetrics(t *testing.T) {
 	httpTest := fakeHttpClient()
-	client = httpTest
+	client.HTTPClient = httpTest
 	ts := time.Now().Unix() - 2000
 
 	// PUSHGATEWAY_URL null
