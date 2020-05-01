@@ -44,6 +44,7 @@ var unmarshal = json.Unmarshal
 var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
 var blackSprint = color.New(color.FgHiBlack).SprintFunc()
 var pushgatewayUrlTimeout = 10
+var buildCreateTime time.Time
 
 var cleanExit = func() {
 	os.Exit(0)
@@ -72,7 +73,7 @@ buildID => sd build id
 */
 func pushMetrics(status string, buildID int) error {
 	// push metrics if pushgateway url is available
-	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && buildID > 0 {
+	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
 		url := "http://" + os.Getenv("PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
@@ -83,16 +84,24 @@ func pushMetrics(status string, buildID int) error {
 		jobId := os.Getenv("SD_JOB_ID")
 		jobName := os.Getenv("SD_JOB_NAME")
 		scmUrl := os.Getenv("SCM_URL")
+		launcherStartTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_START_TS"), 10, 64)
+		launcherEndTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_END_TS"), 10, 64)
+		// build run end timestamp
 		ts := time.Now().Unix()
-		launcherEndTS := ts
-		if strings.TrimSpace(os.Getenv("SD_LAUNCHER_END_TS")) != "" {
-			launcherEndTS, _ = strconv.ParseInt(os.Getenv("SD_LAUNCHER_END_TS"), 10, 64)
+		buildCreateTS := buildCreateTime.Unix()
+		// if not able to get build create time, substitute with launcher start ts
+		if buildCreateTS < 0 {
+			buildCreateTS = launcherStartTS
 		}
-		durationSecs := ts - launcherEndTS
+		buildRunDurationSecs := ts - launcherEndTS
+		buildDurationSecs := ts - buildCreateTS
+		buildQueuedSecs := launcherStartTS - buildCreateTS
 
 		// data need to be specified in this format for pushgateway
 		data := `sd_build_completed{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} 1
-sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(durationSecs, 10) + `
+sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildRunDurationSecs, 10) + `
+sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildDurationSecs, 10) + `
+sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildQueuedSecs, 10) + `
 `
 		body := strings.NewReader(data)
 		log.Printf("pushMetrics: post metrics to [%v]", url)
@@ -110,7 +119,7 @@ sd_build_run_duration_secs{image_name="` + image + `",pipeline_id="` + pipelineI
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
 	} else {
-		log.Printf("pushMetrics: pushgatewayUrl:[%v] or buildID:[%v] is empty ", os.Getenv("PUSHGATEWAY_URL"), buildID)
+		log.Printf("pushMetrics: pushgatewayUrl:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty ", os.Getenv("PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
 	}
 	return nil
 }
@@ -300,6 +309,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	if err != nil {
 		return fmt.Errorf("Fetching Build ID %d: %v", buildID, err)
 	}
+
+	buildCreateTime, _ = time.Parse(time.RFC3339, build.Createtime)
 
 	log.Printf("Fetching Job %d", build.JobID)
 	job, err := api.JobFromID(build.JobID)

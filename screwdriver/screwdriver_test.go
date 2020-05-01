@@ -113,6 +113,7 @@ func TestBuildFromID(t *testing.T) {
 				SHA:         "testSHA",
 				Commands:    testCmds,
 				Environment: testEnv,
+				Createtime:  "2020-04-28T20:34:01.907Z",
 			},
 			statusCode: 200,
 			err:        nil,

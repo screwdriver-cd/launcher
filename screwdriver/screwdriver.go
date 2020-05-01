@@ -137,6 +137,7 @@ type Build struct {
 	ParentBuildID IntOrArray             `json:"parentBuildId"`
 	Meta          map[string]interface{} `json:"meta"`
 	EventID       int                    `json:"eventId"`
+	Createtime    string                 `json:"createTime"`
 }
 
 // Coverage is a Coverage object returned when getInfo is called
