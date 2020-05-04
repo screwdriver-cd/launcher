@@ -64,7 +64,6 @@ RUN set -x \
    && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
-
    # Install Habitat
    && mkdir -p /hab/bin /opt/sd/bin \
    # Download Habitat Binary
@@ -75,7 +74,7 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker/18.03.0 core/wget core/sed \
+   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/wget core/sed anonymous/docker \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
