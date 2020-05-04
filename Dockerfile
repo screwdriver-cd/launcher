@@ -68,7 +68,6 @@ RUN set -x \
    && wget -O docker.tar.gz "https://download.docker.com/linux/static/stable/x86_64/docker-19.03.8.tgz" \
    && tar -C . -ozxvf docker.tar.gz \
    && mv docker /opt/sd/ \
-   && rm -rf docker* \
    # Install Habitat
    && mkdir -p /hab/bin /opt/sd/bin \
    # Download Habitat Binary
