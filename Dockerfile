@@ -64,10 +64,6 @@ RUN set -x \
    && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
-   # Download Docker Binary
-   && wget -O docker.tar.gz "https://download.docker.com/linux/static/stable/x86_64/docker-19.03.8.tgz" \
-   && tar -C . -ozxvf docker.tar.gz \
-   && mv docker /opt/sd/ \
    # Install Habitat
    && mkdir -p /hab/bin /opt/sd/bin \
    # Download Habitat Binary
@@ -78,7 +74,7 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/wget core/sed \
+   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/wget core/sed anonymous/docker \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
