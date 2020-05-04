@@ -1,5 +1,4 @@
 #!/bin/sh
-set -x
 
 I_AM_ROOT=false
 
