@@ -22,10 +22,10 @@ smart_run mkdir -p -m 777 /hab/pkgs || echo 'Failed to create /hab/pkgs/'
 smart_run mkdir -p -m 777 /hab/pkgs/core  || echo 'Failed to create /hab/pkgs/core'
 smart_run mkdir -p -m 777 /hab/pkgs/anonymous  || echo 'Failed to create /hab/pkgs/anonymous'
 # this cmd will create dirs for all hab pkgs in this format: /hab/pkgs/core/curl/7.54.1, /hab/pkgs/anonymous/docker/19.03.8
-find /opt/sd/hab/pkgs/ -mindepth 2 -maxdepth 2 -exec sh -c 'mkdir -p `echo $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to create /hab/pkgs/core/*'
+find /opt/sd/hab/pkgs/ -mindepth 3 -maxdepth 3 -exec sh -c 'mkdir -p `echo $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to create /hab/pkgs/core/*'
 # this cmd will symlink the specific version: ln -s  /opt/sd/hab/pkgs/core/curl/7.54.1/20181008145326 /hab/pkgs/core/curl/7.54.1
 #                                             ln -s  /opt/sd/hab/pkgs/anonymous/docker/19.03.8/20200504230035 /hab/pkgs/anonymous/docker/19.03.8
-find /opt/sd/hab/pkgs/ -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
+find /opt/sd/hab/pkgs/ -mindepth 4 -maxdepth 4 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
 
 echo 'Creating workspace and log pipe'
 date
