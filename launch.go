@@ -45,6 +45,7 @@ var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
 var blackSprint = color.New(color.FgHiBlack).SprintFunc()
 var pushgatewayUrlTimeout = 10
 var buildCreateTime time.Time
+var queueEnterTime time.Time
 
 var cleanExit = func() {
 	os.Exit(0)
@@ -85,7 +86,7 @@ func pushMetrics(status string, buildID int) error {
 		jobName := os.Getenv("SD_JOB_NAME")
 		scmUrl := os.Getenv("SCM_URL")
 		launcherStartTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_START_TS"), 10, 64)
-		launcherEndTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_END_TS"), 10, 64)
+		buildStartTS, _ := strconv.ParseInt(os.Getenv("SD_BUILD_START_TS"), 10, 64)
 		// build run end timestamp
 		ts := time.Now().Unix()
 		buildCreateTS := buildCreateTime.Unix()
@@ -93,15 +94,22 @@ func pushMetrics(status string, buildID int) error {
 		if buildCreateTS < 0 {
 			buildCreateTS = launcherStartTS
 		}
-		buildRunDurationSecs := ts - launcherEndTS
-		buildDurationSecs := ts - buildCreateTS
-		buildQueuedSecs := launcherStartTS - buildCreateTS
+		queueEnterTS := queueEnterTime.Unix()
+		// if not able to get build queue enter time, substitute with build create ts
+		if queueEnterTS < 0 {
+			queueEnterTS = launcherStartTS
+		}
+		buildRunTimeSecs := ts - launcherStartTS            // build run time => build end time - launcher start time
+		buildTimeSecs := ts - queueEnterTS                  // overall build time => build end time - build queue enter time
+		buildQueuedTimeSecs := queueEnterTS - buildCreateTS // queued time => build queue enter time - build create time
+		buildSetupTimeSecs := buildStartTS - queueEnterTS   // setup time => build start - queue enter time
 
 		// data need to be specified in this format for pushgateway
 		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} 1
-sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildRunDurationSecs, 10) + `
-sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildDurationSecs, 10) + `
-sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildQueuedSecs, 10) + `
+sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
+sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildTimeSecs, 10) + `
+sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildQueuedTimeSecs, 10) + `
+sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
 `
 		body := strings.NewReader(data)
 		log.Printf("pushMetrics: post metrics to [%v]", url)
@@ -311,6 +319,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	buildCreateTime, _ = time.Parse(time.RFC3339, build.Createtime)
+	queueEnterTime, _ = time.Parse(time.RFC3339, build.QueueEntertime)
 
 	log.Printf("Fetching Job %d", build.JobID)
 	job, err := api.JobFromID(build.JobID)

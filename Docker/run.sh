@@ -3,6 +3,7 @@
 # Get push gateway url and container image from env variable
 if ([ ! -z "$PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PIPELINE_ID" ]); then
   ts=`date "+%s"`
+  export SD_BUILD_START_TS=$ts
   echo "push build image metrics to prometheus"
   launcherstartts=$(cat /workspace/metrics | grep launcher_start_ts | awk -F':' '{print $2}')
   [ -z "$launcherstartts" ] && launcherstartts=$ts
