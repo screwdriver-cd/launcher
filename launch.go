@@ -98,7 +98,7 @@ func pushMetrics(status string, buildID int) error {
 		buildQueuedSecs := launcherStartTS - buildCreateTS
 
 		// data need to be specified in this format for pushgateway
-		data := `sd_build_completed{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} 1
+		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} 1
 sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildRunDurationSecs, 10) + `
 sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildDurationSecs, 10) + `
 sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildQueuedSecs, 10) + `
