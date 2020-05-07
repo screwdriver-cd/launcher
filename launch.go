@@ -74,6 +74,7 @@ buildID => sd build id
 */
 func pushMetrics(status string, buildID int) error {
 	// push metrics if pushgateway url is available
+	log.Printf("push metrics for buildID:[%v], status:[%v]", buildID, status)
 	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
