@@ -43,7 +43,7 @@ var marshal = json.Marshal
 var unmarshal = json.Unmarshal
 var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
 var blackSprint = color.New(color.FgHiBlack).SprintFunc()
-var pushgatewayUrlTimeout = 10
+var pushgatewayUrlTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
 
@@ -134,6 +134,7 @@ sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId 
 
 // exit sets the build status and exits successfully
 func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
+	_ = pushMetrics(status.String(), buildID)
 	if api != nil {
 		var metaInterface map[string]interface{}
 
@@ -154,7 +155,6 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
-	_ = pushMetrics(status.String(), buildID)
 	cleanExit()
 }
 
