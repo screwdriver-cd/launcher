@@ -86,6 +86,7 @@ func pushMetrics(status string, buildID int) error {
 		jobId := os.Getenv("SD_JOB_ID")
 		jobName := os.Getenv("SD_JOB_NAME")
 		scmUrl := os.Getenv("SCM_URL")
+		sdEnvironment := os.Getenv("SD_ENVIRONMENT")
 		launcherStartTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_START_TS"), 10, 64)
 		buildStartTS, _ := strconv.ParseInt(os.Getenv("SD_BUILD_START_TS"), 10, 64)
 		// build run end timestamp
@@ -106,11 +107,11 @@ func pushMetrics(status string, buildID int) error {
 		buildSetupTimeSecs := buildStartTS - queueEnterTS   // setup time => build start - queue enter time
 
 		// data need to be specified in this format for pushgateway
-		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} 1
-sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
-sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildTimeSecs, 10) + `
-sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildQueuedTimeSecs, 10) + `
-sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
+		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",env="` + sdEnvironment + `"} 1
+sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",env="` + sdEnvironment + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
+sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",env="` + sdEnvironment + `"} ` + strconv.FormatInt(buildTimeSecs, 10) + `
+sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",env="` + sdEnvironment + `"} ` + strconv.FormatInt(buildQueuedTimeSecs, 10) + `
+sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",env="` + sdEnvironment + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
 `
 		body := strings.NewReader(data)
 		log.Printf("pushMetrics: post metrics to [%v]", url)
