@@ -74,7 +74,7 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker core/wget core/sed core/jq-static/1.6 \
+   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker/19.03.8 core/wget core/sed core/jq-static/1.6 \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
