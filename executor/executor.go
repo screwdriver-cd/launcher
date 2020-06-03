@@ -151,9 +151,9 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile, sourceDir string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile, sourceDir string, stepExitCode int) (int, error) {
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd && " +
+	cmdStr := "export PATH=$PATH:/opt/sd SD_STEP_EXIT_CODE=" + strconv.Itoa(stepExitCode) + " && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
 		"if [ -f " + exportFile + " ]; then set +e; . " + exportFile + "; set -e; fi; " +
 		cmd.Cmd
@@ -281,6 +281,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	var firstError error
 	var code int
+	var stepExitCode int
 	var cmdErr error
 
 	timeout := time.Duration(timeoutSec) * time.Second
@@ -346,6 +347,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 	}
 
+	stepExitCode = code
+
 	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 
 	for index, cmd := range teardownCommands {
@@ -358,7 +361,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir, stepExitCode)
+
+		if code != ExitOk {
+			stepExitCode = code
+		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)

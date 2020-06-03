@@ -16,6 +16,7 @@ import (
 )
 
 const TestBuildTimeout = 60
+const DoesNotExistExitCode = 127
 
 var stepFilePath = "/tmp/step.sh"
 
@@ -169,7 +170,7 @@ func TestUnmocked(t *testing.T) {
 		{"ls && ls ", nil, "/bin/sh"},
 		// Large single-line
 		{"openssl rand -hex 1000000", nil, "/bin/sh"},
-		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", 127), "/bin/sh"},
+		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", DoesNotExistExitCode), "/bin/sh"},
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
 		// Custom shell
 		{"ls", nil, "/bin/bash"},
@@ -229,7 +230,7 @@ func TestMulti(t *testing.T) {
 		{Cmd: "ls", Name: "test ls"},
 		{Cmd: "export FOO=BAR", Name: "test export env"},
 		{Cmd: `if [ -z "$FOO" ] ; then exit 1; fi`, Name: "test if env set"},
-		{Cmd: "doesnotexit", Name: "test doesnotexit err"},
+		{Cmd: "doesnotexist", Name: "test doesnotexist err"},
 		{Cmd: "echo user teardown step", Name: "teardown-echo"},
 		{Cmd: "sleep 1", Name: "test sleep 1"},
 		{Cmd: "echo upload artifacts", Name: "sd-teardown-artifacts"},
@@ -274,7 +275,7 @@ func TestMulti(t *testing.T) {
 		},
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
-	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	expectedErr := fmt.Errorf("Launching command exit with code: %v", DoesNotExistExitCode)
 	if !runUserTeardown {
 		t.Errorf("step user teardown should run")
 	}
@@ -303,13 +304,14 @@ func TestTeardownEnv(t *testing.T) {
 		{Cmd: "export SINGLE_QUOTE=\"my ' single quote\"", Name: "singlequote"},
 		{Cmd: "export DOUBLE_QUOTE=\"my \\\" double quote\"", Name: "doublequote"},
 		{Cmd: "export NEWLINE=\"new\\nline\"", Name: "newline"},
-		{Cmd: "doesnotexit", Name: "doesnotexit"},
+		{Cmd: "doesnotexist", Name: "doesnotexist"},
 		{Cmd: "echo bye", Name: "preteardown-foo"},
 		{Cmd: "if [ \"$FOO\" != 'BAR with spaces' ]; then exit 1; fi", Name: "teardown-foo"},
 		{Cmd: "if [ \"$SINGLE_QUOTE\" != \"my ' single quote\" ]; then exit 1; fi", Name: "teardown-singlequote"},
 		{Cmd: "if [ \"$DOUBLE_QUOTE\" != \"my \\\" double quote\" ]; then exit 1; fi", Name: "sd-teardown-doublequote"},
 		{Cmd: "if [ \"$NEWLINE\" != \"new\\nline\" ]; then exit 1; fi", Name: "sd-teardown-newline"},
 		{Cmd: "if [ \"$VAR3\" != \"baz\" ]; then exit 1; fi", Name: "sd-teardown-baseenv"},
+		{Cmd: "exit $SD_STEP_EXIT_CODE", Name: "sd-teardown-last-tear-down"},
 	}
 	testBuild := screwdriver.Build{
 		ID:          12345,
@@ -319,6 +321,7 @@ func TestTeardownEnv(t *testing.T) {
 	runWrapUserTeardown := false
 	runUserTeardown := false
 	runSdTeardown := false
+	doesNotExistCode := DoesNotExistExitCode
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			if buildID != testBuild.ID {
@@ -339,14 +342,23 @@ func TestTeardownEnv(t *testing.T) {
 			if stepName == "sd-teardown-doublequote" {
 				runSdTeardown = true
 			}
-			if code != 0 && stepName != "doesnotexit" { // all steps should pass except for this step
+			if stepName == "doesnotexist" {
+				doesNotExistCode = code
+			}
+			if stepName == "sd-teardown-last-tear-down" {
+				if code != doesNotExistCode { // should expect exit code 127 b/c of the step "doesnotexist"
+					t.Errorf("step %v should return exit code of %v instead of %v", stepName, doesNotExistCode, code)
+				}
+				return nil
+			}
+			if code != 0 && stepName != "doesnotexist" { // all steps should pass except for this step
 				t.Errorf("step %v failed with exit code %v", stepName, code)
 			}
 			return nil
 		},
 	})
 	err := Run("", baseEnv, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
-	expectedErr := fmt.Errorf("Launching command exit with code: %v", 127)
+	expectedErr := fmt.Errorf("Launching command exit with code: %v", DoesNotExistExitCode)
 	if !runWrapUserTeardown {
 		t.Errorf("step pre user teardown should run")
 	}
@@ -366,7 +378,7 @@ func TestTeardownfail(t *testing.T) {
 	setupTestCase(t, envFilepath)
 	commands := []screwdriver.CommandDef{
 		{Cmd: "ls", Name: "test ls"},
-		{Cmd: "doesnotexit", Name: "sd-teardown-artifacts"},
+		{Cmd: "doesnotexist", Name: "sd-teardown-artifacts"},
 	}
 	testBuild := screwdriver.Build{
 		ID:          12345,
@@ -382,9 +394,42 @@ func TestTeardownfail(t *testing.T) {
 		},
 	})
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
-	expectedErr := ErrStatus{127}
+	expectedErr := ErrStatus{DoesNotExistExitCode}
 	if !reflect.DeepEqual(err, expectedErr) {
 		t.Fatalf("Unexpected error: %v - should be %v", err, expectedErr)
+	}
+}
+
+func TestAllStepsPassed(t *testing.T) {
+	envFilepath := "/tmp/testAllStepsPassed"
+	setupTestCase(t, envFilepath)
+	commands := []screwdriver.CommandDef{
+		{Cmd: "ls", Name: "test ls"},
+		{Cmd: "echo 1", Name: "teardown-user-step"},
+		{Cmd: "exit $SD_STEP_EXIT_CODE", Name: "sd-teardown-last-tear-down"},
+	}
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: []map[string]string{},
+	}
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			if stepName == "sd-teardown-last-tear-down" && code != 0 { // should expect 0 b/c all previous steps passed
+				t.Errorf("step %v should return exit code of %v instead of %v", stepName, 0, code)
+			}
+			return nil
+		},
+	})
+	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 }
 
