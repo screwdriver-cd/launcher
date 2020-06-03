@@ -1,5 +1,22 @@
 #!/bin/sh
 
+I_AM_ROOT=false
+
+user=`whoami`
+echo "User: $user"
+
+if [ "$user" = "root" ]; then
+    I_AM_ROOT=true 
+fi
+
+smart_run () {
+    if ! $I_AM_ROOT; then
+        sudo $@
+    else
+        $@
+    fi
+}
+
 # Create FIFO for emitter
 mkdir -p /sd
 mkfifo -m 666 /sd/emitter
