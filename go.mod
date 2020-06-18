@@ -1,6 +1,6 @@
 module github.com/screwdriver-cd/launcher
 
-go 1.12
+go 1.14
 
 require (
 	github.com/creack/pty v1.1.7
