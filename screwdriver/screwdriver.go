@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,7 +30,6 @@ const (
 	Aborted             = "ABORTED"
 )
 
-const maxAttempts = 5
 const defaultBuildTimeoutBuffer = 30 // 30 minutes
 const retryWaitMin = 100
 const retryWaitMax = 300
@@ -202,48 +200,7 @@ func tokenHeader(token string) string {
 	return fmt.Sprintf("Bearer %s", token)
 }
 
-func handleResponse(res *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
-	}
-
-	if res.StatusCode/100 != 2 {
-		var err SDError
-		parserr := json.Unmarshal(body, &err)
-		if parserr != nil {
-			return nil, SDError{Message: fmt.Sprintf("Unparseable error response from Screwdriver: %v", parserr)}
-		}
-		return nil, err
-	}
-	return body, nil
-}
-
-func retry(attempts int, callback func() ([]byte, error)) (data []byte, err error) {
-	for i := 0; ; i++ {
-		data, err = callback()
-
-		switch err := err.(type) {
-		case nil:
-			return data, nil
-		case SDError:
-			return nil, err
-		}
-
-		if i >= (attempts - 1) {
-			break
-		}
-
-		//Exponential backoff of 2 seconds
-		duration := time.Duration(math.Pow(2, float64(i+1)))
-		sleep(duration * time.Second)
-	}
-	return nil, fmt.Errorf("After %d attempts, Last error: %v", attempts, err)
-}
-
 func (a api) get(url *url.URL) ([]byte, error) {
-	var errParse SDError
-
 	requestType := "GET"
 	req, err := http.NewRequest(requestType, url.String(), nil)
 	if err != nil {
@@ -265,29 +222,28 @@ func (a api) get(url *url.URL) ([]byte, error) {
 		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
 	}
 
-	if res.StatusCode/100 != 2 {
-		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
-		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
-	}
-
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Printf("reading response Body from Screwdriver: %v", err)
 		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
 	}
 
-	parseError := json.Unmarshal(body, &errParse)
-	if parseError != nil {
-		log.Printf("unparseable error response from Screwdriver: %v", parseError)
-		return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparseable error response from Screwdriver: %v", parseError)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
+		}
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
 	}
 
 	return body, nil
 }
 
 func (a api) write(url *url.URL, requestType string, bodyType string, payload io.Reader) ([]byte, error) {
-	var errParse SDError
-
 	req := &http.Request{}
 	buf := new(bytes.Buffer)
 
@@ -320,21 +276,22 @@ func (a api) write(url *url.URL, requestType string, bodyType string, payload io
 		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
 	}
 
-	if res.StatusCode/100 != 2 {
-		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
-		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
-	}
-
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Printf("reading response Body from Screwdriver: %v", err)
 		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
 	}
 
-	parseError := json.Unmarshal(body, &errParse)
-	if parseError != nil {
-		log.Printf("unparseable error response from Screwdriver: %v", parseError)
-		return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparseable error response from Screwdriver: %v", parseError)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
+		}
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
 	}
 
 	return body, nil
