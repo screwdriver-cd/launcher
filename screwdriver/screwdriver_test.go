@@ -17,6 +17,13 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
+const (
+	testMaxRetries   = 4
+	testRetryWaitMin = 10
+	testRetryWaitMax = 10
+	testHttpTimeout  = 10
+)
+
 func makeFakeHTTPClient(t *testing.T, code int, body string) *http.Client {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wantToken := "faketoken"
@@ -152,23 +159,13 @@ func TestBuildFromID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		JSON := []byte{}
-		err := errors.New("")
-
-		if reflect.TypeOf(test.err) == reflect.TypeOf(SDError{}) {
-			JSON, err = json.Marshal(test.err)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
-		} else {
-			JSON, err = json.Marshal(test.build)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
+		JSON, err := json.Marshal(test.build)
+		if err != nil {
+			t.Fatalf("Unable to Marshal JSON: %v", err)
 		}
 
 		var client *retryablehttp.Client
-		client = makeRetryableHttpClient(4, 10, 10, 10)
+		client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
@@ -217,23 +214,13 @@ func TestEventFromID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		JSON := []byte{}
-		err := errors.New("")
-
-		if reflect.TypeOf(test.err) == reflect.TypeOf(SDError{}) {
-			JSON, err = json.Marshal(test.err)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
-		} else {
-			JSON, err = json.Marshal(test.event)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
+		JSON, err := json.Marshal(test.event)
+		if err != nil {
+			t.Fatalf("Unable to Marshal JSON: %v", err)
 		}
 
 		var client *retryablehttp.Client
-		client = makeRetryableHttpClient(4, 10, 10, 10)
+		client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
@@ -281,23 +268,13 @@ func TestGetCoverageInfo(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		JSON := []byte{}
-		err := errors.New("")
-
-		if reflect.TypeOf(test.err) == reflect.TypeOf(SDError{}) {
-			JSON, err = json.Marshal(test.err)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
-		} else {
-			JSON, err = json.Marshal(test.coverage)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
+		JSON, err := json.Marshal(test.coverage)
+		if err != nil {
+			t.Fatalf("Unable to Marshal JSON: %v", err)
 		}
 
 		var client *retryablehttp.Client
-		client = makeRetryableHttpClient(4, 10, 10, 10)
+		client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
@@ -343,23 +320,13 @@ func TestJobFromID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		JSON := []byte{}
-		err := errors.New("")
-
-		if reflect.TypeOf(test.err) == reflect.TypeOf(SDError{}) {
-			JSON, err = json.Marshal(test.err)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
-		} else {
-			JSON, err = json.Marshal(test.job)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
+		JSON, err := json.Marshal(test.job)
+		if err != nil {
+			t.Fatalf("Unable to Marshal JSON: %v", err)
 		}
 
 		var client *retryablehttp.Client
-		client = makeRetryableHttpClient(4, 10, 10, 10)
+		client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
@@ -407,23 +374,13 @@ func TestPipelineFromID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		JSON := []byte{}
-		err := errors.New("")
-
-		if reflect.TypeOf(test.err) == reflect.TypeOf(SDError{}) {
-			JSON, err = json.Marshal(test.err)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
-		} else {
-			JSON, err = json.Marshal(test.pipeline)
-			if err != nil {
-				t.Fatalf("Unable to Marshal JSON for SDErr: %v", err)
-			}
+		JSON, err := json.Marshal(test.pipeline)
+		if err != nil {
+			t.Fatalf("Unable to Marshal JSON: %v", err)
 		}
 
 		var client *retryablehttp.Client
-		client = makeRetryableHttpClient(4, 10, 10, 10)
+		client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
@@ -463,7 +420,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 
 	for _, test := range tests {
 		var client *retryablehttp.Client
-		client = makeRetryableHttpClient(4, 10, 10, 10)
+		client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, "{}")
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
@@ -477,7 +434,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 
 func TestUpdateStepStart(t *testing.T) {
 	var client *retryablehttp.Client
-	client = makeRetryableHttpClient(4, 10, 10, 10)
+	client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 	client.HTTPClient = makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -497,7 +454,7 @@ func TestUpdateStepStart(t *testing.T) {
 
 func TestUpdateStepStop(t *testing.T) {
 	var client *retryablehttp.Client
-	client = makeRetryableHttpClient(4, 10, 10, 10)
+	client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 	client.HTTPClient = makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -517,7 +474,7 @@ func TestUpdateStepStop(t *testing.T) {
 
 func TestGetAPIURL(t *testing.T) {
 	var client *retryablehttp.Client
-	client = makeRetryableHttpClient(4, 10, 10, 10)
+	client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 	client.HTTPClient = makeValidatedFakeHTTPClient(t, 200, "{}", func(r *http.Request) {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -547,7 +504,7 @@ func TestSecretsForBuild(t *testing.T) {
 	}
 
 	var client *retryablehttp.Client
-	client = makeRetryableHttpClient(4, 10, 10, 10)
+	client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 	client.HTTPClient = makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
 		wantURL, _ := url.Parse("http://fakeurl/v4/builds/1555/secrets")
 		if r.URL.String() != wantURL.String() {
@@ -573,7 +530,7 @@ func TestGetBuildToken(t *testing.T) {
 	wantToken := "foobar"
 
 	var client *retryablehttp.Client
-	client = makeRetryableHttpClient(4, 10, 10, 10)
+	client = makeRetryableHttpClient(testMaxRetries, testRetryWaitMin, testRetryWaitMax, testHttpTimeout)
 	client.HTTPClient = makeValidatedFakeHTTPClient(t, 200, testResponse, func(r *http.Request) {
 		wantURL, _ := url.Parse("http://fakeurl/v4/builds/1111/token")
 		if r.URL.String() != wantURL.String() {
