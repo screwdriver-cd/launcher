@@ -7,11 +7,14 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 var sleep = time.Sleep
@@ -27,8 +30,12 @@ const (
 	Aborted             = "ABORTED"
 )
 
-const maxAttempts = 5
 const defaultBuildTimeoutBuffer = 30 // 30 minutes
+const retryWaitMin = 100
+const retryWaitMax = 300
+
+var maxRetries = 5
+var httpTimeout = time.Duration(20) * time.Second
 
 func (b BuildStatus) String() string {
 	return string(b)
@@ -63,15 +70,31 @@ func (e SDError) Error() string {
 type api struct {
 	baseURL string
 	token   string
-	client  *http.Client
+	client  *retryablehttp.Client
 }
 
 // New returns a new API object
 func New(url, token string) (API, error) {
+	// read config from env variables
+	if strings.TrimSpace(os.Getenv("LAUNCHER_SDAPI_TIMEOUT_SECS")) != "" {
+		apiTimeout, _ := strconv.Atoi(os.Getenv("LAUNCHER_SDAPI_TIMEOUT_SECS"))
+		httpTimeout = time.Duration(apiTimeout) * time.Second
+	}
+
+	if strings.TrimSpace(os.Getenv("LAUNCHER_SDAPI_MAXRETRIES")) != "" {
+		maxRetries, _ = strconv.Atoi(os.Getenv("LAUNCHER_SDAPI_MAXRETRIES"))
+	}
+
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = maxRetries
+	retryClient.RetryWaitMin = time.Duration(retryWaitMin) * time.Millisecond
+	retryClient.RetryWaitMax = time.Duration(retryWaitMax) * time.Millisecond
+	retryClient.Backoff = retryablehttp.LinearJitterBackoff
+	retryClient.HTTPClient.Timeout = httpTimeout
 	newapi := api{
 		url,
 		token,
-		&http.Client{Timeout: 20 * time.Second},
+		retryClient,
 	}
 	return API(newapi), nil
 }
@@ -177,116 +200,101 @@ func tokenHeader(token string) string {
 	return fmt.Sprintf("Bearer %s", token)
 }
 
-func handleResponse(res *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
-	}
-
-	if res.StatusCode/100 != 2 {
-		var err SDError
-		parserr := json.Unmarshal(body, &err)
-		if parserr != nil {
-			return nil, SDError{Message: fmt.Sprintf("Unparseable error response from Screwdriver: %v", parserr)}
-		}
-		return nil, err
-	}
-	return body, nil
-}
-
-func retry(attempts int, callback func() ([]byte, error)) (data []byte, err error) {
-	for i := 0; ; i++ {
-		data, err = callback()
-
-		switch err := err.(type) {
-		case nil:
-			return data, nil
-		case SDError:
-			return nil, err
-		}
-
-		if i >= (attempts - 1) {
-			break
-		}
-
-		//Exponential backoff of 2 seconds
-		duration := time.Duration(math.Pow(2, float64(i+1)))
-		sleep(duration * time.Second)
-	}
-	return nil, fmt.Errorf("After %d attempts, Last error: %v", attempts, err)
-}
-
 func (a api) get(url *url.URL) ([]byte, error) {
-	req, err := http.NewRequest("GET", url.String(), nil)
+	requestType := "GET"
+	req, err := http.NewRequest(requestType, url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("Generating request to Screwdriver: %v", err)
 	}
+
+	defer a.client.HTTPClient.CloseIdleConnections()
+
 	req.Header.Set("Authorization", tokenHeader(a.token))
 
-	res := &http.Response{}
-	attemptNumber := 0
+	res, err := a.client.StandardClient().Do(req)
 
-	return retry(maxAttempts, func() ([]byte, error) {
-		attemptNumber++
-		res, err = a.client.Do(req)
-		if err != nil {
-			log.Printf("WARNING: received error from GET(%s): %v "+
-				"(attempt %d of %d)", url.String(), err, attemptNumber, maxAttempts)
-			return nil, err
-		}
-
+	if res != nil {
 		defer res.Body.Close()
+	}
 
-		if res.StatusCode/100 == 5 {
-			log.Printf("WARNING: received response %d from GET %s "+
-				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
-			return nil, fmt.Errorf("GET retries exhausted: %d returned from GET %s",
-				res.StatusCode, url.String())
+	if err != nil {
+		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("reading response Body from Screwdriver: %v", err)
+		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparseable error response from Screwdriver: %v", parseError)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
 		}
 
-		return handleResponse(res)
-	})
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+	}
+
+	return body, nil
 }
 
 func (a api) write(url *url.URL, requestType string, bodyType string, payload io.Reader) ([]byte, error) {
+	req := &http.Request{}
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(payload)
+
+	size, err := buf.ReadFrom(payload)
+	if err != nil {
+		log.Printf("WARNING: error:[%v], not able to read payload: %v", err, payload)
+		return nil, fmt.Errorf("WARNING: error:[%v], not able to read payload: %v", err, payload)
+	}
 	p := buf.String()
 
-	res := &http.Response{}
-	req := &http.Request{}
-	attemptNumber := 0
+	req, err = http.NewRequest(requestType, url.String(), strings.NewReader(p))
+	if err != nil {
+		log.Printf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
+	}
 
-	return retry(maxAttempts, func() ([]byte, error) {
-		attemptNumber++
-		var err error
-		req, err = http.NewRequest(requestType, url.String(), strings.NewReader(p))
-		if err != nil {
-			log.Printf("WARNING: received error generating new request for %s(%s): %v "+
-				"(attempt %v of %v)", requestType, url.String(), err, attemptNumber, maxAttempts)
-			return nil, err
-		}
+	defer a.client.HTTPClient.CloseIdleConnections()
 
-		req.Header.Set("Authorization", tokenHeader(a.token))
-		req.Header.Set("Content-Type", bodyType)
+	req.Header.Set("Authorization", tokenHeader(a.token))
+	req.Header.Set("Content-Type", bodyType)
+	req.ContentLength = size
 
-		res, err = a.client.Do(req)
-		if err != nil {
-			log.Printf("WARNING: received error from %s(%s): %v "+
-				"(attempt %d of %d)", requestType, url.String(), err, attemptNumber, maxAttempts)
-			return nil, err
-		}
-
+	res, err := a.client.StandardClient().Do(req)
+	if res != nil {
 		defer res.Body.Close()
+	}
 
-		if res.StatusCode/100 == 5 {
-			log.Printf("WARNING: received response %d from %s "+
-				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
-			return nil, fmt.Errorf("retries exhausted: %d returned from %s",
-				res.StatusCode, url.String())
+	if err != nil {
+		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("reading response Body from Screwdriver: %v", err)
+		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparseable error response from Screwdriver: %v", parseError)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
 		}
-		return handleResponse(res)
-	})
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+	}
+
+	return body, nil
 }
 
 func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
