@@ -560,16 +560,16 @@ func TestNewDefaults(t *testing.T) {
 	maxRetries = 5
 	httpTimeout = time.Duration(20) * time.Second
 
-	os.Setenv("LAUNCHER_SDAPI_TIMEOUT_SECS", "")
-	os.Setenv("LAUNCHER_SDAPI_MAXRETRIES", "")
+	os.Setenv("SDAPI_TIMEOUT_SECS", "")
+	os.Setenv("SDAPI_MAXRETRIES", "")
 	_, _ = New("http://fakeurl", "fake")
 	assert.Equal(t, httpTimeout, time.Duration(20)*time.Second)
 	assert.Equal(t, maxRetries, 5)
 }
 
 func TestNew(t *testing.T) {
-	os.Setenv("LAUNCHER_SDAPI_TIMEOUT_SECS", "10")
-	os.Setenv("LAUNCHER_SDAPI_MAXRETRIES", "1")
+	os.Setenv("SDAPI_TIMEOUT_SECS", "10")
+	os.Setenv("SDAPI_MAXRETRIES", "1")
 	_, _ = New("http://fakeurl", "fake")
 	assert.Equal(t, httpTimeout, time.Duration(10)*time.Second)
 	assert.Equal(t, maxRetries, 1)
