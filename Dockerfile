@@ -77,7 +77,7 @@ RUN set -x \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
-   # Install sonar scanner cli
+   # Install Sonar scanner cli
    && wget -O sonarscanner-cli-linux.zip 'https://github.com/SonarSource/sonar-scanner-cli/releases/download/4.4.0.2170/sonar-scanner-cli-4.4.0.2170-linux.zip' \
    && wget -O sonarscanner-cli-macosx.zip 'https://github.com/SonarSource/sonar-scanner-cli/releases/download/4.4.0.2170/sonar-scanner-cli-4.4.0.2170-macosx.zip' \
    && unzip -q sonarscanner-cli-linux.zip \
@@ -90,7 +90,7 @@ RUN set -x \
    && find /hab -name doc -exec rm -r {} + \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
-   # Cleanup Sonar files
+   # Cleanup Sonar scanner cli files
    && rm -rf /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
    && apk del --purge .build-dependencies
