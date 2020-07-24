@@ -19,3 +19,6 @@ data/emitter
 vendor/
 # we dont want to maintain partial updates
 glide.lock
+
+.idea/
+launch

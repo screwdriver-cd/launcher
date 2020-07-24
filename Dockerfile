@@ -1,4 +1,4 @@
-FROM alpine:3.8
+FROM alpine:3.12
 MAINTAINER The Screwdrivers <screwdriver.cd>
 
 WORKDIR /opt/sd
@@ -10,7 +10,7 @@ RUN set -x \
    && apk add --no-cache --update ca-certificates \
    && apk add --virtual .build-dependencies wget \
    && apk add --virtual .build-dependencies gpgme \
-
+   && apk add --no-cache --virtual .build-dependencies unzip \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
       | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
@@ -41,7 +41,6 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O store-cli \
    && chmod +x store-cli \
-
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
@@ -78,13 +77,21 @@ RUN set -x \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
+   # Install Sonar scanner cli
+   && wget -O sonarscanner-cli-linux.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.4.0.2170-linux.zip' \
+   && wget -O sonarscanner-cli-macosx.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.4.0.2170-macosx.zip' \
+   && unzip -q sonarscanner-cli-linux.zip \
+   && unzip -q sonarscanner-cli-macosx.zip \
+   && mv sonar-scanner-*-linux sonarscanner-cli-linux \
+   && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
    && find /hab -name doc -exec rm -r {} + \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
-
+   # Cleanup Sonar scanner cli files
+   && rm -rf /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
    && apk del --purge .build-dependencies
 
