@@ -53,7 +53,7 @@ func (f MockAPI) GetAPIURL() (string, error) {
 	return "http://foo.bar", nil
 }
 
-func (f MockAPI) GetCoverageInfo() (screwdriver.Coverage, error) {
+func (f MockAPI) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (screwdriver.Coverage, error) {
 	return screwdriver.Coverage{}, nil
 }
 
