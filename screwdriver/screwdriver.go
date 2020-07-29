@@ -52,7 +52,7 @@ type API interface {
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
-	GetCoverageInfo() (Coverage, error)
+	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
@@ -311,8 +311,8 @@ func (a api) GetAPIURL() (string, error) {
 }
 
 // Get coverage object with coverage information
-func (a api) GetCoverageInfo() (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf("coverage/info"))
+func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (coverage Coverage, err error) {
+	url, err := a.makeURL(fmt.Sprintf("coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s", jobID, pipelineID, jobName, pipelineName))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err

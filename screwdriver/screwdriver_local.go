@@ -85,7 +85,7 @@ func (a localApi) GetAPIURL() (string, error) {
 	return url.String(), err
 }
 
-func (a localApi) GetCoverageInfo() (Coverage, error) {
+func (a localApi) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (Coverage, error) {
 	coverage := Coverage{}
 
 	return coverage, nil
