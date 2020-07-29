@@ -1417,22 +1417,22 @@ func TestPushMetrics(t *testing.T) {
 	client.HTTPClient = httpTest
 	ts := time.Now().Unix() - 2000
 
-	// PUSHGATEWAY_URL null
-	os.Setenv("PUSHGATEWAY_URL", "")
+	// SD_PUSHGATEWAY_URL null
+	os.Setenv("SD_PUSHGATEWAY_URL", "")
 	err := pushMetrics("success", 1)
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
 
 	// build id 0
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	err = pushMetrics("success", 0)
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
 
 	// 200 success
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("success", 1)
 	if err != nil {
@@ -1440,7 +1440,7 @@ func TestPushMetrics(t *testing.T) {
 	}
 
 	// 200 success, launcher end timestamp null / blank
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	os.Setenv("SD_LAUNCHER_END_TS", "")
 	err = pushMetrics("success", 1)
 	if err != nil {
@@ -1448,7 +1448,7 @@ func TestPushMetrics(t *testing.T) {
 	}
 
 	// 400
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&400&0")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&400&0")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("success", 1)
 	if err != nil {
@@ -1456,7 +1456,7 @@ func TestPushMetrics(t *testing.T) {
 	}
 
 	// 200 success
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("failed", 1)
 	if err != nil {
@@ -1464,7 +1464,7 @@ func TestPushMetrics(t *testing.T) {
 	}
 
 	// 500 success
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&500&0")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&500&0")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("failed", 1)
 	if err != nil {
@@ -1473,7 +1473,7 @@ func TestPushMetrics(t *testing.T) {
 
 	// 504
 	pushgatewayUrlTimeout = 1
-	os.Setenv("PUSHGATEWAY_URL", "http://fake.pushgateway.url&504&3")
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&504&3")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("success", 1)
 	if err != nil {
