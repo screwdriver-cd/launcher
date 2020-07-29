@@ -75,10 +75,10 @@ buildID => sd build id
 func pushMetrics(status string, buildID int) error {
 	// push metrics if pushgateway url is available
 	log.Printf("push metrics for buildID:[%v], status:[%v]", buildID, status)
-	if strings.TrimSpace(os.Getenv("PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
+	if strings.TrimSpace(os.Getenv("SD_PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
-		url := "http://" + os.Getenv("PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+		url := "http://" + os.Getenv("SD_PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
 		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
@@ -129,7 +129,7 @@ sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId 
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
 	} else {
-		log.Printf("pushMetrics: pushgatewayUrl:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty ", os.Getenv("PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
+		log.Printf("pushMetrics: pushgatewayUrl:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty ", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
 	}
 	return nil
 }

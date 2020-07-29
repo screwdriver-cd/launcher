@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Get push gateway url and container image from env variable
-if ([ ! -z "$PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PIPELINE_ID" ]); then
+if ([ ! -z "$SD_PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PIPELINE_ID" ]); then
   ts=`date "+%s"`
   export SD_BUILD_START_TS=$ts
   echo "push build image metrics to prometheus"
@@ -13,7 +13,7 @@ if ([ ! -z "$PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PI
   export SD_LAUNCHER_END_TS=$launcherendts
   duration=$(($ts - $launcherendts))
   launcherduration=$(($launcherendts - $launcherstartts))
-  cat <<EOF | curl -s -m 10 --data-binary @- "$PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
+  cat <<EOF | curl -s -m 10 --data-binary @- "$SD_PUSHGATEWAY_URL/metrics/job/containerd/instance/$5" &>/dev/null &
 sd_build_status{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID", status="RUNNING", prefix="$SD_BUILD_PREFIX"} 1
 sd_build_image_pull_time_secs{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID", prefix="$SD_BUILD_PREFIX"} $duration
 sd_build_launcher_time_secs{image_name="$CONTAINER_IMAGE", pipeline_id="$SD_PIPELINE_ID", node="$NODE_ID", prefix="$SD_BUILD_PREFIX"} $launcherduration
