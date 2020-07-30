@@ -8,9 +8,7 @@ RUN set -x \
    && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2 \
    # Also, missing https for some magic reason
    && apk add --no-cache --update ca-certificates \
-   && apk add --virtual .build-dependencies wget \
-   && apk add --virtual .build-dependencies gpgme \
-   && apk add --no-cache --virtual .build-dependencies unzip \
+   && apk add --no-cache --virtual .build-dependencies wget gpgme unzip \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
       | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
