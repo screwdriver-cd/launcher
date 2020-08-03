@@ -526,7 +526,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Add coverage env vars
-	coverageInfo, err := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, job.Permutations[0].Annotations.CoverageScope)
+	coverageScope := ""
+	if len(job.Permutations) > 0 {
+		coverageScope = job.Permutations[0].Annotations.CoverageScope
+	}
+	coverageInfo, err := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
 	if err != nil {
 		log.Printf("Failed to get coverage info for build %v so skip it\n", build.ID)
 	} else {

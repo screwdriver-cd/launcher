@@ -19,6 +19,8 @@ import (
 
 var sleep = time.Sleep
 
+const CoverageURL = "coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s&scope=%s&prNum=%s&prParentJobId=%s"
+
 // BuildStatus is the status of a Screwdriver build
 type BuildStatus string
 
@@ -52,7 +54,7 @@ type API interface {
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
-	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope string) (Coverage, error)
+	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
@@ -134,7 +136,7 @@ type ScmRepo struct {
 }
 
 type JobAnnotations struct {
-	CoverageScope string `json:"screwdriver.cd/coverageScope,omitempty"`
+	CoverageScope string `json:"screwdriver.cd/coverageScope,omitempty" default:""`
 }
 
 type JobPermutation struct {
@@ -320,8 +322,8 @@ func (a api) GetAPIURL() (string, error) {
 }
 
 // Get coverage object with coverage information
-func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope string) (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf("coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s&scope=%s", jobID, pipelineID, jobName, pipelineName, scope))
+func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (coverage Coverage, err error) {
+	url, err := a.makeURL(fmt.Sprintf(CoverageURL, jobID, pipelineID, jobName, pipelineName, scope, prNum, prParentJobId))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err

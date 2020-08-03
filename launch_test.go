@@ -100,7 +100,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 		getAPIURL: func() (string, error) {
 			return "https://api.screwdriver.cd/v4/", nil
 		},
-		getCoverageInfo: func(jobID, pipelineID int, jobName, pipelineName string) (screwdriver.Coverage, error) {
+		getCoverageInfo: func(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (screwdriver.Coverage, error) {
 			return screwdriver.Coverage(FakeCoverage{EnvVars: TestEnvVars}), nil
 		},
 		getBuildToken: func(buildID int, buildTimeoutMinutes int) (string, error) {
@@ -129,7 +129,7 @@ type MockAPI struct {
 	updateStepStop    func(buildID int, stepName string, exitCode int) error
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
 	getAPIURL         func() (string, error)
-	getCoverageInfo   func(jobID, pipelineID int, jobName, pipelineName string) (screwdriver.Coverage, error)
+	getCoverageInfo   func(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (screwdriver.Coverage, error)
 	getBuildToken     func(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
@@ -137,8 +137,8 @@ func (f MockAPI) GetAPIURL() (string, error) {
 	return f.getAPIURL()
 }
 
-func (f MockAPI) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (screwdriver.Coverage, error) {
-	return f.getCoverageInfo(jobID, pipelineID, jobName, pipelineName)
+func (f MockAPI) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (screwdriver.Coverage, error) {
+	return f.getCoverageInfo(jobID, pipelineID, jobName, pipelineName, scope, prNum, prParentJobId)
 }
 
 func (f MockAPI) SecretsForBuild(build screwdriver.Build) (screwdriver.Secrets, error) {
