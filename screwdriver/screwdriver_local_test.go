@@ -130,7 +130,7 @@ func TestGetCoverageInfoLocal(t *testing.T) {
 	testAPI := localApi{"http://fakeurl", "testJob", Build{}}
 	expected := Coverage{}
 
-	actual, err := testAPI.GetCoverageInfo(123, 456, "main", "d2lam/mytest")
+	actual, err := testAPI.GetCoverageInfo(123, 456, "main", "d2lam/mytest", "")
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("actual: %#v, expected: %#v", actual, expected)
 	}

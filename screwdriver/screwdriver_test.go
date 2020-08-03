@@ -257,14 +257,14 @@ func TestGetCoverageInfo(t *testing.T) {
 		{
 			coverage:   Coverage{},
 			statusCode: 500,
-			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest): " +
-				"Get \"http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest\": " +
-				"GET http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest giving up after 5 attempts "),
+			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=): " +
+				"Get \"http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=\": " +
+				"GET http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope= giving up after 5 attempts "),
 		},
 		{
 			coverage:   Coverage{},
 			statusCode: 404,
-			err:        errors.New("WARNING: received response 404 from http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest "),
+			err:        errors.New("WARNING: received response 404 from http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope= "),
 		},
 	}
 
@@ -279,7 +279,7 @@ func TestGetCoverageInfo(t *testing.T) {
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
-		coverage, err := testAPI.GetCoverageInfo(123, 456, "main", "d2lam/mytest")
+		coverage, err := testAPI.GetCoverageInfo(123, 456, "main", "d2lam/mytest", "")
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from GetCoverageInfo: \n%v\n want \n%v", err.Error(), test.err.Error())

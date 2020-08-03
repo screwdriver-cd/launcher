@@ -52,7 +52,7 @@ type API interface {
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
-	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (Coverage, error)
+	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope string) (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
@@ -134,7 +134,7 @@ type ScmRepo struct {
 }
 
 type JobAnnotations struct {
-	CoverageScope string `json:"screwdriver.cd/coverageScope"`
+	CoverageScope string `json:"screwdriver.cd/coverageScope,omitempty"`
 }
 
 type JobPermutation struct {
@@ -147,7 +147,7 @@ type Job struct {
 	PipelineID    int              `json:"pipelineId"`
 	Name          string           `json:"name"`
 	PrParentJobID int              `json:"prParentJobId"`
-	Permutations  []JobPermutation `json:"permutations" json:"omitempty"`
+	Permutations  []JobPermutation `json:"permutations,omitempty"`
 }
 
 // CommandDef is the definition of a single executable command.
@@ -320,8 +320,8 @@ func (a api) GetAPIURL() (string, error) {
 }
 
 // Get coverage object with coverage information
-func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf("coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s", jobID, pipelineID, jobName, pipelineName))
+func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope string) (coverage Coverage, err error) {
+	url, err := a.makeURL(fmt.Sprintf("coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s&scope=%s", jobID, pipelineID, jobName, pipelineName, scope))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err

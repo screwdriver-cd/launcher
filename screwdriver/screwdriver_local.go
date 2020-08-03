@@ -46,6 +46,7 @@ func (a localApi) JobFromID(jobID int) (job Job, err error) {
 		PipelineID:    0,
 		Name:          a.jobName,
 		PrParentJobID: 0,
+		Permutations:  []JobPermutation{},
 	}
 
 	return job, nil
@@ -85,7 +86,7 @@ func (a localApi) GetAPIURL() (string, error) {
 	return url.String(), err
 }
 
-func (a localApi) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (Coverage, error) {
+func (a localApi) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope string) (Coverage, error) {
 	coverage := Coverage{}
 
 	return coverage, nil
