@@ -302,6 +302,13 @@ func TestJobFromID(t *testing.T) {
 				ID:         1555,
 				PipelineID: 2666,
 				Name:       "testName",
+				Permutations: []JobPermutation{
+					{
+						Annotations: JobAnnotations{
+							CoverageScope: "job",
+						},
+					},
+				},
 			},
 			statusCode: 200,
 			err:        nil,

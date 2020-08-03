@@ -47,6 +47,7 @@ func TestJobFromIDLocal(t *testing.T) {
 		0,
 		testAPI.jobName,
 		0,
+		[]JobPermutation{},
 	}
 
 	actual, err := testAPI.JobFromID(0)
