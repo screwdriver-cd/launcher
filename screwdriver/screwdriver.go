@@ -177,7 +177,7 @@ type Build struct {
 
 // Coverage is a Coverage object returned when getInfo is called
 type Coverage struct {
-	EnvVars map[string]string `json:"envVars"`
+	EnvVars map[string]interface{} `json:"envVars"`
 }
 
 // Event is a Screwdriver Event

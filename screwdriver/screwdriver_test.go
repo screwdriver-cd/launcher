@@ -238,9 +238,10 @@ func TestEventFromID(t *testing.T) {
 }
 
 func TestGetCoverageInfo(t *testing.T) {
-	envVars := map[string]string{
-		"SD_SONAR_AUTH_URL": "https://api.screwdriver.cd/v4/coverage/token",
-		"SD_SONAR_HOST":     "https://sonar.screwdriver.cd",
+	envVars := map[string]interface{}{
+		"SD_SONAR_AUTH_URL":   "https://api.screwdriver.cd/v4/coverage/token",
+		"SD_SONAR_HOST":       "https://sonar.screwdriver.cd",
+		"SD_SONAR_ENTERPRISE": false,
 	}
 	tests := []struct {
 		coverage   Coverage
