@@ -19,6 +19,8 @@ import (
 
 var sleep = time.Sleep
 
+const CoverageURL = "coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s&scope=%s&prNum=%s&prParentJobId=%s"
+
 // BuildStatus is the status of a Screwdriver build
 type BuildStatus string
 
@@ -52,7 +54,7 @@ type API interface {
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
-	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (Coverage, error)
+	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
@@ -133,12 +135,21 @@ type ScmRepo struct {
 	Name string `json:"name"`
 }
 
+type JobAnnotations struct {
+	CoverageScope string `json:"screwdriver.cd/coverageScope,omitempty" default:""`
+}
+
+type JobPermutation struct {
+	Annotations JobAnnotations `json:"annotations"`
+}
+
 // Job is a Screwdriver Job.
 type Job struct {
-	ID            int    `json:"id"`
-	PipelineID    int    `json:"pipelineId"`
-	Name          string `json:"name"`
-	PrParentJobID int    `json:"prParentJobId"`
+	ID            int              `json:"id"`
+	PipelineID    int              `json:"pipelineId"`
+	Name          string           `json:"name"`
+	PrParentJobID int              `json:"prParentJobId"`
+	Permutations  []JobPermutation `json:"permutations,omitempty"`
 }
 
 // CommandDef is the definition of a single executable command.
@@ -311,8 +322,8 @@ func (a api) GetAPIURL() (string, error) {
 }
 
 // Get coverage object with coverage information
-func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName string) (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf("coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s", jobID, pipelineID, jobName, pipelineName))
+func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (coverage Coverage, err error) {
+	url, err := a.makeURL(fmt.Sprintf(CoverageURL, jobID, pipelineID, jobName, pipelineName, scope, prNum, prParentJobId))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err
