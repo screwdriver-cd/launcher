@@ -45,7 +45,7 @@ var TestParentBuildIDFloat interface{} = float64(1111)
 var TestParentBuildIDs = []float64{1111, 2222}
 var IDs = make([]interface{}, len(TestParentBuildIDs))
 var actual = make(map[string]interface{})
-var TestEnvVars = map[string]string{
+var TestEnvVars = map[string]interface{}{
 	"SD_SONAR_AUTH_URL": "https://api.screwdriver.cd/v4/coverage/token",
 	"SD_SONAR_HOST":     "https://sonar.screwdriver.cd",
 }
@@ -819,7 +819,7 @@ func TestSetEnv(t *testing.T) {
 	// in case of no coverage plugins
 	delete(tests, "SD_SONAR_AUTH_URL")
 	delete(tests, "SD_SONAR_HOST")
-	TestEnvVars = map[string]string{}
+	TestEnvVars = map[string]interface{}{}
 	foundEnv = map[string]string{}
 	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0)
 	if err != nil {
@@ -836,7 +836,7 @@ func TestSetEnv(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI + ":lib", ScmRepo: TestScmRepo}), nil
 	}
 	tests["SD_SOURCE_DIR"] = tests["SD_SOURCE_DIR"] + "/lib"
-	TestEnvVars = map[string]string{}
+	TestEnvVars = map[string]interface{}{}
 	foundEnv = map[string]string{}
 	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0)
 	if err != nil {
