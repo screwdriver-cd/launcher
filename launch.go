@@ -535,7 +535,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		log.Printf("Failed to get coverage info for build %v so skip it: %v\n", build.ID, err)
 	} else {
 		for key, value := range coverageInfo.EnvVars {
-			defaultEnv[key] = value.(string)
+			defaultEnv[key] = fmt.Sprintf("%v", value)
 		}
 	}
 
