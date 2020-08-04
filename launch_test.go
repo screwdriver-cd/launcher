@@ -46,8 +46,9 @@ var TestParentBuildIDs = []float64{1111, 2222}
 var IDs = make([]interface{}, len(TestParentBuildIDs))
 var actual = make(map[string]interface{})
 var TestEnvVars = map[string]interface{}{
-	"SD_SONAR_AUTH_URL": "https://api.screwdriver.cd/v4/coverage/token",
-	"SD_SONAR_HOST":     "https://sonar.screwdriver.cd",
+	"SD_SONAR_AUTH_URL":   "https://api.screwdriver.cd/v4/coverage/token",
+	"SD_SONAR_HOST":       "https://sonar.screwdriver.cd",
+	"SD_SONAR_ENTERPRISE": false,
 }
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
