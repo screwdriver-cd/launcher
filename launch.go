@@ -532,7 +532,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 	coverageInfo, err := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
 	if err != nil {
-		log.Printf("Failed to get coverage info for build %v so skip it\n", build.ID)
+		log.Printf("Failed to get coverage info for build %v so skip it: %v\n", build.ID, err)
 	} else {
 		for key, value := range coverageInfo.EnvVars {
 			defaultEnv[key] = value
