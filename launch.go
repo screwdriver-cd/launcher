@@ -345,6 +345,15 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	metaFile := "meta.json" // Write to "meta.json" file
 	metaLog := ""
 
+	oldJobName := job.Name
+	pr := prNumber(job.Name)
+
+	coverageScope := ""
+	if len(job.Permutations) > 0 {
+		coverageScope = job.Permutations[0].Annotations.CoverageScope
+	}
+	coverageInfo, coverageErr := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
+
 	parentBuildIDs := convertToArray(build.ParentBuildID)
 	buildMeta := map[string]interface{}{
 		"pipelineId": strconv.Itoa(job.PipelineID),
@@ -354,6 +363,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"jobName":    job.Name,
 		"sha":        build.SHA,
 	}
+
+	if coverageErr == nil {
+		buildMeta["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
+	}
+
 	mergedMeta := map[string]interface{}{
 		"build": buildMeta,
 	}
@@ -467,8 +481,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), sourceDir)
 	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
-	oldJobName := job.Name
-	pr := prNumber(job.Name)
 	if pr != "" {
 		job.Name = "main"
 	}
@@ -526,12 +538,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Add coverage env vars
-	coverageScope := ""
-	if len(job.Permutations) > 0 {
-		coverageScope = job.Permutations[0].Annotations.CoverageScope
-	}
-	coverageInfo, err := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
-	if err != nil {
+	if coverageErr != nil {
 		log.Printf("Failed to get coverage info for build %v so skip it: %v\n", build.ID, err)
 	} else {
 		for key, value := range coverageInfo.EnvVars {
