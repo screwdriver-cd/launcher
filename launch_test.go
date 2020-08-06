@@ -45,11 +45,7 @@ var TestParentBuildIDFloat interface{} = float64(1111)
 var TestParentBuildIDs = []float64{1111, 2222}
 var IDs = make([]interface{}, len(TestParentBuildIDs))
 var actual = make(map[string]interface{})
-var TestEnvVars = map[string]interface{}{
-	"SD_SONAR_AUTH_URL":   "https://api.screwdriver.cd/v4/coverage/token",
-	"SD_SONAR_HOST":       "https://sonar.screwdriver.cd",
-	"SD_SONAR_ENTERPRISE": false,
-}
+var TestEnvVars = make(map[string]interface{})
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
 })
@@ -60,6 +56,15 @@ type FakeEvent screwdriver.Event
 type FakeJob screwdriver.Job
 type FakePipeline screwdriver.Pipeline
 type FakeScmRepo screwdriver.ScmRepo
+
+func initCoverageMeta() {
+	TestEnvVars = map[string]interface{}{
+		"SD_SONAR_AUTH_URL":    "https://api.screwdriver.cd/v4/coverage/token",
+		"SD_SONAR_HOST":        "https://sonar.screwdriver.cd",
+		"SD_SONAR_ENTERPRISE":  false,
+		"SD_SONAR_PROJECT_KEY": "job:fake",
+	}
+}
 
 func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatus screwdriver.BuildStatus) MockAPI {
 	return MockAPI{
@@ -252,6 +257,8 @@ func setupTempDirectoryAndSocket(t *testing.T) (dir string, cleanup func()) {
 }
 
 func TestMain(m *testing.M) {
+	initCoverageMeta()
+
 	mkdirAll = func(path string, perm os.FileMode) (err error) { return nil }
 	stat = func(path string) (info os.FileInfo, err error) { return nil, os.ErrExist }
 	open = func(f string) (*os.File, error) {
@@ -980,6 +987,7 @@ func TestUserShellBin(t *testing.T) {
 }
 
 func TestFetchPredefinedMeta(t *testing.T) {
+	initCoverageMeta()
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
 	var defaultMeta []byte
@@ -1004,7 +1012,7 @@ func TestFetchPredefinedMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":\"bar\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":\"bar\"}")
 
 	if err != nil || string(defaultMeta) != string(want) {
 		t.Errorf("Expected defaultMeta is %v, but: %v", string(want), string(defaultMeta))
@@ -1012,6 +1020,7 @@ func TestFetchPredefinedMeta(t *testing.T) {
 }
 
 func TestFetchDefaultMeta(t *testing.T) {
+	initCoverageMeta()
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
 	var defaultMeta []byte
@@ -1034,7 +1043,7 @@ func TestFetchDefaultMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
 
 	if err != nil || string(defaultMeta) != string(want) {
 		t.Errorf("Expected defaultMeta is %v, but: %v", string(want), string(defaultMeta))
@@ -1042,6 +1051,7 @@ func TestFetchDefaultMeta(t *testing.T) {
 }
 
 func TestFetchParentBuildMeta(t *testing.T) {
+	initCoverageMeta()
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
 	var mockMeta map[string]interface{}
@@ -1080,7 +1090,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
 	wantParent := []byte("{\"hoge\":\"fuga\"}")
 
 	if err != nil || string(parentMeta) != string(wantParent) {
@@ -1355,7 +1365,7 @@ func TestFetchEventMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
 
 	if err != nil || string(eventMeta) != string(want) {
 		t.Errorf("Expected eventMeta is %v, but: %v", string(want), string(eventMeta))
