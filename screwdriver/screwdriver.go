@@ -18,6 +18,7 @@ import (
 )
 
 var sleep = time.Sleep
+var UTCLoc, _ = time.LoadLocation("UTC")
 
 const CoverageURL = "coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s&scope=%s&prNum=%s&prParentJobId=%s"
 
@@ -450,7 +451,7 @@ func (a api) UpdateStepStart(buildID int, stepName string) error {
 	}
 
 	bs := StepStartPayload{
-		StartTime: time.Now(),
+		StartTime: time.Now().In(UTCLoc),
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {
@@ -472,7 +473,7 @@ func (a api) UpdateStepStop(buildID int, stepName string, exitCode int) error {
 	}
 
 	bs := StepStopPayload{
-		EndTime:  time.Now(),
+		EndTime:  time.Now().In(UTCLoc),
 		ExitCode: exitCode,
 	}
 	payload, err := json.Marshal(bs)
