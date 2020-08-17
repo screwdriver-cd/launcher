@@ -296,7 +296,7 @@ func convertToArray(i interface{}) (array []int) {
 	}
 }
 
-func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64) error {
+func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
 	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
@@ -500,41 +500,42 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	isCI := strconv.FormatBool(!isLocal)
 
 	defaultEnv := map[string]string{
-		"PS1":                    "",
-		"SCREWDRIVER":            isCI,
-		"CI":                     isCI,
-		"GIT_PAGER":              "cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
-		"CONTINUOUS_INTEGRATION": isCI,
-		"SD_JOB_NAME":            oldJobName,
-		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
-		"SD_BUILD_ID":            strconv.Itoa(buildID),
-		"SD_JOB_ID":              strconv.Itoa(job.ID),
-		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
-		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
-		"SD_PARENT_BUILD_ID":     fmt.Sprintf("%v", parentBuildIDs),
-		"SD_PR_PARENT_JOB_ID":    strconv.Itoa(job.PrParentJobID),
-		"SD_PARENT_EVENT_ID":     strconv.Itoa(event.ParentEventID),
-		"SD_SOURCE_DIR":          sourceDir,
-		"SD_CHECKOUT_DIR":        w.Src,
-		"SD_ROOT_DIR":            w.Root,
-		"SD_ARTIFACTS_DIR":       w.Artifacts,
-		"SD_META_DIR":            metaSpace,
-		"SD_META_PATH":           metaSpace + "/meta.json",
-		"SD_BUILD_SHA":           build.SHA,
-		"SD_PULL_REQUEST":        pr,
-		"SD_API_URL":             apiURL,
-		"SD_BUILD_URL":           apiURL + "builds/" + strconv.Itoa(buildID),
-		"SD_STORE_URL":           fmt.Sprintf("%s/%s/", storeURL, "v1"),
-		"SD_UI_URL":              fmt.Sprintf("%s/", uiURL),
-		"SD_UI_BUILD_URL":        fmt.Sprintf("%s/pipelines/%s/builds/%s", uiURL, strconv.Itoa(job.PipelineID), strconv.Itoa(buildID)),
-		"SD_TOKEN":               buildToken,
-		"SD_CACHE_STRATEGY":      cacheStrategy,
-		"SD_PIPELINE_CACHE_DIR":  pipelineCacheDir,
-		"SD_JOB_CACHE_DIR":       jobCacheDir,
-		"SD_EVENT_CACHE_DIR":     eventCacheDir,
-		"SD_CACHE_COMPRESS":      fmt.Sprintf("%v", cacheCompress),
-		"SD_CACHE_MD5CHECK":      fmt.Sprintf("%v", cacheMd5Check),
-		"SD_CACHE_MAX_SIZE_MB":   fmt.Sprintf("%v", cacheMaxSizeInMB),
+		"PS1":                    	"",
+		"SCREWDRIVER":            	isCI,
+		"CI":                     	isCI,
+		"GIT_PAGER":              	"cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
+		"CONTINUOUS_INTEGRATION": 	isCI,
+		"SD_JOB_NAME":            	oldJobName,
+		"SD_PIPELINE_NAME":       	pipeline.ScmRepo.Name,
+		"SD_BUILD_ID":            	strconv.Itoa(buildID),
+		"SD_JOB_ID":              	strconv.Itoa(job.ID),
+		"SD_EVENT_ID":            	strconv.Itoa(build.EventID),
+		"SD_PIPELINE_ID":         	strconv.Itoa(job.PipelineID),
+		"SD_PARENT_BUILD_ID":     	fmt.Sprintf("%v", parentBuildIDs),
+		"SD_PR_PARENT_JOB_ID":    	strconv.Itoa(job.PrParentJobID),
+		"SD_PARENT_EVENT_ID":     	strconv.Itoa(event.ParentEventID),
+		"SD_SOURCE_DIR":          	sourceDir,
+		"SD_CHECKOUT_DIR":        	w.Src,
+		"SD_ROOT_DIR":            	w.Root,
+		"SD_ARTIFACTS_DIR":       	w.Artifacts,
+		"SD_META_DIR":            	metaSpace,
+		"SD_META_PATH":           	metaSpace + "/meta.json",
+		"SD_BUILD_SHA":           	build.SHA,
+		"SD_PULL_REQUEST":        	pr,
+		"SD_API_URL":             	apiURL,
+		"SD_BUILD_URL":           	apiURL + "builds/" + strconv.Itoa(buildID),
+		"SD_STORE_URL":           	fmt.Sprintf("%s/%s/", storeURL, "v1"),
+		"SD_UI_URL":              	fmt.Sprintf("%s/", uiURL),
+		"SD_UI_BUILD_URL":        	fmt.Sprintf("%s/pipelines/%s/builds/%s", uiURL, strconv.Itoa(job.PipelineID), strconv.Itoa(buildID)),
+		"SD_TOKEN":               	buildToken,
+		"SD_CACHE_STRATEGY":      	cacheStrategy,
+		"SD_PIPELINE_CACHE_DIR":  	pipelineCacheDir,
+		"SD_JOB_CACHE_DIR":       	jobCacheDir,
+		"SD_EVENT_CACHE_DIR":     	eventCacheDir,
+		"SD_CACHE_COMPRESS":      	fmt.Sprintf("%v", cacheCompress),
+		"SD_CACHE_MD5CHECK":      	fmt.Sprintf("%v", cacheMd5Check),
+		"SD_CACHE_MAX_SIZE_MB":   	fmt.Sprintf("%v", cacheMaxSizeInMB),
+		"SD_CACHE_MAX_GO_THREADS":	fmt.Sprintf("%v", cacheMaxGoThreads),
 	}
 
 	// Add coverage env vars
@@ -607,11 +608,11 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
 	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB); err != nil {
+	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -750,6 +751,11 @@ func main() {
 			Usage: "Cache allowed max size in mb",
 			Value: "0",
 		},
+		cli.StringFlag{
+			Name:  "cache-max-go-threads",
+			Usage: "Cache allowed max go threads",
+			Value: "10000",
+		},
 		cli.BoolFlag{
 			Name:  "local-mode",
 			Usage: "Enable local mode",
@@ -784,6 +790,7 @@ func main() {
 		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
 		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
 		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
+		cacheMaxGoThreads := c.Int64("cache-max-go-threads")
 		isLocal := c.Bool("local-mode")
 		localBuildJson := c.String("local-build-json")
 		localJobName := c.String("local-job-name")
@@ -842,7 +849,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB)
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
