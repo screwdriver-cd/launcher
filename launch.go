@@ -3,17 +3,21 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/peterbourgon/mergemap"
 	"github.com/urfave/cli"
@@ -653,9 +657,36 @@ func finalRecover() {
 	cleanExit()
 }
 
+func runCmd(arg string, args ...string) error {
+	cmd := exec.Command(arg, args...)
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
 func main() {
 	defer finalRecover()
 	defer recoverPanic(0, nil, "")
+
+	sigs := make(chan os.Signal, 1)
+
+	go func() {
+		// waiting for a signal
+		select {
+		case sig := <-sigs:
+			fmt.Printf("Got %s signal. Aborting...\n", sig)
+			runCmd("/opt/sd/launch", "sd-cleanup")
+			cleanExit()
+		}
+		// unregister the signal handler
+		defer signal.Stop(sigs)
+	}()
+
+	defer close(sigs)
+	signal.Notify(sigs, syscall.SIGTERM)
 
 	app := cli.NewApp()
 	app.Name = "launcher"
@@ -671,6 +702,11 @@ func main() {
 	app.Copyright = "(c) 2016-" + date + " Yahoo Inc."
 
 	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "abort-code",
+			Usage: "Abort code for sd build",
+			Value: "555",
+		},
 		cli.StringFlag{
 			Name:  "api-uri",
 			Usage: "API URI for Screwdriver",
@@ -768,6 +804,20 @@ func main() {
 		cli.StringFlag{
 			Name:  "local-job-name",
 			Usage: "Job name for local mode",
+		},
+	}
+
+	app.Commands = []cli.Command{
+		{
+			Name: "sd-cleanup",
+			Action: func(c *cli.Context) error {
+				//stop current process
+				runCmd("pkill", "-2 '/opt/sd/launch'")
+				//run teardown step for build
+				runCmd("export", "ABORT_CODE=999")
+
+				return runCmd("/opt/sd/launch", "sd-teardown-screwdriver-artifact-bookend")
+			},
 		},
 	}
 
