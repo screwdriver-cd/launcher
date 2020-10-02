@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 I_AM_ROOT=false
 
 if [ `whoami` = "root" ]; then
