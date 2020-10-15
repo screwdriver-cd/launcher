@@ -186,7 +186,7 @@ type Event struct {
 	ID            int                    `json:"id"`
 	Meta          map[string]interface{} `json:"meta"`
 	ParentEventID int                    `json:"parentEventId"`
-	Creator       map[string]interface{} `json:"creator"`
+	Creator       map[string]string      `json:"creator"`
 }
 
 // Secret is a Screwdriver build secret.

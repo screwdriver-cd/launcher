@@ -29,7 +29,7 @@ func TestEventFromIDLocal(t *testing.T) {
 		0,
 		make(map[string]interface{}),
 		0,
-		make(map[string]interface{}),
+		make(map[string]string),
 	}
 
 	actual, err := testAPI.EventFromID(0)
