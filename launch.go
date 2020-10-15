@@ -499,6 +499,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	isCI := strconv.FormatBool(!isLocal)
 
+	isScheduler := strconv.FormatBool(event.Creator["username"] == "sd:scheduler")
+
 	defaultEnv := map[string]string{
 		"PS1":                     "",
 		"SCREWDRIVER":             isCI,
@@ -536,6 +538,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_CACHE_MD5CHECK":       fmt.Sprintf("%v", cacheMd5Check),
 		"SD_CACHE_MAX_SIZE_MB":    fmt.Sprintf("%v", cacheMaxSizeInMB),
 		"SD_CACHE_MAX_GO_THREADS": fmt.Sprintf("%v", cacheMaxGoThreads),
+		"SD_SCHEDULING_BUILD":     isScheduler,
 	}
 
 	// Add coverage env vars
