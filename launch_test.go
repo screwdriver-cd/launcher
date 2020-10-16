@@ -790,7 +790,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_PIPELINE_CACHE_DIR":  "",
 		"SD_JOB_CACHE_DIR":       "",
 		"SD_EVENT_CACHE_DIR":     "",
-		"SD_SCHEDULED_BUILD":    "false",
+		"SD_SCHEDULED_BUILD":     "false",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
