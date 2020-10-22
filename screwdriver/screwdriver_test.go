@@ -411,17 +411,19 @@ func TestUpdateBuildStatus(t *testing.T) {
 	_ = json.Unmarshal(mockJSON, &meta)
 
 	tests := []struct {
-		status     BuildStatus
-		meta       map[string]interface{}
-		statusCode int
-		err        error
+		status        BuildStatus
+		statusMessage string
+		meta          map[string]interface{}
+		statusCode    int
+		err           error
 	}{
-		{Success, meta, 200, nil},
-		{Failure, meta, 200, nil},
-		{Aborted, meta, 200, nil},
-		{Running, meta, 200, nil},
-		{"NOTASTATUS", meta, 200, errors.New("Invalid build status: NOTASTATUS")},
-		{Success, meta, 500, errors.New("Posting to Build Status: " +
+		{Success, "", meta, 200, nil},
+		{Failure, "Error: Build failed to start. Please check if your image is valid with curl, openssh installed and default user root or sudo NOPASSWD enabled.", meta, 200, nil},
+		{Failure, "", meta, 200, nil},
+		{Aborted, "", meta, 200, nil},
+		{Running, "", meta, 200, nil},
+		{"NOTASTATUS", "", meta, 200, errors.New("Invalid build status: NOTASTATUS")},
+		{Success, "", meta, 500, errors.New("Posting to Build Status: " +
 			"WARNING: received error from PUT(http://fakeurl/v4/builds/15): " +
 			"Put \"http://fakeurl/v4/builds/15\": " +
 			"PUT http://fakeurl/v4/builds/15 giving up after 5 attempts ")},
@@ -433,7 +435,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, "{}")
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
-		err := testAPI.UpdateBuildStatus(test.status, test.meta, 15)
+		err := testAPI.UpdateBuildStatus(test.status, test.meta, 15, test.statusMessage)
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from UpdateBuildStatus: \n%v\n want \n%v", err, test.err)

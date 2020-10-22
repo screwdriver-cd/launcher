@@ -79,7 +79,7 @@ func TestPipelineFromIDLocal(t *testing.T) {
 func TestUpdateBuildStatusLocal(t *testing.T) {
 	testAPI := localApi{"http://fakeurl", "testJob", Build{}}
 
-	actual := testAPI.UpdateBuildStatus("", make(map[string]interface{}), 0)
+	actual := testAPI.UpdateBuildStatus("", make(map[string]interface{}), 0, "")
 	if actual != nil {
 		t.Errorf("actual: %v, expected: %v", actual, nil)
 	}
