@@ -196,6 +196,9 @@ func TestEventFromID(t *testing.T) {
 			event: Event{
 				ID:            1555,
 				ParentEventID: 8765,
+				Creator: map[string]string{
+					"username": "testUsername",
+				},
 			},
 			statusCode: 200,
 			err:        nil,

@@ -35,6 +35,7 @@ func (a localApi) EventFromID(eventID int) (event Event, err error) {
 		ID:            0,
 		Meta:          make(map[string]interface{}),
 		ParentEventID: 0,
+		Creator:       make(map[string]string),
 	}
 
 	return event, nil
