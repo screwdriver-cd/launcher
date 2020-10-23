@@ -63,7 +63,7 @@ func (a localApi) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) 
 	return pipeline, nil
 }
 
-func (a localApi) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error {
+func (a localApi) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int, statusMessag string) error {
 	return nil
 }
 

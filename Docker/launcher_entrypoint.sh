@@ -1,6 +1,18 @@
 #!/bin/sh
-
 set -e
+
+args=($@)
+
+# Trap these SIGNALs and update build status to failure
+trap 'cleanUp' HUP INT QUIT TERM EXIT
+
+cleanUp () {
+  if [ $? -ne 0 ]; then
+    # args element is enclosed in double-quotes, which results in error; eval strips double-quotes
+    /opt/sd/launch --container-error --token $(eval echo ${args[1]}) --api-uri $(eval echo ${args[2]}) --store-uri $(eval echo ${args[3]}) --ui-uri $(eval echo ${args[6]}) --emitter /sd/emitter --build-timeout $(eval echo ${args[4]}) --cache-strategy $(eval echo ${args[7]}) --pipeline-cache-dir $(eval echo ${args[8]}) --job-cache-dir $(eval echo ${args[9]}) --event-cache-dir $(eval echo ${args[10]}) --cache-compress $(eval echo ${args[11]}) --cache-md5check $(eval echo ${args[12]}) --cache-max-size-mb $(eval echo ${args[13]}) --cache-max-go-threads $(eval echo ${args[14]}) $(eval echo ${args[5]})
+    exit 1
+  fi
+}
 
 I_AM_ROOT=false
 
@@ -15,6 +27,9 @@ smart_run () {
         $@
     fi
 }
+
+echo 'sudo available in Container?'
+smart_run whoami
 
 echo 'Symlink hab cache'
 date
