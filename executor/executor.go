@@ -378,3 +378,54 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	return firstError
 }
+
+// RunTeardownOnAbort executes all teardown steps when build is aborted
+func RunTeardownOnAbort(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath, sourceDir string) error {
+	exportFile := envFilepath + "_export"
+
+	// Set up a single pseudo-terminal
+	c := exec.Command(shellBin)
+	c.Dir = path
+	c.Env = append(env, c.Env...)
+
+	f, err := pty.Start(c)
+	if err != nil {
+		return fmt.Errorf("Cannot start shell: %v", err)
+	}
+
+	var firstError error
+	var code int
+	var stepExitCode int
+	var cmdErr error
+
+	_, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
+	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
+
+	for index, cmd := range teardownCommands {
+		if index == 0 && firstError == nil {
+			// Exit shell only if previous user steps ran successfully
+			f.Write([]byte{4})
+		}
+
+		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
+		}
+
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir, stepExitCode)
+
+		if code != ExitOk {
+			stepExitCode = code
+		}
+
+		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+		}
+
+		if firstError == nil {
+			firstError = cmdErr
+		}
+	}
+
+	return firstError
+
+}

@@ -40,6 +40,7 @@ var mkdirAll = os.MkdirAll
 var stat = os.Stat
 var open = os.Open
 var executorRun = executor.Run
+var executorRunTeardown = executor.RunTeardownOnAbort
 var writeFile = ioutil.WriteFile
 var readFile = ioutil.ReadFile
 var newEmitter = screwdriver.NewEmitter
@@ -219,6 +220,33 @@ func createWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspac
 		err = mkdirAll(p, 0777)
 		if err != nil {
 			return Workspace{}, fmt.Errorf("Cannot create workspace path %q: %v", p, err)
+		}
+	}
+
+	w := Workspace{
+		Root:      rootDir,
+		Src:       src,
+		Artifacts: artifacts,
+	}
+	return w, nil
+}
+
+func getWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspace, error) {
+	srcPaths = append([]string{"src"}, srcPaths...)
+	src := path.Join(srcPaths...)
+
+	src = path.Join(rootDir, src)
+	artifacts := path.Join(rootDir, "artifacts")
+
+	paths := []string{
+		src,
+		artifacts,
+	}
+	for _, p := range paths {
+		_, err := stat(p)
+		if err != nil && !isLocal {
+			msg := "workspace path %q, path does not exists."
+			return Workspace{}, fmt.Errorf(msg, p)
 		}
 	}
 
@@ -611,10 +639,116 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 	return env, userShellBin
 }
 
+func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
+	emitter, err := newEmitter(emitterPath)
+	envFilepath := "/tmp/env"
+	if err != nil {
+		return err
+	}
+	defer emitter.Close()
+
+	log.Printf("Fetching Build %d", buildID)
+	build, err := api.BuildFromID(buildID)
+	if err != nil {
+		return fmt.Errorf("Fetching Build ID %d: %v", buildID, err)
+	}
+
+	log.Printf("Fetching secrets %d", build.JobID)
+	secrets, err := api.SecretsForBuild(build)
+	if err != nil {
+		return fmt.Errorf("Fetching secrets for build %v", build.ID)
+	}
+
+	log.Printf("Fetching Job %d", build.JobID)
+	job, err := api.JobFromID(build.JobID)
+	if err != nil {
+		return fmt.Errorf("Fetching Job ID %d: %v", build.JobID, err)
+	}
+
+	log.Printf("Fetching Pipeline %d", job.PipelineID)
+	pipeline, err := api.PipelineFromID(job.PipelineID)
+	if err != nil {
+		return fmt.Errorf("Fetching Pipeline ID %d: %v", job.PipelineID, err)
+	}
+
+	log.Printf("Fetching Event %d", build.EventID)
+	event, err := api.EventFromID(build.EventID)
+	if err != nil {
+		return fmt.Errorf("Fetching Event ID %d: %v", build.EventID, err)
+	}
+
+	oldJobName := job.Name
+	pr := prNumber(job.Name)
+
+	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Get Workspace in %v", rootDir)
+	w, err := getWorkspace(isLocal, rootDir, scm.Host, scm.Org, scm.Repo)
+	if err != nil {
+		return err
+	}
+	sourceDir := w.Src
+	if scm.RootDir != "" {
+		sourceDir = sourceDir + "/" + scm.RootDir
+	}
+
+	apiURL, _ := api.GetAPIURL()
+
+	isCI := strconv.FormatBool(!isLocal)
+
+	defaultEnv := map[string]string{
+		"PS1":                    "",
+		"SCREWDRIVER":            isCI,
+		"CI":                     isCI,
+		"GIT_PAGER":              "cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
+		"CONTINUOUS_INTEGRATION": isCI,
+		"SD_JOB_NAME":            oldJobName,
+		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
+		"SD_BUILD_ID":            strconv.Itoa(buildID),
+		"SD_JOB_ID":              strconv.Itoa(job.ID),
+		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
+		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
+		// "SD_PARENT_BUILD_ID":      fmt.Sprintf("%v", parentBuildIDs),
+		"SD_PR_PARENT_JOB_ID":     strconv.Itoa(job.PrParentJobID),
+		"SD_PARENT_EVENT_ID":      strconv.Itoa(event.ParentEventID),
+		"SD_SOURCE_DIR":           sourceDir,
+		"SD_CHECKOUT_DIR":         w.Src,
+		"SD_ROOT_DIR":             w.Root,
+		"SD_ARTIFACTS_DIR":        w.Artifacts,
+		"SD_META_DIR":             metaSpace,
+		"SD_META_PATH":            metaSpace + "/meta.json",
+		"SD_BUILD_SHA":            build.SHA,
+		"SD_PULL_REQUEST":         pr,
+		"SD_API_URL":              apiURL,
+		"SD_BUILD_URL":            apiURL + "builds/" + strconv.Itoa(buildID),
+		"SD_STORE_URL":            fmt.Sprintf("%s/%s/", storeURI, "v1"),
+		"SD_UI_URL":               fmt.Sprintf("%s/", uiURI),
+		"SD_UI_BUILD_URL":         fmt.Sprintf("%s/pipelines/%s/builds/%s", uiURI, strconv.Itoa(job.PipelineID), strconv.Itoa(buildID)),
+		"SD_TOKEN":                buildToken,
+		"SD_CACHE_STRATEGY":       cacheStrategy,
+		"SD_PIPELINE_CACHE_DIR":   pipelineCacheDir,
+		"SD_JOB_CACHE_DIR":        jobCacheDir,
+		"SD_EVENT_CACHE_DIR":      eventCacheDir,
+		"SD_CACHE_COMPRESS":       fmt.Sprintf("%v", cacheCompress),
+		"SD_CACHE_MD5CHECK":       fmt.Sprintf("%v", cacheMd5Check),
+		"SD_CACHE_MAX_SIZE_MB":    fmt.Sprintf("%v", cacheMaxSizeInMB),
+		"SD_CACHE_MAX_GO_THREADS": fmt.Sprintf("%v", cacheMaxGoThreads),
+	}
+
+	env, userShellBin := createEnvironment(defaultEnv, secrets, build)
+	if userShellBin != "" {
+		shellBin = userShellBin
+	}
+
+	return executorRunTeardown(w.Src, env, emitter, build, api, buildID, shellBin, buildTimeout, envFilepath, sourceDir)
+}
+
 // Executes the command based on arguments from the CLI
 func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
-	log.Printf("======Starting Build %v\n", buildID)
-	log.Printf("=========*** BUILD ***======== %v\n", buildID)
+	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
 	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
@@ -703,11 +837,6 @@ func main() {
 	app.Copyright = "(c) 2016-" + date + " Yahoo Inc."
 
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  "abort-code",
-			Usage: "Abort code for sd build",
-			Value: "555",
-		},
 		cli.StringFlag{
 			Name:  "api-uri",
 			Usage: "API URI for Screwdriver",
@@ -806,6 +935,15 @@ func main() {
 			Name:  "local-job-name",
 			Usage: "Job name for local mode",
 		},
+		cli.BoolFlag{
+			Name:  "run-teardown",
+			Usage: "run teardown down process",
+		},
+		cli.StringFlag{
+			Name:  "exit-code",
+			Usage: "exit code for sd build success(200) or failure(500)",
+			Value: "500",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -845,6 +983,7 @@ func main() {
 		isLocal := c.Bool("local-mode")
 		localBuildJson := c.String("local-build-json")
 		localJobName := c.String("local-job-name")
+		runTearDown := c.Bool("run-teardown")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -895,6 +1034,24 @@ func main() {
 		} else {
 			api, err = screwdriver.New(url, token)
 		}
+
+		if runTearDown {
+			log.Printf("starting teardown steps on abort")
+			temporalAPI, err := screwdriver.New(url, token)
+			if err != nil {
+				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace)
+			}
+			tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+			if _, ok := tearErr.(executor.ErrStatus); ok {
+				log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
+			} else {
+				log.Printf("Error running teardown: %v\n", tearErr)
+			}
+			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace)
+			cleanExit()
+		}
+
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace)
