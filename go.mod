@@ -3,7 +3,7 @@ module github.com/screwdriver-cd/launcher
 go 1.14
 
 require (
-	github.com/creack/pty v1.1.7
+	github.com/creack/pty v1.1.11
 	github.com/hashicorp/go-retryablehttp v0.6.6
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect

@@ -25,6 +25,9 @@ smart_run () {
     fi
 }
 
+echo 'sudo available in Container?'
+smart_run whoami
+
 echo 'Symlink hab cache'
 date
 smart_run mkdir -p -m 777 /hab/bin || echo 'Failed to create /hab/bin'

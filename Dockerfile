@@ -1,5 +1,5 @@
 FROM alpine:3.12
-MAINTAINER The Screwdrivers <screwdriver.cd>
+LABEL MAINTAINER="Screwdriver Team <screwdriver.cd>"
 
 WORKDIR /opt/sd
 RUN set -x \

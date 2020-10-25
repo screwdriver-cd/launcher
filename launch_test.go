@@ -90,7 +90,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			}
 			return screwdriver.Pipeline(FakePipeline{ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		},
-		updateBuildStatus: func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+		updateBuildStatus: func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 			if buildID != testBuildID {
 				t.Errorf("status == %s, want %s", status, testStatus)
 				// Panic to get the stacktrace
@@ -130,7 +130,7 @@ type MockAPI struct {
 	eventFromID       func(int) (screwdriver.Event, error)
 	jobFromID         func(int) (screwdriver.Job, error)
 	pipelineFromID    func(int) (screwdriver.Pipeline, error)
-	updateBuildStatus func(screwdriver.BuildStatus, map[string]interface{}, int) error
+	updateBuildStatus func(screwdriver.BuildStatus, map[string]interface{}, int, string) error
 	updateStepStart   func(buildID int, stepName string) error
 	updateStepStop    func(buildID int, stepName string, exitCode int) error
 	secretsForBuild   func(build screwdriver.Build) (screwdriver.Secrets, error)
@@ -182,9 +182,9 @@ func (f MockAPI) PipelineFromID(pipelineID int) (screwdriver.Pipeline, error) {
 	return screwdriver.Pipeline(FakePipeline{}), nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 	if f.updateBuildStatus != nil {
-		return f.updateBuildStatus(status, nil, buildID)
+		return f.updateBuildStatus(status, nil, buildID, "")
 	}
 	return nil
 }
@@ -505,7 +505,7 @@ func TestCreateWorkspaceBadStatLocal(t *testing.T) {
 
 func TestUpdateBuildStatusError(t *testing.T) {
 	api := mockAPI(t, TestBuildID, 0, 0, screwdriver.Running)
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 		return fmt.Errorf("Spooky error")
 	}
 
@@ -525,7 +525,7 @@ func TestUpdateBuildStatusSuccess(t *testing.T) {
 
 	var gotStatuses []screwdriver.BuildStatus
 	api := mockAPI(t, 1, 2, 3, "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -554,7 +554,7 @@ func TestUpdateBuildNonZeroFailure(t *testing.T) {
 
 	var gotStatuses []screwdriver.BuildStatus
 	api := mockAPI(t, 1, 2, 3, "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 		gotStatuses = append(gotStatuses, status)
 		return nil
 	}
@@ -683,7 +683,7 @@ func TestRecoverPanic(t *testing.T) {
 	api := mockAPI(t, 1, 2, 3, screwdriver.Running)
 
 	updCalled := false
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 		updCalled = true
 		fmt.Printf("Status set: %v\n", status)
 		if status != screwdriver.Failure {
@@ -729,7 +729,7 @@ func TestRecoverPanicNoAPI(t *testing.T) {
 
 func TestEmitterClose(t *testing.T) {
 	api := mockAPI(t, 1, 2, 3, "")
-	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+	api.updateBuildStatus = func(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 		return nil
 	}
 

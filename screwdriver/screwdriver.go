@@ -50,7 +50,7 @@ type API interface {
 	EventFromID(eventID int) (Event, error)
 	JobFromID(jobID int) (Job, error)
 	PipelineFromID(pipelineID int) (Pipeline, error)
-	UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error
+	UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error
 	UpdateStepStart(buildID int, stepName string) error
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
@@ -106,6 +106,13 @@ func New(url, token string) (API, error) {
 type BuildStatusPayload struct {
 	Status string                 `json:"status"`
 	Meta   map[string]interface{} `json:"meta"`
+}
+
+// BuildStatusMessagePayload is a Screwdriver Build Status Message payload.
+type BuildStatusMessagePayload struct {
+	Status        string                 `json:"status"`
+	Meta          map[string]interface{} `json:"meta"`
+	StatusMessage string                 `json:"statusMessage"`
 }
 
 // StepStartPayload is a Screwdriver Step Start payload.
@@ -413,7 +420,7 @@ func (a api) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
 	return pipeline, nil
 }
 
-func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error {
+func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 	switch status {
 	case Running:
 	case Success:
@@ -428,11 +435,21 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 		return fmt.Errorf("creating url: %v", err)
 	}
 
-	bs := BuildStatusPayload{
-		Status: status.String(),
-		Meta:   meta,
+	var payload []byte
+	if statusMessage != "" {
+		bs := BuildStatusMessagePayload{
+			Status:        status.String(),
+			Meta:          meta,
+			StatusMessage: statusMessage,
+		}
+		payload, err = json.Marshal(bs)
+	} else {
+		bs := BuildStatusPayload{
+			Status: status.String(),
+			Meta:   meta,
+		}
+		payload, err = json.Marshal(bs)
 	}
-	payload, err := json.Marshal(bs)
 	if err != nil {
 		return fmt.Errorf("Marshaling JSON for Build Status: %v", err)
 	}

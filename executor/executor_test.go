@@ -41,7 +41,7 @@ func (f MockAPI) PipelineFromID(pipelineID int) (screwdriver.Pipeline, error) {
 	return screwdriver.Pipeline{}, nil
 }
 
-func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int) error {
+func (f MockAPI) UpdateBuildStatus(status screwdriver.BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 	return nil
 }
 

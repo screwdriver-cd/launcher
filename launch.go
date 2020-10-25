@@ -140,7 +140,7 @@ sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId 
 }
 
 // exit sets the build status and exits successfully
-func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string) {
+func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, metaSpace string, statusMessage string) {
 	_ = pushMetrics(status.String(), buildID)
 	if api != nil {
 		var metaInterface map[string]interface{}
@@ -158,7 +158,7 @@ func exit(status screwdriver.BuildStatus, buildID int, api screwdriver.API, meta
 			}
 		}
 		log.Printf("Setting build status to %s", status)
-		if err := api.UpdateBuildStatus(status, metaInterface, buildID); err != nil {
+		if err := api.UpdateBuildStatus(status, metaInterface, buildID, statusMessage); err != nil {
 			log.Printf("Failed updating the build status: %v", err)
 		}
 	}
@@ -342,7 +342,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	log.Print("Setting Build Status to RUNNING")
 	emptyMeta := make(map[string]interface{}) // {"meta":null} are not accepted. This will be {"meta":{}}
-	if err = api.UpdateBuildStatus(screwdriver.Running, emptyMeta, buildID); err != nil {
+	if err = api.UpdateBuildStatus(screwdriver.Running, emptyMeta, buildID, ""); err != nil {
 		return fmt.Errorf("Updating build status to RUNNING: %v", err)
 	}
 
@@ -761,11 +761,11 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 			log.Printf("Error running launcher: %v\n", err)
 		}
 
-		exit(screwdriver.Failure, buildID, api, metaSpace)
+		exit(screwdriver.Failure, buildID, api, metaSpace, "")
 		return nil
 	}
 
-	exit(screwdriver.Success, buildID, api, metaSpace)
+	exit(screwdriver.Success, buildID, api, metaSpace, "")
 	return nil
 }
 
@@ -781,7 +781,7 @@ func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
 			log.Printf("ERROR: Unable to write stacktrace to file: %v", err)
 		}
 
-		exit(screwdriver.Failure, buildID, api, metaSpace)
+		exit(screwdriver.Failure, buildID, api, metaSpace, "")
 	}
 }
 
@@ -939,6 +939,10 @@ func main() {
 			Usage: "Job name for local mode",
 		},
 		cli.BoolFlag{
+			Name:  "container-error",
+			Usage: "container error",
+		},
+		cli.BoolFlag{
 			Name:  "run-teardown",
 			Usage: "run teardown down process",
 		},
@@ -987,6 +991,7 @@ func main() {
 		localBuildJson := c.String("local-build-json")
 		localJobName := c.String("local-job-name")
 		runTearDown := c.Bool("run-teardown")
+		containerError := c.Bool("container-error")
 
 		if err != nil {
 			return cli.ShowAppHelp(c)
@@ -999,17 +1004,27 @@ func main() {
 			cleanExit()
 		}
 
+		if containerError {
+			temporalApi, err := screwdriver.New(url, token)
+			if err != nil {
+				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
+			}
+			exit(screwdriver.Failure, buildID, temporalApi, metaSpace, "Error: Build failed to start. Please check if your image is valid with curl, openssh installed and default user root or sudo NOPASSWD enabled.")
+			cleanExit()
+		}
+
 		if fetchFlag {
 			temporalApi, err := screwdriver.New(url, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-				exit(screwdriver.Failure, buildID, nil, metaSpace)
+				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 			}
 
 			buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
 			if err != nil {
 				log.Printf("Error getting Build Token %v: %v", buildID, err)
-				exit(screwdriver.Failure, buildID, nil, metaSpace)
+				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 			}
 
 			log.Printf("Launcher process only fetch token.")
@@ -1041,7 +1056,7 @@ func main() {
 			temporalAPI, err := screwdriver.New(url, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-				exit(screwdriver.Failure, buildID, nil, metaSpace)
+				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 			}
 			tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 			if _, ok := tearErr.(executor.ErrStatus); ok {
@@ -1049,13 +1064,13 @@ func main() {
 			} else {
 				log.Printf("Error running teardown: %v\n", tearErr)
 			}
-			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace)
+			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "")
 			cleanExit()
 		}
 
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
-			exit(screwdriver.Failure, buildID, nil, metaSpace)
+			exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 		}
 
 		defer recoverPanic(buildID, api, metaSpace)
@@ -1064,7 +1079,7 @@ func main() {
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
-		exit(screwdriver.Failure, buildID, api, metaSpace)
+		exit(screwdriver.Failure, buildID, api, metaSpace, "")
 		return nil
 	}
 	app.Run(os.Args)
