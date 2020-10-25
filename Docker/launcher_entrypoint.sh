@@ -1,13 +1,20 @@
 #!/bin/sh
 set -e
 
-clean_up () {
-   /opt/sd/launch  --run-teardown --token "${2}" --api-uri "${3}" --store-uri "${4}" --ui-uri "${7}" --emitter /sd/emitter --build-timeout "${5}" --cache-strategy "${8}" --pipeline-cache-dir "${9}" --job-cache-dir "${10}" --event-cache-dir "${11}" --cache-compress "${12}" --cache-md5check "${13}" --cache-max-size-mb "${14}" --exit-code "500" --cache-max-go-threads "${15}" "${6}"
-   exit 1
-}
-
 # Trap these SIGNALs and run teardown
 trap 'clean_up $@' HUP INT QUIT TERM EXIT
+
+clean_up () {
+    if [ $? -ne 0 ]; then
+        echo "Running contianer error command"
+        /opt/sd/launch --container-error --token "${2}" --api-uri "${3}" --store-uri "${4}" --ui-uri "${7}" --emitter /sd/emitter --build-timeout "${5}" --cache-strategy "${8}" --pipeline-cache-dir "${9}" --job-cache-dir "${10}" --event-cache-dir "${11}" --cache-compress "${12}" --cache-md5check "${13}" --cache-max-size-mb "${14}" --cache-max-go-threads "${15}" "${6}"
+        exit 1
+    else
+        echo "Running teardown command"
+        /opt/sd/launch  --run-teardown --token "${2}" --api-uri "${3}" --store-uri "${4}" --ui-uri "${7}" --emitter /sd/emitter --build-timeout "${5}" --cache-strategy "${8}" --pipeline-cache-dir "${9}" --job-cache-dir "${10}" --event-cache-dir "${11}" --cache-compress "${12}" --cache-md5check "${13}" --cache-max-size-mb "${14}" --exit-code "500" --cache-max-go-threads "${15}" "${6}"
+        exit 1
+   fi
+}
 
 I_AM_ROOT=false
 
