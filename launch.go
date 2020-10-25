@@ -992,8 +992,6 @@ func main() {
 			return cli.ShowAppHelp(c)
 		}
 
-		log.Printf("New launcher version: v7")
-
 		log.Printf("cache strategy, directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
 		if !isLocal && len(token) == 0 {

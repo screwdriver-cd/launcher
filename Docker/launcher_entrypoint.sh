@@ -1,18 +1,15 @@
 #!/bin/sh
 set -e
 
-args=($@)
-
 clean_up () {
   if [ $? -ne 0 ]; then
-    # args element is enclosed in double-quotes, which results in error; eval strips double-quotes
-    /opt/sd/launch  --run-teardown --token $(eval echo ${args[1]}) --api-uri $(eval echo ${args[2]}) --store-uri $(eval echo ${args[3]}) --ui-uri $(eval echo ${args[6]}) --emitter /sd/emitter --build-timeout $(eval echo ${args[4]}) --cache-strategy $(eval echo ${args[7]}) --pipeline-cache-dir $(eval echo ${args[8]}) --job-cache-dir $(eval echo ${args[9]}) --event-cache-dir $(eval echo ${args[10]}) --cache-compress $(eval echo ${args[11]}) --cache-md5check $(eval echo ${args[12]}) --cache-max-size-mb $(eval echo ${args[13]}) --cache-max-go-threads $(eval echo ${args[14]}) $(eval echo ${args[5]})
-    exit 1
+    /opt/sd/launch  --run-teardown --token "${2}" --api-uri "${3}" --store-uri "${4}" --ui-uri "${7}" --emitter /sd/emitter --build-timeout "${5}" --cache-strategy "${8}" --pipeline-cache-dir "${9}" --job-cache-dir "${10}" --event-cache-dir "${11}" --cache-compress "${12}" --cache-md5check "${13}" --cache-max-size-mb "${14}" --exit-code "500" --cache-max-go-threads "${15}" "${6}"
+   exit 1
   fi
 }
 
 # Trap these SIGNALs and run teardown
-trap 'clean_up' SIGINT SIGTERM EXIT SIGQUIT SIGHUP
+trap 'clean_up $@'  SIGINT SIGTERM EXIT SIGQUIT SIGHUP
 
 I_AM_ROOT=false
 
