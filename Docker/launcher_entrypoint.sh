@@ -9,7 +9,7 @@ clean_up () {
 }
 
 # Trap these SIGNALs and run teardown
-trap 'clean_up $@'  SIGINT SIGTERM EXIT SIGQUIT SIGHUP
+trap 'clean_up $@' HUP INT QUIT TERM EXIT
 
 I_AM_ROOT=false
 
