@@ -1,15 +1,33 @@
 #!/bin/sh
 set -e
 
+args=$@
+
+# Trap these SIGNALs HUP INT QUIT TERM EXIT and update build status to failure
+trap cleanUp HUP INT QUIT TERM EXIT
+
 cleanUp () {
   if [ $? -ne 0 ]; then
-    /opt/sd/launch --container-error --token "${2}" --api-uri "${3}" --store-uri "${4}" --ui-uri "${7}" --emitter /sd/emitter --build-timeout "${5}" --cache-strategy "${8}" --pipeline-cache-dir "${9}" --job-cache-dir "${10}" --event-cache-dir "${11}" --cache-compress "${12}" --cache-md5check "${13}" --cache-max-size-mb "${14}" --cache-max-go-threads "${15}" "${6}"
+    token=$(eval echo $args | awk '{ print $2 }')
+    apiUri=$(eval echo $args | awk '{ print $3 }')
+    storeUri=$(eval echo $args | awk '{ print $4 }')
+    timeout=$(eval echo $args | awk '{ print $5 }')
+    buildId=$(eval echo $args | awk '{ print $6 }')
+    uiUri=$(eval echo $args | awk '{ print $7 }')
+    cacheStrategy=$(eval echo $args | awk '{ print $8 }')
+    pipelineCacheDir=$(eval echo $args | awk '{ print $9 }')
+    jobCacheDir=$(eval echo $args | awk '{ print $10 }')
+    eventCacheDir=$(eval echo $args | awk '{ print $11 }')
+    cacheCompress=$(eval echo $args | awk '{ print $12 }')
+    cacheMd5Chk=$(eval echo $args | awk '{ print $13 }')
+    cacheMaxSizeMB=$(eval echo $args | awk '{ print $14 }')
+    cacheMaxGoThreads=$(eval echo $args | awk '{ print $15 }')
+
+    /opt/sd/launch --container-error --token $token --api-uri $apiUri --store-uri $storeUri --ui-uri $uiUri --emitter /sd/emitter --build-timeout $timeout --cache-strategy $cacheStrategy --pipeline-cache-dir $pipelineCacheDir --job-cache-dir $jobCacheDir --event-cache-dir $eventCacheDir --cache-compress $cacheCompress --cache-md5check $cacheMd5Chk --cache-max-size-mb $cacheMaxSizeMB --cache-max-go-threads $cacheMaxGoThreads $buildId
+
     exit 1
   fi
 }
-
-# Trap these SIGNALs and update build status to failure
-trap 'cleanUp $@' HUP INT QUIT TERM
 
 I_AM_ROOT=false
 
