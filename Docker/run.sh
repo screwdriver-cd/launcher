@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Get push gateway url and container image from env variable
 if ([ ! -z "$SD_PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PIPELINE_ID" ]); then
