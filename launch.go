@@ -52,7 +52,7 @@ var pushgatewayUrlTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
 
-var url string
+var apiUrl string
 var token string
 var workspace string
 var emitterPath string
@@ -841,7 +841,7 @@ func main() {
 		select {
 		case sig := <-sigs:
 			fmt.Printf("Got %s signal! starting teardown steps \n", sig)
-			temporalAPI, err := screwdriver.New(url, token)
+			temporalAPI, err := screwdriver.New(apiUrl, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
@@ -1004,7 +1004,7 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		url = c.String("api-uri")
+		apiUrl = c.String("api-uri")
 		token := c.String("token")
 		workspace = c.String("workspace")
 		emitterPath = c.String("emitter")
@@ -1041,7 +1041,7 @@ func main() {
 		}
 
 		if containerError {
-			temporalApi, err := screwdriver.New(url, token)
+			temporalApi, err := screwdriver.New(apiUrl, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
@@ -1051,7 +1051,7 @@ func main() {
 		}
 
 		if fetchFlag {
-			temporalApi, err := screwdriver.New(url, token)
+			temporalApi, err := screwdriver.New(apiUrl, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
@@ -1081,14 +1081,14 @@ func main() {
 				cleanExit()
 			}
 
-			api, err = screwdriver.NewLocal(url, localJobName, localBuild)
+			api, err = screwdriver.NewLocal(apiUrl, localJobName, localBuild)
 		} else {
-			api, err = screwdriver.New(url, token)
+			api, err = screwdriver.New(apiUrl, token)
 		}
 
 		if runTearDown {
 			log.Printf("starting teardown steps on abort")
-			temporalAPI, err := screwdriver.New(url, token)
+			temporalAPI, err := screwdriver.New(apiUrl, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
