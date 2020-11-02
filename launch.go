@@ -7,12 +7,14 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -49,6 +51,31 @@ var blackSprint = color.New(color.FgHiBlack).SprintFunc()
 var pushgatewayUrlTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
+
+var url string
+var token string
+var workspace string
+var emitterPath string
+var metaSpace string
+var storeURL string
+var uiURL string
+var shellBin string
+var buildID int
+var buildTimeoutSeconds int
+var fetchFlag bool
+var cacheStrategy string
+var pipelineCacheDir string
+var jobCacheDir string
+var eventCacheDir string
+var cacheMaxSizeInMB int64
+var cacheMaxGoThreads int64
+var isLocal bool
+var localBuildJson string
+var localJobName string
+var err error
+var cacheCompress bool
+var cacheMd5Check bool
+var api screwdriver.API
 
 var cleanExit = func() {
 	os.Exit(0)
@@ -807,22 +834,33 @@ func main() {
 	defer finalRecover()
 	defer recoverPanic(0, nil, "")
 
-	// sigs := make(chan os.Signal, 1)
+	sigs := make(chan os.Signal, 1)
 
-	// go func() {
-	// 	// waiting for a signal
-	// 	select {
-	// 	case sig := <-sigs:
-	// 		fmt.Printf("Got %s signal. Aborting...\n", sig)
-	// 		runCmd("/opt/sd/launch", "sd-cleanup")
-	// 		cleanExit()
-	// 	}
-	// 	// unregister the signal handler
-	// 	defer signal.Stop(sigs)
-	// }()
+	go func() {
+		// waiting for a signal
+		select {
+		case sig := <-sigs:
+			fmt.Printf("Got %s signal! starting teardown steps \n", sig)
+			temporalAPI, err := screwdriver.New(url, token)
+			if err != nil {
+				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
+			}
+			tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+			if _, ok := tearErr.(executor.ErrStatus); ok {
+				log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
+			} else {
+				log.Printf("Error running teardown: %v\n", tearErr)
+			}
+			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "")
+			cleanExit()
+		}
+		// unregister the signal handler
+		defer signal.Stop(sigs)
+	}()
 
-	// defer close(sigs)
-	// signal.Notify(sigs, syscall.SIGTERM)
+	defer close(sigs)
+	signal.Notify(sigs, syscall.SIGTERM)
 
 	app := cli.NewApp()
 	app.Name = "launcher"
@@ -966,28 +1004,28 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		url := c.String("api-uri")
+		url = c.String("api-uri")
 		token := c.String("token")
-		workspace := c.String("workspace")
-		emitterPath := c.String("emitter")
-		metaSpace := c.String("meta-space")
-		storeURL := c.String("store-uri")
-		uiURL := c.String("ui-uri")
-		shellBin := c.String("shell-bin")
-		buildID, err := strconv.Atoi(c.Args().Get(0))
-		buildTimeoutSeconds := c.Int("build-timeout") * 60
-		fetchFlag := c.Bool("only-fetch-token")
-		cacheStrategy := c.String("cache-strategy")
-		pipelineCacheDir := c.String("pipeline-cache-dir")
-		jobCacheDir := c.String("job-cache-dir")
-		eventCacheDir := c.String("event-cache-dir")
-		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
-		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
-		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
-		cacheMaxGoThreads := c.Int64("cache-max-go-threads")
-		isLocal := c.Bool("local-mode")
-		localBuildJson := c.String("local-build-json")
-		localJobName := c.String("local-job-name")
+		workspace = c.String("workspace")
+		emitterPath = c.String("emitter")
+		metaSpace = c.String("meta-space")
+		storeURL = c.String("store-uri")
+		uiURL = c.String("ui-uri")
+		shellBin = c.String("shell-bin")
+		buildID, err = strconv.Atoi(c.Args().Get(0))
+		buildTimeoutSeconds = c.Int("build-timeout") * 60
+		fetchFlag = c.Bool("only-fetch-token")
+		cacheStrategy = c.String("cache-strategy")
+		pipelineCacheDir = c.String("pipeline-cache-dir")
+		jobCacheDir = c.String("job-cache-dir")
+		eventCacheDir = c.String("event-cache-dir")
+		cacheCompress, _ = strconv.ParseBool(c.String("cache-compress"))
+		cacheMd5Check, _ = strconv.ParseBool(c.String("cache-md5check"))
+		cacheMaxSizeInMB = c.Int64("cache-max-size-mb")
+		cacheMaxGoThreads = c.Int64("cache-max-go-threads")
+		isLocal = c.Bool("local-mode")
+		localBuildJson = c.String("local-build-json")
+		localJobName = c.String("local-job-name")
 		runTearDown := c.Bool("run-teardown")
 		containerError := c.Bool("container-error")
 
@@ -1030,7 +1068,6 @@ func main() {
 			cleanExit()
 		}
 
-		var api screwdriver.API
 		if isLocal {
 			if len(localBuildJson) == 0 {
 				log.Println("Error: local-build-json is not passed.")

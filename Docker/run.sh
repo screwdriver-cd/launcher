@@ -1,5 +1,15 @@
 #!/bin/bash -e
 
+# Trap these SIGNALs and run teardown
+trap 'trap_handler $@' INT TERM
+
+trap_handler () {
+    code=$?
+    if [ $code -ne 0 ]; then
+        echo "Exit code:$code received, run teardown steps"
+    fi
+}
+
 # Get push gateway url and container image from env variable
 if ([ ! -z "$SD_PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PIPELINE_ID" ]); then
   ts=`date "+%s"`
@@ -23,14 +33,3 @@ fi
 echo "run launch"
 # wrapper script for run build in multiple executors.
 SD_TOKEN=`/opt/sd/launch --only-fetch-token --token "$1" --api-uri "$2" --store-uri "$3" --ui-uri "$6" --emitter /sd/emitter --build-timeout "$4" --cache-strategy "$7" --pipeline-cache-dir "$8" --job-cache-dir "$9" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --cache-max-go-threads "${14}" "$5"` && (/opt/sd/launch --token "$SD_TOKEN" --api-uri "$2" --store-uri "$3" --ui-uri "$6" --emitter /sd/emitter --build-timeout "$4" --cache-strategy "$7" --pipeline-cache-dir "$8" --job-cache-dir "$9" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --cache-max-go-threads "${14}" "$5" & /opt/sd/logservice --token "$SD_TOKEN" --emitter /sd/emitter --api-uri "$2" --store-uri "$3" --build "$5" & wait $(jobs -p))
-
-# Trap these SIGNALs and run teardown
-trap 'trap_handler $@' INT QUIT TERM EXIT
-
-trap_handler () {
-    code=$?
-    if [ $code -ne 0 ]; then
-        echo "Exit code:$code received, run teardown steps"
-        /opt/sd/launch  --run-teardown --token "${SD_TOKEN}" --api-uri "${2}" --store-uri "${3}" --ui-uri "${67}" --emitter /sd/emitter --build-timeout "${4}" --cache-strategy "${7}" --pipeline-cache-dir "${8}" --job-cache-dir "${9}" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --exit-code "500" --cache-max-go-threads "${14}" "${5}"
-    fi
-}

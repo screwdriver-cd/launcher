@@ -73,7 +73,9 @@ RUN set -x \
    # Cleanup Sonar scanner cli files
    && rm -rf /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
-   && apk del --purge .build-dependencies
+   && apk del --purge .build-dependencies \
+   # bin link bash if not present
+   && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi
 
 # Copy optional entrypoint script to the image
 COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh
