@@ -7,14 +7,12 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -834,33 +832,33 @@ func main() {
 	defer finalRecover()
 	defer recoverPanic(0, nil, "")
 
-	sigs := make(chan os.Signal, 1)
+	// sigs := make(chan os.Signal, 1)
 
-	go func() {
-		// waiting for a signal
-		select {
-		case sig := <-sigs:
-			fmt.Printf("Got %s signal! starting teardown steps \n", sig)
-			temporalAPI, err := screwdriver.New(apiUrl, token)
-			if err != nil {
-				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
-			}
-			tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-			if _, ok := tearErr.(executor.ErrStatus); ok {
-				log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
-			} else {
-				log.Printf("Error running teardown: %v\n", tearErr)
-			}
-			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "")
-			cleanExit()
-		}
-		// unregister the signal handler
-		defer signal.Stop(sigs)
-	}()
+	// go func() {
+	// 	// waiting for a signal
+	// 	select {
+	// 	case sig := <-sigs:
+	// 		fmt.Printf("Got %s signal! starting teardown steps \n", sig)
+	// 		temporalAPI, err := screwdriver.New(apiUrl, token)
+	// 		if err != nil {
+	// 			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+	// 			exit(screwdriver.Failure, buildID, nil, metaSpace, "")
+	// 		}
+	// 		tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+	// 		if _, ok := tearErr.(executor.ErrStatus); ok {
+	// 			log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
+	// 		} else {
+	// 			log.Printf("Error running teardown: %v\n", tearErr)
+	// 		}
+	// 		exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "")
+	// 		cleanExit()
+	// 	}
+	// 	// unregister the signal handler
+	// 	defer signal.Stop(sigs)
+	// }()
 
-	defer close(sigs)
-	signal.Notify(sigs, syscall.SIGTERM)
+	// defer close(sigs)
+	// signal.Notify(sigs, syscall.SIGTERM)
 
 	app := cli.NewApp()
 	app.Name = "launcher"
