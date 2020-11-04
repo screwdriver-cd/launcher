@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path"
 	"path/filepath"
@@ -776,21 +775,52 @@ func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, 
 
 // Executes the command based on arguments from the CLI
 func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
-	log.Printf("Starting Build %v\n", buildID)
-	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
-		if _, ok := err.(executor.ErrStatus); ok {
-			log.Printf("Failure due to non-zero exit code: %v\n", err)
-		} else {
-			log.Printf("Error running launcher: %v\n", err)
+	go func() {
+		defer signal.Stop(sigs)
+		defer close(sigs)
+
+		sig := <-sigs
+		fmt.Printf("Received %s signal! starting teardown steps \n", sig)
+
+		temporalAPI, err := screwdriver.New(apiUrl, token)
+		if err != nil {
+			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+			exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 		}
+		tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+		if _, ok := tearErr.(executor.ErrStatus); ok {
+			log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
+		} else {
+			log.Printf("Error running teardown: %v\n", tearErr)
+		}
+		exit(screwdriver.Aborted, buildID, temporalAPI, metaSpace, "")
+		done <- true
+	}()
 
-		exit(screwdriver.Failure, buildID, api, metaSpace, "")
-		return nil
-	}
+	go func() {
+		log.Printf("Starting Build %v\n", buildID)
+		log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
-	exit(screwdriver.Success, buildID, api, metaSpace, "")
+		if err := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
+			if _, ok := err.(executor.ErrStatus); ok {
+				log.Printf("Failure due to non-zero exit code: %v\n", err)
+			} else {
+				log.Printf("Error running launcher: %v\n", err)
+			}
+
+			exit(screwdriver.Failure, buildID, api, metaSpace, "")
+		} else {
+			exit(screwdriver.Success, buildID, api, metaSpace, "")
+		}
+		done <- true
+	}()
+
+	<-done
+	log.Println("Finished processing from launcher.")
 	return nil
 }
 
@@ -820,45 +850,13 @@ func finalRecover() {
 	cleanExit()
 }
 
-func runCmd(arg string, args ...string) error {
-	cmd := exec.Command(arg, args...)
+func trapHandler() {
 
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
 }
 
 func main() {
 	defer finalRecover()
 	defer recoverPanic(0, nil, "")
-
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		defer signal.Stop(sigs)
-		defer close(sigs)
-
-		sig := <-sigs
-		fmt.Printf("Received %s signal! starting teardown steps \n", sig)
-
-		temporalAPI, err := screwdriver.New(apiUrl, token)
-		if err != nil {
-			log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-			exit(screwdriver.Failure, buildID, nil, metaSpace, "")
-		}
-		tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-		if _, ok := tearErr.(executor.ErrStatus); ok {
-			log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
-		} else {
-			log.Printf("Error running teardown: %v\n", tearErr)
-		}
-		exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "")
-		cleanExit()
-	}()
 
 	app := cli.NewApp()
 	app.Name = "launcher"
@@ -987,20 +985,6 @@ func main() {
 		},
 	}
 
-	app.Commands = []cli.Command{
-		{
-			Name: "sd-cleanup",
-			Action: func(c *cli.Context) error {
-				//stop current process
-				runCmd("pkill", "-2 '/opt/sd/launch'")
-				//run teardown step for build
-				runCmd("export", "ABORT_CODE=999")
-
-				return runCmd("/opt/sd/launch", "sd-teardown-screwdriver-artifact-bookend")
-			},
-		},
-	}
-
 	app.Action = func(c *cli.Context) error {
 		apiUrl = c.String("api-uri")
 		token := c.String("token")
@@ -1024,7 +1008,6 @@ func main() {
 		isLocal = c.Bool("local-mode")
 		localBuildJson = c.String("local-build-json")
 		localJobName = c.String("local-job-name")
-		runTearDown := c.Bool("run-teardown")
 		containerError := c.Bool("container-error")
 
 		if err != nil {
@@ -1084,23 +1067,6 @@ func main() {
 			api, err = screwdriver.New(apiUrl, token)
 		}
 
-		if runTearDown {
-			log.Printf("starting teardown steps on abort")
-			temporalAPI, err := screwdriver.New(apiUrl, token)
-			if err != nil {
-				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
-			}
-			tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-			if _, ok := tearErr.(executor.ErrStatus); ok {
-				log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
-			} else {
-				log.Printf("Error running teardown: %v\n", tearErr)
-			}
-			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "")
-			cleanExit()
-		}
-
 		if err != nil {
 			log.Printf("Error creating Screwdriver API %v: %v", buildID, err)
 			exit(screwdriver.Failure, buildID, nil, metaSpace, "")
@@ -1116,6 +1082,4 @@ func main() {
 		return nil
 	}
 	app.Run(os.Args)
-	<-done
-	log.Println("Finished processing from launcher.")
 }
