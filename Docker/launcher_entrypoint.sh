@@ -57,6 +57,14 @@ find /opt/sd/hab/pkgs/core -mindepth 2 -maxdepth 2 -exec sh -c 'mkdir -p `echo $
 # this cmd will symlink the specific version: ln -s  /opt/sd/hab/pkgs/core/curl/7.54.1/20181008145326 /hab/pkgs/core/curl/7.54.1
 find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
 
+# Binlinking bash from core/bash into /bin
+binary_exists() {
+    smart_run command -v "$1" >/dev/null 2>&1
+}
+if ! binary_exists bash; then
+    smart_run /opt/sd/bin/hab pkg binlink core/bash bash
+fi
+
 echo 'Creating workspace and log pipe'
 date
 # Create FIFO for emitter
