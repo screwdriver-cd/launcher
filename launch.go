@@ -850,10 +850,6 @@ func finalRecover() {
 	cleanExit()
 }
 
-func trapHandler() {
-
-}
-
 func main() {
 	defer finalRecover()
 	defer recoverPanic(0, nil, "")
@@ -1022,23 +1018,23 @@ func main() {
 		}
 
 		if containerError {
-			temporalApi, err := screwdriver.New(apiUrl, token)
+			temporalAPI, err := screwdriver.New(apiUrl, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 			}
-			exit(screwdriver.Failure, buildID, temporalApi, metaSpace, "Error: Build failed to start. Please check if your image is valid with curl, openssh installed and default user root or sudo NOPASSWD enabled.")
+			exit(screwdriver.Failure, buildID, temporalAPI, metaSpace, "Error: Build failed to start. Please check if your image is valid with curl, openssh installed and default user root or sudo NOPASSWD enabled.")
 			cleanExit()
 		}
 
 		if fetchFlag {
-			temporalApi, err := screwdriver.New(apiUrl, token)
+			temporalAPI, err := screwdriver.New(apiUrl, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 			}
 
-			buildToken, err := temporalApi.GetBuildToken(buildID, c.Int("build-timeout"))
+			buildToken, err := temporalAPI.GetBuildToken(buildID, c.Int("build-timeout"))
 			if err != nil {
 				log.Printf("Error getting Build Token %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
