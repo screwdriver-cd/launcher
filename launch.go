@@ -780,9 +780,6 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		defer signal.Stop(sigs)
-		defer close(sigs)
-
 		sig := <-sigs
 		fmt.Printf("Received %s signal! starting teardown steps \n", sig)
 
