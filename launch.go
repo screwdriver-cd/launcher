@@ -792,6 +792,26 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 	return nil
 }
 
+func startRoutine(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		fmt.Printf("Received %s signal! processing signal \n", sig)
+		trapHandler(&done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+	}()
+
+	go func() {
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+		done <- true
+	}()
+
+	<-done
+	log.Println("Finished processing from launcher.")
+}
+
 func trapHandler(done *chan bool, api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
 	log.Printf("Starting teardown steps before exiting")
 	temporalAPI, err := screwdriver.New(apiUrl, token)
@@ -1055,23 +1075,7 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		sigs := make(chan os.Signal, 1)
-		done := make(chan bool, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-		go func() {
-			sig := <-sigs
-			fmt.Printf("Received %s signal! processing signal \n", sig)
-			trapHandler(&done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-		}()
-
-		go func() {
-			launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-			done <- true
-		}()
-
-		<-done
-		log.Println("Finished processing from launcher.")
+		startRoutine(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
