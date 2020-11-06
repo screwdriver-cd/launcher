@@ -792,8 +792,8 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 	return nil
 }
 
-func trapHandler(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
-	log.Printf("Startting teardown steps before exiting")
+func trapHandler(done *chan bool, api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
+	log.Printf("Starting teardown steps before exiting")
 	temporalAPI, err := screwdriver.New(apiUrl, token)
 	if err != nil {
 		log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
@@ -806,6 +806,7 @@ func trapHandler(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpa
 		log.Printf("Error running teardown: %v\n", tearErr)
 	}
 	exit(screwdriver.Aborted, buildID, temporalAPI, metaSpace, "")
+	*done <- true
 }
 
 func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
@@ -1061,8 +1062,7 @@ func main() {
 		go func() {
 			sig := <-sigs
 			fmt.Printf("Received %s signal! processing signal \n", sig)
-			trapHandler(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-			done <- true
+			trapHandler(&done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 		}()
 
 		go func() {
