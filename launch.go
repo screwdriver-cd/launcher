@@ -792,6 +792,22 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 	return nil
 }
 
+func trapHandler(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
+	log.Printf("Startting teardown steps before exiting")
+	temporalAPI, err := screwdriver.New(apiUrl, token)
+	if err != nil {
+		log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
+		exit(screwdriver.Failure, buildID, nil, metaSpace, "")
+	}
+	tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+	if _, ok := tearErr.(executor.ErrStatus); ok {
+		log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
+	} else {
+		log.Printf("Error running teardown: %v\n", tearErr)
+	}
+	exit(screwdriver.Aborted, buildID, temporalAPI, metaSpace, "")
+}
+
 func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
 	if p := recover(); p != nil {
 		filename := fmt.Sprintf("launcher-stacktrace-%s", time.Now().Format(time.RFC3339))
@@ -1044,20 +1060,8 @@ func main() {
 
 		go func() {
 			sig := <-sigs
-			fmt.Printf("Received %s signal! starting teardown steps \n", sig)
-
-			temporalAPI, err := screwdriver.New(apiUrl, token)
-			if err != nil {
-				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
-			}
-			tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-			if _, ok := tearErr.(executor.ErrStatus); ok {
-				log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
-			} else {
-				log.Printf("Error running teardown: %v\n", tearErr)
-			}
-			exit(screwdriver.Aborted, buildID, temporalAPI, metaSpace, "")
+			fmt.Printf("Received %s signal! processing signal \n", sig)
+			trapHandler(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 			done <- true
 		}()
 
