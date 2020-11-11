@@ -6,7 +6,8 @@ trap 'trap_handler $@' INT TERM
 trap_handler () {
     code=$?
     if [ $code -ne 0 ]; then
-        echo "Exit code:$code received, run teardown steps"
+        echo "Exit code:$code received, run command"
+        sleep $SD_TERMINATION_GRACE_PERIOD_SECONDS
     fi
 }
 

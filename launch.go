@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -75,6 +76,8 @@ var err error
 var cacheCompress bool
 var cacheMd5Check bool
 var api screwdriver.API
+var emitter screwdriver.Emitter
+var defaultEnv map[string]string
 
 var cleanExit = func() {
 	os.Exit(0)
@@ -353,7 +356,8 @@ func convertToArray(i interface{}) (array []int) {
 }
 
 func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
-	emitter, err := newEmitter(emitterPath)
+	var err error
+	emitter, err = newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
 		return err
@@ -557,7 +561,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	isScheduler := strconv.FormatBool(event.Creator["username"] == "sd:scheduler")
 
-	defaultEnv := map[string]string{
+	defaultEnv = map[string]string{
 		"PS1":                     "",
 		"SCREWDRIVER":             isCI,
 		"CI":                      isCI,
@@ -667,7 +671,6 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 }
 
 func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
-	emitter, err := newEmitter(emitterPath)
 	envFilepath := "/tmp/env"
 	if err != nil {
 		return err
@@ -698,15 +701,6 @@ func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, 
 		return fmt.Errorf("Fetching Pipeline ID %d: %v", job.PipelineID, err)
 	}
 
-	log.Printf("Fetching Event %d", build.EventID)
-	event, err := api.EventFromID(build.EventID)
-	if err != nil {
-		return fmt.Errorf("Fetching Event ID %d: %v", build.EventID, err)
-	}
-
-	oldJobName := job.Name
-	pr := prNumber(job.Name)
-
 	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
 	if err != nil {
 		return err
@@ -722,49 +716,6 @@ func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, 
 		sourceDir = sourceDir + "/" + scm.RootDir
 	}
 
-	apiURL, _ := api.GetAPIURL()
-
-	isCI := strconv.FormatBool(!isLocal)
-
-	defaultEnv := map[string]string{
-		"PS1":                    "",
-		"SCREWDRIVER":            isCI,
-		"CI":                     isCI,
-		"GIT_PAGER":              "cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
-		"CONTINUOUS_INTEGRATION": isCI,
-		"SD_JOB_NAME":            oldJobName,
-		"SD_PIPELINE_NAME":       pipeline.ScmRepo.Name,
-		"SD_BUILD_ID":            strconv.Itoa(buildID),
-		"SD_JOB_ID":              strconv.Itoa(job.ID),
-		"SD_EVENT_ID":            strconv.Itoa(build.EventID),
-		"SD_PIPELINE_ID":         strconv.Itoa(job.PipelineID),
-		// "SD_PARENT_BUILD_ID":      fmt.Sprintf("%v", parentBuildIDs),
-		"SD_PR_PARENT_JOB_ID":     strconv.Itoa(job.PrParentJobID),
-		"SD_PARENT_EVENT_ID":      strconv.Itoa(event.ParentEventID),
-		"SD_SOURCE_DIR":           sourceDir,
-		"SD_CHECKOUT_DIR":         w.Src,
-		"SD_ROOT_DIR":             w.Root,
-		"SD_ARTIFACTS_DIR":        w.Artifacts,
-		"SD_META_DIR":             metaSpace,
-		"SD_META_PATH":            metaSpace + "/meta.json",
-		"SD_BUILD_SHA":            build.SHA,
-		"SD_PULL_REQUEST":         pr,
-		"SD_API_URL":              apiURL,
-		"SD_BUILD_URL":            apiURL + "builds/" + strconv.Itoa(buildID),
-		"SD_STORE_URL":            fmt.Sprintf("%s/%s/", storeURI, "v1"),
-		"SD_UI_URL":               fmt.Sprintf("%s/", uiURI),
-		"SD_UI_BUILD_URL":         fmt.Sprintf("%s/pipelines/%s/builds/%s", uiURI, strconv.Itoa(job.PipelineID), strconv.Itoa(buildID)),
-		"SD_TOKEN":                buildToken,
-		"SD_CACHE_STRATEGY":       cacheStrategy,
-		"SD_PIPELINE_CACHE_DIR":   pipelineCacheDir,
-		"SD_JOB_CACHE_DIR":        jobCacheDir,
-		"SD_EVENT_CACHE_DIR":      eventCacheDir,
-		"SD_CACHE_COMPRESS":       fmt.Sprintf("%v", cacheCompress),
-		"SD_CACHE_MD5CHECK":       fmt.Sprintf("%v", cacheMd5Check),
-		"SD_CACHE_MAX_SIZE_MB":    fmt.Sprintf("%v", cacheMaxSizeInMB),
-		"SD_CACHE_MAX_GO_THREADS": fmt.Sprintf("%v", cacheMaxGoThreads),
-	}
-
 	env, userShellBin := createEnvironment(defaultEnv, secrets, build)
 	if userShellBin != "" {
 		shellBin = userShellBin
@@ -774,7 +725,7 @@ func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, 
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
+func launchAction(done chan<- bool, api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
 	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
@@ -789,44 +740,53 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 	} else {
 		exit(screwdriver.Success, buildID, api, metaSpace, "")
 	}
+
+	done <- true
+
 	return nil
 }
 
-func startRoutine(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigs
-		fmt.Printf("Received %s signal! processing signal \n", sig)
-		trapHandler(&done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-	}()
-
-	go func() {
-		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-		done <- true
-	}()
-
-	<-done
-	log.Println("Finished processing from launcher.")
-}
-
-func trapHandler(done *chan bool, api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
+func trapHandler(wg sync.WaitGroup, done chan<- bool, api screwdriver.API, buildID int, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
+	defer wg.Done()
 	log.Printf("Starting teardown steps before exiting")
-	temporalAPI, err := screwdriver.New(apiUrl, token)
 	if err != nil {
 		log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 		exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 	}
-	tearErr := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-	if _, ok := tearErr.(executor.ErrStatus); ok {
-		log.Printf("Failure due to non-zero exit code: %v\n", tearErr)
-	} else {
-		log.Printf("Error running teardown: %v\n", tearErr)
+	if err := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeout, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
+		if _, ok := err.(executor.ErrStatus); ok {
+			log.Printf("Failure due to non-zero exit code: %v\n", err)
+		} else {
+			log.Printf("Error running teardown: %v\n", err)
+		}
 	}
-	exit(screwdriver.Aborted, buildID, temporalAPI, metaSpace, "")
-	*done <- true
+	_ = pushMetrics(string(screwdriver.Aborted), buildID)
+	log.Printf("Successfully completed teardown \n")
+	done <- true
+}
+
+func startRoutine(api screwdriver.API, buildID int, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeoutSeconds int, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	var wg sync.WaitGroup
+
+	go func() {
+		sig := <-sigs
+		wg.Add(1)
+		fmt.Printf("Received %s signal in launcher, processing signal \n", sig)
+		trapHandler(wg, done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+	}()
+
+	go func() {
+		launchAction(done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+	}()
+
+	wg.Wait()
+	<-done
+	log.Println("Finished processing from launcher.")
+
+	return nil
 }
 
 func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
@@ -1075,11 +1035,13 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		startRoutine(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+		err := startRoutine(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+		if err != nil {
+			// This should never happen...
+			log.Println("Unexpected return in launcher. Failing the build.")
+			exit(screwdriver.Failure, buildID, api, metaSpace, "")
+		}
 
-		// This should never happen...
-		log.Println("Unexpected return in launcher. Failing the build.")
-		exit(screwdriver.Failure, buildID, api, metaSpace, "")
 		return nil
 	}
 	app.Run(os.Args)
