@@ -13,7 +13,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -746,14 +745,13 @@ func launchAction(done chan<- bool, api screwdriver.API, buildID int, rootDir, e
 	return nil
 }
 
-func trapHandler(wg sync.WaitGroup, done chan<- bool, api screwdriver.API, buildID int, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
-	defer wg.Done()
+func trapHandler() {
 	log.Printf("Starting teardown steps before exiting")
 	if err != nil {
 		log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 		exit(screwdriver.Failure, buildID, nil, metaSpace, "")
 	}
-	if err := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeout, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
+	if err := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -762,31 +760,23 @@ func trapHandler(wg sync.WaitGroup, done chan<- bool, api screwdriver.API, build
 	}
 	_ = pushMetrics(string(screwdriver.Aborted), buildID)
 	log.Printf("Successfully completed teardown \n")
-	done <- true
 }
 
-func startRoutine(api screwdriver.API, buildID int, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin string, buildTimeoutSeconds int, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
+func addSignalHandler() {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	var wg sync.WaitGroup
 
 	go func() {
 		sig := <-sigs
-		wg.Add(1)
 		fmt.Printf("Received %s signal in launcher, processing signal \n", sig)
-		trapHandler(wg, done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+		trapHandler()
+		done <- true
 	}()
 
-	go func() {
-		launchAction(done, api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-	}()
-
-	wg.Wait()
 	<-done
 	log.Println("Finished processing from launcher.")
-
-	return nil
+	cleanExit()
 }
 
 func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
@@ -1035,12 +1025,13 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		err := startRoutine(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
-		if err != nil {
-			// This should never happen...
-			log.Println("Unexpected return in launcher. Failing the build.")
-			exit(screwdriver.Failure, buildID, api, metaSpace, "")
-		}
+		addSignalHandler()
+
+		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+
+		// This should never happen...
+		log.Println("Unexpected return in launcher. Failing the build.")
+		exit(screwdriver.Failure, buildID, api, metaSpace, "")
 
 		return nil
 	}

@@ -43,6 +43,10 @@ smart_run () {
     fi
 }
 
+binary_exists() {
+    smart_run command -v "$1" >/dev/null 2>&1
+}
+
 echo 'sudo available in Container?'
 smart_run whoami
 
@@ -58,9 +62,6 @@ find /opt/sd/hab/pkgs/core -mindepth 2 -maxdepth 2 -exec sh -c 'mkdir -p `echo $
 find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
 
 # Binlinking bash from core/bash into /bin
-binary_exists() {
-    smart_run command -v "$1" >/dev/null 2>&1
-}
 if ! binary_exists bash; then
     smart_run /opt/sd/bin/hab pkg binlink core/bash bash
 fi
