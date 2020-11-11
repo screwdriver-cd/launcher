@@ -724,7 +724,7 @@ func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, 
 }
 
 // Executes the command based on arguments from the CLI
-func launchAction(done chan<- bool, api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
+func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
 	log.Printf("Starting Build %v\n", buildID)
 	log.Printf("Cache strategy & directories (pipeline, job, event), compress, md5check, maxsize: %v, %v, %v, %v, %v, %v, %v \n", cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, cacheMaxSizeInMB)
 
@@ -739,8 +739,6 @@ func launchAction(done chan<- bool, api screwdriver.API, buildID int, rootDir, e
 	} else {
 		exit(screwdriver.Success, buildID, api, metaSpace, "")
 	}
-
-	done <- true
 
 	return nil
 }
