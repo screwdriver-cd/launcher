@@ -88,6 +88,4 @@ VOLUME /opt/sd
 VOLUME /hab
 
 # Set Entrypoint
-ENTRYPOINT ["/opt/sd/dumb-init", "--"]
-
-CMD ["/opt/sd/launcher_entrypoint.sh", ""]
+ENTRYPOINT ["/opt/sd/launcher_entrypoint.sh"]

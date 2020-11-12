@@ -709,9 +709,10 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 		}
 
 		exit(screwdriver.Failure, buildID, api, metaSpace, "")
-	} else {
-		exit(screwdriver.Success, buildID, api, metaSpace, "")
+		return nil
 	}
+
+	exit(screwdriver.Success, buildID, api, metaSpace, "")
 
 	return nil
 }
@@ -874,16 +875,7 @@ func main() {
 		cli.BoolFlag{
 			Name:  "container-error",
 			Usage: "container error",
-		},
-		cli.BoolFlag{
-			Name:  "run-teardown",
-			Usage: "run teardown down process",
-		},
-		cli.StringFlag{
-			Name:  "exit-code",
-			Usage: "exit code for sd build success(200) or failure(500)",
-			Value: "500",
-		},
+		}
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -896,7 +888,7 @@ func main() {
 		uiURL := c.String("ui-uri")
 		shellBin := c.String("shell-bin")
 		buildID, err := strconv.Atoi(c.Args().Get(0))
-		buildTimeoutSeconds := c.Int("build-timeout")
+		buildTimeoutSeconds := c.Int("build-timeout") * 60
 		fetchFlag := c.Bool("only-fetch-token")
 		cacheStrategy := c.String("cache-strategy")
 		pipelineCacheDir := c.String("pipeline-cache-dir")
@@ -992,7 +984,6 @@ func main() {
 		// This should never happen...
 		log.Println("Unexpected return in launcher. Failing the build.")
 		exit(screwdriver.Failure, buildID, api, metaSpace, "")
-
 		return nil
 	}
 	app.Run(os.Args)
