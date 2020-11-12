@@ -6,7 +6,9 @@ trap 'trap_handler $@' INT TERM
 trap_handler () {
     code=$?
     if [ $code -ne 0 ]; then
-        echo "Exit code:$code received, run command"
+        echo "Exit code:$code received in run.sh, waiting for $SD_TERMINATION_GRACE_PERIOD_SECONDS seconds"
+        # this trap does not wait for launcher SIGTERM processing completion 
+        # so add sleep until timeoutgraceperiodseconds is elapsed
         sleep $SD_TERMINATION_GRACE_PERIOD_SECONDS
     fi
 }

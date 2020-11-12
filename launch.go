@@ -51,30 +51,6 @@ var pushgatewayUrlTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
 
-var apiUrl string
-var token string
-var workspace string
-var emitterPath string
-var metaSpace string
-var storeURL string
-var uiURL string
-var shellBin string
-var buildID int
-var buildTimeoutSeconds int
-var fetchFlag bool
-var cacheStrategy string
-var pipelineCacheDir string
-var jobCacheDir string
-var eventCacheDir string
-var cacheMaxSizeInMB int64
-var cacheMaxGoThreads int64
-var isLocal bool
-var localBuildJson string
-var localJobName string
-var err error
-var cacheCompress bool
-var cacheMd5Check bool
-var api screwdriver.API
 var emitter screwdriver.Emitter
 var defaultEnv map[string]string
 
@@ -671,9 +647,6 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 
 func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) error {
 	envFilepath := "/tmp/env"
-	if err != nil {
-		return err
-	}
 	defer emitter.Close()
 
 	log.Printf("Fetching Build %d", buildID)
@@ -743,13 +716,9 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 	return nil
 }
 
-func trapHandler() {
+func trapHandler(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin string, buildTimeout int, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir string, cacheCompress, cacheMd5Check, isLocal bool, cacheMaxSizeInMB int64, cacheMaxGoThreads int64) {
 	log.Printf("Starting teardown steps before exiting")
-	if err != nil {
-		log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
-		exit(screwdriver.Failure, buildID, nil, metaSpace, "")
-	}
-	if err := startTeardownPhase(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
+	if err := startTeardownPhase(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads); err != nil {
 		if _, ok := err.(executor.ErrStatus); ok {
 			log.Printf("Failure due to non-zero exit code: %v\n", err)
 		} else {
@@ -758,23 +727,6 @@ func trapHandler() {
 	}
 	_ = pushMetrics(string(screwdriver.Aborted), buildID)
 	log.Printf("Successfully completed teardown \n")
-}
-
-func addSignalHandler() {
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigs
-		fmt.Printf("Received %s signal in launcher, processing signal \n", sig)
-		trapHandler()
-		done <- true
-	}()
-
-	<-done
-	log.Println("Finished processing from launcher.")
-	cleanExit()
 }
 
 func recoverPanic(buildID int, api screwdriver.API, metaSpace string) {
@@ -935,28 +887,28 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		apiUrl = c.String("api-uri")
+		apiUrl := c.String("api-uri")
 		token := c.String("token")
-		workspace = c.String("workspace")
-		emitterPath = c.String("emitter")
-		metaSpace = c.String("meta-space")
-		storeURL = c.String("store-uri")
-		uiURL = c.String("ui-uri")
-		shellBin = c.String("shell-bin")
-		buildID, err = strconv.Atoi(c.Args().Get(0))
-		buildTimeoutSeconds = c.Int("build-timeout") * 60
-		fetchFlag = c.Bool("only-fetch-token")
-		cacheStrategy = c.String("cache-strategy")
-		pipelineCacheDir = c.String("pipeline-cache-dir")
-		jobCacheDir = c.String("job-cache-dir")
-		eventCacheDir = c.String("event-cache-dir")
-		cacheCompress, _ = strconv.ParseBool(c.String("cache-compress"))
-		cacheMd5Check, _ = strconv.ParseBool(c.String("cache-md5check"))
-		cacheMaxSizeInMB = c.Int64("cache-max-size-mb")
-		cacheMaxGoThreads = c.Int64("cache-max-go-threads")
-		isLocal = c.Bool("local-mode")
-		localBuildJson = c.String("local-build-json")
-		localJobName = c.String("local-job-name")
+		workspace := c.String("workspace")
+		emitterPath := c.String("emitter")
+		metaSpace := c.String("meta-space")
+		storeURL := c.String("store-uri")
+		uiURL := c.String("ui-uri")
+		shellBin := c.String("shell-bin")
+		buildID, err := strconv.Atoi(c.Args().Get(0))
+		buildTimeoutSeconds := c.Int("build-timeout")
+		fetchFlag := c.Bool("only-fetch-token")
+		cacheStrategy := c.String("cache-strategy")
+		pipelineCacheDir := c.String("pipeline-cache-dir")
+		jobCacheDir := c.String("job-cache-dir")
+		eventCacheDir := c.String("event-cache-dir")
+		cacheCompress, _ := strconv.ParseBool(c.String("cache-compress"))
+		cacheMd5Check, _ := strconv.ParseBool(c.String("cache-md5check"))
+		cacheMaxSizeInMB := c.Int64("cache-max-size-mb")
+		cacheMaxGoThreads := c.Int64("cache-max-go-threads")
+		isLocal := c.Bool("local-mode")
+		localBuildJson := c.String("local-build-json")
+		localJobName := c.String("local-job-name")
 		containerError := c.Bool("container-error")
 
 		if err != nil {
@@ -997,7 +949,7 @@ func main() {
 			fmt.Printf("%s", buildToken)
 			cleanExit()
 		}
-
+		var api screwdriver.API
 		if isLocal {
 			if len(localBuildJson) == 0 {
 				log.Println("Error: local-build-json is not passed.")
@@ -1023,7 +975,17 @@ func main() {
 
 		defer recoverPanic(buildID, api, metaSpace)
 
-		addSignalHandler()
+		// add a SIGTERM signal handler
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+		go func() {
+			sig := <-sigs
+			fmt.Printf("Received %s signal in launcher, processing signal \n", sig)
+			trapHandler(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
+			log.Println("Finished processing from launcher.")
+			cleanExit()
+		}()
 
 		launchAction(api, buildID, workspace, emitterPath, metaSpace, storeURL, uiURL, shellBin, buildTimeoutSeconds, token, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 
