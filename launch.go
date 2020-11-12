@@ -875,7 +875,7 @@ func main() {
 		cli.BoolFlag{
 			Name:  "container-error",
 			Usage: "container error",
-		}
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
