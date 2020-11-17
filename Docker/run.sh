@@ -1,4 +1,17 @@
-#!/bin/sh
+#!/bin/bash -e
+
+# Trap these SIGNALs and run teardown
+trap 'trap_handler $@' INT TERM
+
+trap_handler () {
+    code=$?
+    if [ $code -ne 0 ]; then
+        echo "Exit code:$code received in run.sh, waiting for $SD_TERMINATION_GRACE_PERIOD_SECONDS seconds"
+        # this trap does not wait for launcher SIGTERM processing completion 
+        # so add sleep until timeoutgraceperiodseconds is elapsed
+        sleep $SD_TERMINATION_GRACE_PERIOD_SECONDS
+    fi
+}
 
 # Get push gateway url and container image from env variable
 if ([ ! -z "$SD_PUSHGATEWAY_URL" ] && [ ! -z "$CONTAINER_IMAGE" ] && [ ! -z "$SD_PIPELINE_ID" ]); then

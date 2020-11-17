@@ -1,5 +1,5 @@
 FROM alpine:3.12
-MAINTAINER The Screwdrivers <screwdriver.cd>
+LABEL MAINTAINER="Screwdriver Team <screwdriver.cd>"
 
 WORKDIR /opt/sd
 RUN set -x \
@@ -39,28 +39,10 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O store-cli \
    && chmod +x store-cli \
-   # Download Tini Static
-   && wget -q -O - https://github.com/krallin/tini/releases/latest \
-      | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
-      | head -1 \
-      | wget --base=http://github.com/ -i - -O tini-static \
-   && wget -q -O - https://github.com/krallin/tini/releases/latest \
-      | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static.asc' \
-      | wget --base=http://github.com/ -i - -O tini-static.asc \
-   && found=''; \
-      ( \
-      gpg --no-tty --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 || \
-      gpg --no-tty --keyserver pgp.mit.edu --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 || \
-      gpg --no-tty --keyserver keyserver.pgp.com --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 || \
-      gpg --no-tty --keyserver hkp://ipv4.pool.sks-keyservers.net --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 || \
-      gpg --no-tty --keyserver ha.pool.sks-keyservers.net --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
-      ) \
-   && found=yes && break; \
-     test -z "$found" && echo >&2 "error: failed to fetch GPG key 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7" && exit 1; \
-     gpg --verify tini-static.asc  \
-   && rm tini-static.asc \
-   && mv tini-static tini \
-   && chmod +x tini \
+   # Download dumb-init
+   && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
+   && chmod +x /usr/local/bin/dumb-init \
+   && cp /usr/local/bin/dumb-init /opt/sd/dumb-init \
    # Install Habitat
    && mkdir -p /hab/bin /opt/sd/bin \
    # Download Habitat Binary
@@ -91,7 +73,9 @@ RUN set -x \
    # Cleanup Sonar scanner cli files
    && rm -rf /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
-   && apk del --purge .build-dependencies
+   && apk del --purge .build-dependencies \
+   # bin link bash if not present
+   && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi
 
 # Copy optional entrypoint script to the image
 COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh

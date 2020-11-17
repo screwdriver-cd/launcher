@@ -43,6 +43,10 @@ smart_run () {
     fi
 }
 
+binary_exists() {
+    smart_run command -v "$1" >/dev/null 2>&1
+}
+
 echo 'sudo available in Container?'
 smart_run whoami
 
@@ -56,6 +60,11 @@ smart_run mkdir -p -m 777 /hab/pkgs/core  || echo 'Failed to create /hab/pkgs/co
 find /opt/sd/hab/pkgs/core -mindepth 2 -maxdepth 2 -exec sh -c 'mkdir -p `echo $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to create /hab/pkgs/core/*'
 # this cmd will symlink the specific version: ln -s  /opt/sd/hab/pkgs/core/curl/7.54.1/20181008145326 /hab/pkgs/core/curl/7.54.1
 find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
+
+# Binlinking bash from core/bash into /bin
+if ! binary_exists bash; then
+    smart_run /opt/sd/bin/hab pkg binlink core/bash bash
+fi
 
 echo 'Creating workspace and log pipe'
 date
@@ -75,5 +84,5 @@ done
 echo 'Symlink hab cache, log pipe is ready'
 date
 
-# Entrypoint
-exec /opt/sd/tini -- /bin/sh -c "$@"
+# exec run.sh using dumbinit
+exec /opt/sd/dumb-init -- /bin/bash -c "$@"

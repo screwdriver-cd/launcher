@@ -8,10 +8,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -265,6 +267,9 @@ func TestMain(m *testing.M) {
 		return os.Open("data/screwdriver.yaml")
 	}
 	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath, sourceDir string) error {
+		return nil
+	}
+	executorRunTeardown = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath, sourceDir string) error {
 		return nil
 	}
 	cleanExit = func() {}
@@ -1491,4 +1496,20 @@ func TestPushMetrics(t *testing.T) {
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
+}
+
+func TestStartTeardownPhase(t *testing.T) {
+	testPipelineID := 9999
+	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "ABORTED")
+	startTeardownPhase(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUiURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+}
+
+func TestSignalsAreDelivered(t *testing.T) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGTERM)
+	defer signal.Stop(c)
+	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+	t.Logf("sigterm...")
+	main()
+	t.Logf("sigterm...")
 }
