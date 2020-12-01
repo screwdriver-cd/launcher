@@ -33,6 +33,8 @@ const (
 	Aborted             = "ABORTED"
 )
 
+const status = "SUCCESS"
+
 const defaultBuildTimeoutBuffer = 30 // 30 minutes
 const retryWaitMin = 100
 const retryWaitMax = 300
@@ -47,6 +49,7 @@ func (b BuildStatus) String() string {
 // API is a Screwdriver API endpoint
 type API interface {
 	BuildFromID(buildID int) (Build, error)
+	LatestBuildFromJob(jobID int) (Build, error)
 	EventFromID(eventID int) (Event, error)
 	JobFromID(jobID int) (Job, error)
 	PipelineFromID(pipelineID int) (Pipeline, error)
@@ -54,6 +57,7 @@ type API interface {
 	UpdateStepStart(buildID int, stepName string) error
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
+	GetLatestBuildForMeta(pipelineID, parentBuildID int) (Build, error)
 	GetAPIURL() (string, error)
 	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
@@ -555,4 +559,57 @@ func (a api) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 	}
 
 	return buildToken.Token, nil
+}
+
+func (a api) LatestBuildFromJob(jobID int) (build Build, err error) {
+	u, err := a.makeURL(fmt.Sprintf("jobs/%d/latestBuild?status=%s", jobID, status))
+	if err != nil {
+		return build, err
+	}
+
+	body, err := a.get(u)
+	if err != nil {
+		return build, err
+	}
+
+	err = json.Unmarshal(body, &build)
+	if err != nil {
+		return build, fmt.Errorf("Parsing JSON response %q: %v", body, err)
+	}
+	return build, nil
+}
+
+// GetLatestBuildForMeta checks if parent build is external and fetches latest external build accordingly
+func (a api) GetLatestBuildForMeta(pipelineID, parentBuildID int) (build Build, err error) {
+	log.Printf("Fetching Parent Build %d", parentBuildID)
+	pb, err := a.BuildFromID(parentBuildID)
+	if err != nil {
+		return build, fmt.Errorf("Fetching Parent Build ID %d: %v", parentBuildID, err)
+	}
+
+	log.Printf("Fetching Parent Job %d", pb.JobID)
+	parentJob, err := a.JobFromID(pb.JobID)
+	if err != nil {
+		return build, fmt.Errorf("Fetching Job ID %d: %v", pb.JobID, err)
+	}
+
+	log.Printf("Fetching Parent Pipeline %d", parentJob.PipelineID)
+	parentPipeline, err := a.PipelineFromID(parentJob.PipelineID)
+	if err != nil {
+		return build, fmt.Errorf("Fetching Pipeline ID %d: %v", parentJob.PipelineID, err)
+	}
+
+	// Check if build is from external pipeline
+	if pipelineID == parentPipeline.ID {
+		return pb, nil
+	}
+
+	// Get latest build based on job ID
+	log.Printf("Fetching latest Build for Job %d", pb.JobID)
+	latestBuild, err := a.LatestBuildFromJob(pb.JobID)
+	if err != nil {
+		return build, fmt.Errorf("Fetching latest Build for Job ID %d: %v", pb.JobID, err)
+	}
+
+	return latestBuild, nil
 }

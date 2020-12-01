@@ -419,9 +419,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata
 		// Get meta from all parent builds
 		for _, pbID := range parentBuildIDs {
-			pb, err := api.BuildFromID(pbID)
+			pb, err := api.GetLatestBuildForMeta(pipeline.ID, pbID)
 			if err != nil {
-				return fmt.Errorf("Fetching Parent Build ID %d: %v", pbID, err)
+				return fmt.Errorf("Fetching Latest Parent Build ID %d for meta: %v", pbID, err)
 			}
 			if pb.Meta != nil {
 				mergedMeta = deepMergeJSON(pb.Meta, mergedMeta)
