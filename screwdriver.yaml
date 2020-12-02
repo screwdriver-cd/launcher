@@ -1,7 +1,6 @@
 shared:
     image: golang:1.14
     environment:
-        GOPATH: /sd/workspace
         GO111MODULE: on
 jobs:
     main:
