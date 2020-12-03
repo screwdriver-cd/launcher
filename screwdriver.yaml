@@ -1,19 +1,19 @@
 shared:
     image: golang:1.14
     environment:
-        GOPATH: /sd/workspace
         GO111MODULE: on
 jobs:
     main:
-        requires: [~pr, ~commit]
         environment:
-            SD_SONAR_OPTS: "-Dsonar.sources=./  -Dsonar.exclusions=**/*_test.go,**/sonar-scanner*/** -Dsonar.go.coverage.reportPaths=/sd/workspace/artifacts/coverage.out"
+            SD_SONAR_OPTS:  "-Dsonar.sources=./ -Dsonar.exclusions=**/*_test.go,**/vendor/** -Dsonar.tests=./ -Dsonar.test.inclusions=**/*_test.go -Dsonar.test.exclusions=**/vendor/** -Dsonar.go.coverage.reportPaths=${SD_ARTIFACTS_DIR}/coverage.out -Dsonar.go.tests.reportPaths=${SD_ARTIFACTS_DIR}/report.json"
+        requires: [~commit, ~pr]
         steps:
             - gover: go version
             - install: go mod download
             - vet: go vet ./...
             - gofmt: (! gofmt -d . | grep '^')
-            - test: go test ./... -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out -coverpkg=./...
+            - test-setup: go get gotest.tools/gotestsum@v0.6.0
+            - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             # Ensure we can compile
             - build: go build -a -o /dev/null
             # Test cross-compiling as well

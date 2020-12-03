@@ -19,6 +19,7 @@ smart_run () {
 
 # Create FIFO for emitter
 mkdir -p /sd
+smart_run chmod 777 /sd
 smart_run mkfifo -m 666 /sd/emitter
 
 echo 'Symlink hab cache'
