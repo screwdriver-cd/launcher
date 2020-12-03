@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1226,6 +1227,12 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 }
 
 func TestFetchParentBuildsMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var parentMeta []byte
+	var parentMeta2 []byte
+	var buildMeta []byte
 	for i, s := range TestParentBuildIDs {
 		IDs[i] = s
 	}
@@ -1236,11 +1243,6 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 	TestMetaDeep2 := map[string]interface{}{
 		"dog":  "woof",
 		"bird": "twitter",
-	}
-	ExpectedMetaDeep := map[string]interface{}{
-		"cat":  "meow",
-		"dog":  "woof",
-		"bird": "chirp",
 	}
 	TestMeta1 := map[string]interface{}{
 		"foo":    TestMetaDeep1,
@@ -1260,7 +1262,7 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 			return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestParentJobID, Meta: TestMeta1}), nil
 		}
 		if buildID == 2222 {
-			return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestParentJobID, Meta: TestMeta2}), nil
+			return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: 1114, Meta: TestMeta2}), nil
 		}
 		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
 	}
@@ -1268,29 +1270,51 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 		if jobID == TestParentJobID {
 			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestParentPipelineID, Name: "component"}), nil
 		}
+		if jobID == 1114 {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: 1115, Name: "component"}), nil
+		}
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		if pipelineID == TestParentPipelineID {
 			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		}
+		if pipelineID == 1115 {
+			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+		}
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
-	marshal = func(v interface{}) (result []byte, err error) {
-		actual = v.(map[string]interface{})
-		return nil, fmt.Errorf("Testing parsing parent event meta")
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/sd@1113:component.json" {
+			parentMeta = data
+			log.Printf("parentMeta: %v", parentMeta)
+		}
+		if path == "./data/meta/sd@1115:component.json" {
+			parentMeta2 = data
+			log.Printf("parentMeta: %v", parentMeta2)
+		}
+		if path == "./data/meta/meta.json" {
+			buildMeta = data
+		}
+		return nil
 	}
 
-	_ = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
 
-	if !reflect.DeepEqual(actual["foo"], ExpectedMetaDeep) {
-		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["foo"], ExpectedMetaDeep)
+	want := []byte("{\"batman\":\"robin\",\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":{\"bird\":\"chirp\",\"cat\":\"meow\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
+	wantParent := []byte("{\"batman\":\"robin\",\"foo\":{\"bird\":\"chirp\",\"cat\":\"meow\"}}")
+	wantParent2 := []byte("{\"foo\":{\"bird\":\"twitter\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
+
+	if err != nil || string(parentMeta) != string(wantParent) {
+		t.Errorf("Expected parentMeta is %v, but: %v", string(wantParent), string(parentMeta))
 	}
-	if actual["batman"] != "robin" {
-		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["batman"], "robin")
+
+	if err != nil || string(parentMeta2) != string(wantParent2) {
+		t.Errorf("Expected parentMeta2 is %v, but: %v", string(wantParent2), string(parentMeta2))
 	}
-	if actual["wonder"] != "woman" {
-		t.Errorf("Error is wrong, got '%v', expected '%v'", actual["wonder"], "woman")
+
+	if err != nil || string(buildMeta) != string(want) {
+		t.Errorf("Expected build meta is %v, but: %v", string(want), string(buildMeta))
 	}
 }
 
