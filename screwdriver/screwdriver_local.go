@@ -96,11 +96,3 @@ func (a localApi) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, 
 func (a localApi) GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error) {
 	return "", nil
 }
-
-func (a localApi) LatestBuildFromJob(jobID int) (build Build, err error) {
-	return a.localBuild, nil
-}
-
-func (a localApi) GetLatestBuildForMeta(pipelineID, parentBuildID int) (build Build, err error) {
-	return a.localBuild, nil
-}
