@@ -398,11 +398,10 @@ func RunTeardownOnAbort(path string, env []string, emitter screwdriver.Emitter, 
 	var stepExitCode int
 	var cmdErr error
 
-	_, sdTeardownCommands, _ := filterTeardowns(build)
-	// teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
-	// add check for artifact bookend
+	_, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
+	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 
-	for index, cmd := range sdTeardownCommands {
+	for index, cmd := range teardownCommands {
 		if index == 0 && firstError == nil {
 			// Exit shell only if previous user steps ran successfully
 			f.Write([]byte{4})
