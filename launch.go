@@ -233,12 +233,11 @@ func createWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspac
 	return w, nil
 }
 
-func getWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspace, error) {
-	srcPaths = append([]string{"src"}, srcPaths...)
+func getWorkspace(isLocal bool, rootDir string, rootPath string, artifactPath string, srcPaths ...string) (Workspace, error) {
 	src := path.Join(srcPaths...)
 
-	src = path.Join(rootDir, src)
-	artifacts := path.Join(rootDir, "artifacts")
+	src = path.Join(rootDir, rootPath, src)
+	artifacts := path.Join(rootDir, artifactPath)
 
 	paths := []string{
 		src,
@@ -679,7 +678,7 @@ func startTeardownPhase(api screwdriver.API, buildID int, rootDir, emitterPath, 
 	}
 
 	log.Printf("Get Workspace in %v", rootDir)
-	w, err := getWorkspace(isLocal, rootDir, scm.Host, scm.Org, scm.Repo)
+	w, err := getWorkspace(isLocal, rootDir, "src", "artifacts", scm.Host, scm.Org, scm.Repo)
 	if err != nil {
 		return err
 	}
