@@ -271,52 +271,17 @@ func createMetaSpace(metaSpace string) error {
 func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]interface{}) error {
 	var metaPath = metaSpace + "/" + metaFile
 
-	_, err := os.Stat(metaPath)
+	metaByte := []byte("")
+	log.Println("Marshalling Merged Meta JSON in writeMetafile")
+	metaByte, err := marshal(mergedMeta)
 
-	// If file doesn't already exist, write to new file
-	if os.IsNotExist(err) {
-		metaByte := []byte("")
-		log.Println("Marshalling Merged Meta JSON in writeMetafile")
-		metaByte, err := marshal(mergedMeta)
+	if err != nil {
+		return fmt.Errorf("Parsing Meta JSON: %v", err)
+	}
 
-		if err != nil {
-			return fmt.Errorf("Parsing Meta JSON: %v", err)
-		}
-
-		err = writeFile(metaPath, metaByte, 0666)
-		if err != nil {
-			return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
-		}
-	} else {
-		// If file already exists, merge meta in file
-		// Get meta from file
-		jsonFile, err := os.Open(metaPath)
-		if err != nil {
-			return fmt.Errorf("Opening external Meta JSON %s: %v", metaPath, err)
-		}
-		defer jsonFile.Close()
-
-		oldMetaByte, _ := ioutil.ReadAll(jsonFile)
-
-		var oldMeta map[string]interface{}
-		json.Unmarshal([]byte(oldMetaByte), &oldMeta)
-
-		// merge with new meta
-		mergedExternalMeta := deepMergeJSON(mergedMeta, oldMeta)
-
-		metaByte := []byte("")
-		log.Println("Marshalling Merged Meta JSON in writeMetafile")
-		metaByte, err = marshal(mergedExternalMeta)
-
-		if err != nil {
-			return fmt.Errorf("Parsing Meta JSON: %v", err)
-		}
-
-		// save meta
-		err = writeFile(metaPath, metaByte, 0666)
-		if err != nil {
-			return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
-		}
+	err = writeFile(metaPath, metaByte, 0666)
+	if err != nil {
+		return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err)
 	}
 
 	return nil
@@ -337,16 +302,18 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 		return resultMeta, fmt.Errorf("Fetching Job ID %d: %v", parentBuild.JobID, err)
 	}
 
-	// Check if build is from external pipeline
-	// If build is triggered by an external pipeline, write to "sd@123:component.json"
-	// where sd@123:component is the triggering job
 	if parentBuild.Meta != nil {
+		// Check if build is from external pipeline
 		if pipelineID != parentJob.PipelineID {
+			// Write to "sd@123:component.json", where sd@123:component is the triggering job
 			externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
 			writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
 			if join {
 				resultMeta = deepMergeJSON(parentBuild.Meta, resultMeta)
 			}
+			externalMetaKey := "sd." + strconv.Itoa(parentJob.PipelineID) + "." + parentJob.Name
+			// delete stored external meta key
+			delete(resultMeta, externalMetaKey)
 		} else {
 			resultMeta = deepMergeJSON(parentBuild.Meta, resultMeta)
 		}
