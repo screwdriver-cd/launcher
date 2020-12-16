@@ -308,9 +308,17 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 			if join {
 				resultMeta = deepMergeJSON(parentBuild.Meta, resultMeta)
 			}
-			externalMetaKey := "sd." + strconv.Itoa(parentJob.PipelineID) + "." + parentJob.Name
-			// delete stored external meta key
-			delete(resultMeta, externalMetaKey)
+
+			// delete local version of external meta
+			pIDString := strconv.Itoa(parentJob.PipelineID)
+			pjn := parentJob.Name
+			if sdMeta, ok := resultMeta["sd"]; ok {
+				if externalPipelineMeta, ok := sdMeta.(map[string]interface{})[pIDString]; ok {
+					if _, ok := externalPipelineMeta.(map[string]interface{})[pjn]; ok {
+						delete(externalPipelineMeta.(map[string]interface{}), pjn)
+					}
+				}
+			}
 		} else {
 			resultMeta = deepMergeJSON(parentBuild.Meta, resultMeta)
 		}
