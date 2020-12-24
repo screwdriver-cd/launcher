@@ -1000,6 +1000,7 @@ func TestFetchPredefinedMeta(t *testing.T) {
 	var defaultMeta []byte
 	mockMeta := make(map[string]interface{})
 	mockMeta["foo"] = "bar"
+	mockMeta["summary"] = map[string]string{"comment": "it should be deleted"}
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
