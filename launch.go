@@ -494,7 +494,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Initialize pr comments (Issue #1858)
-	delete(mergedMeta, "summary")
+	if _, ok := mergedMeta["meta"]; ok {
+		delete(mergedMeta["meta"], "summary")
+	}
 
 	log.Println("Marshalling Merged Meta JSON")
 	metaByte, err = marshal(mergedMeta)
