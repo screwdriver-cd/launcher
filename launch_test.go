@@ -1001,7 +1001,7 @@ func TestFetchPredefinedMeta(t *testing.T) {
 	mockMeta := make(map[string]interface{})
 	mockMeta["foo"] = "bar"
 	mockMeta["meta"] = map[string]interface{}{
-		"baz": "qux",
+		"baz":     "qux",
 		"summary": map[string]string{"comment": "it should be deleted"},
 	}
 
