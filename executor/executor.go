@@ -381,6 +381,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 // RunTeardownOnAbort executes all teardown steps when build is aborted
 func RunTeardownOnAbort(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath, sourceDir string) error {
+	tmpFile := envFilepath + "_tmp"
 	exportFile := envFilepath + "_export"
 
 	// Set up a single pseudo-terminal
