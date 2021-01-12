@@ -393,6 +393,28 @@ func RunTeardownOnAbort(path string, env []string, emitter screwdriver.Emitter, 
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
+	// Command to Export Env. Use tmpfile just in case export -p takes some time
+	exportEnvCmd :=
+		"tmpfile=" + tmpFile + "; exportfile=" + exportFile + "; " +
+			"export -p | grep -vi \"PS1=\" > $tmpfile && mv $tmpfile $exportfile; "
+
+	// Run setup commands
+	setupCommands := []string{
+		"set -e",
+		"export PATH=$PATH:/opt/sd",
+		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
+		"finish() { " +
+			"EXITCODE=$?; " +
+			exportEnvCmd +
+			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
+		"trap finish EXIT;\necho ;\n",
+	}
+
+	setupReader := bufio.NewReader(f)
+	if err := doRunSetupCommand(emitter, f, setupReader, setupCommands); err != nil {
+		return err
+	}
+
 	var firstError error
 	var code int
 	var stepExitCode int
