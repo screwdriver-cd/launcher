@@ -63,7 +63,7 @@ find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirnam
 
 # Binlinking bash from core/bash into /bin
 if ! binary_exists bash; then
-    smart_run /opt/sd/bin/hab pkg binlink core/bash bash
+    smart_run /opt/sd/bin/hab pkg binlink core/bash bash || echo 'Failed to symlink bash'
 fi
 
 echo 'Creating workspace and log pipe'
