@@ -96,8 +96,8 @@ RUN set -x \
    && find /hab -name doc -exec rm -r {} + \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
-   # Cleanup Sonar scanner cli files
-   && rm -rf /opt/sd/skopeo-linux.zip /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
+   # Cleanup Skopeo and Sonar scanner cli files
+   && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
    && apk del --purge .build-dependencies \
    # bin link bash if not present
