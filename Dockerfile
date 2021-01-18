@@ -89,7 +89,7 @@ RUN set -x \
    # Install skope
    && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
-   && chmod +x skopeo && cp skopeo /opt/sd/skopeo \
+   && chmod +x skopeo \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
