@@ -87,8 +87,8 @@ RUN set -x \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
    && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
    # Install skope
-   && wget -q -O skopeo-linux.zip 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.zip' \
-   && unzip -q skopeo-linux.zip \
+   && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
+   && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo && cp skopeo /opt/sd/skopeo \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
