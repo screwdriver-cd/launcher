@@ -86,14 +86,18 @@ RUN set -x \
    && unzip -q sonarscanner-cli-macosx.zip \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
    && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
+   # Install skope
+   && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
+   && tar -C . -ozxvf skopeo-linux.tar.gz \
+   && chmod +x skopeo \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
    && find /hab -name doc -exec rm -r {} + \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
-   # Cleanup Sonar scanner cli files
-   && rm -rf /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
+   # Cleanup Skopeo and Sonar scanner cli files
+   && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
    && apk del --purge .build-dependencies \
    # bin link bash if not present
