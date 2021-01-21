@@ -68,7 +68,7 @@ fi
 
 # Binlinking jq from core/jq into /bin
 if ! binary_exists jq; then
-    smart_run /opt/sd/bin/hab pkg binlink core/jq-static || echo 'Failed to symlink jq'
+    smart_run /opt/sd/bin/hab pkg binlink core/jq-static jq || echo 'Failed to symlink jq'
 fi
 
 echo 'Creating workspace and log pipe'
