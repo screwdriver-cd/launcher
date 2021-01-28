@@ -641,36 +641,3 @@ func TestUserShell(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }
-
-func TestRunTeardownOnAbort(t *testing.T) {
-	envFilepath := "/tmp/testAllStepsPassed"
-	setupTestCase(t, envFilepath)
-	commands := []screwdriver.CommandDef{
-		{Cmd: "ls", Name: "test ls"},
-		{Cmd: "echo 1", Name: "teardown-user-step"},
-		{Cmd: "exit $SD_STEP_EXIT_CODE", Name: "sd-teardown-last-tear-down"},
-	}
-	testBuild := screwdriver.Build{
-		ID:          12345,
-		Commands:    commands,
-		Environment: []map[string]string{},
-	}
-	testAPI := screwdriver.API(MockAPI{
-		updateStepStart: func(buildID int, stepName string) error {
-			if buildID != testBuild.ID {
-				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
-			}
-			return nil
-		},
-		updateStepStop: func(buildID int, stepName string, code int) error {
-			if stepName == "sd-teardown-last-tear-down" && code != 0 { // should expect 0 b/c all previous steps passed
-				t.Errorf("step %v should return exit code of %v instead of %v", stepName, 0, code)
-			}
-			return nil
-		},
-	})
-	err := RunTeardownOnAbort("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-}

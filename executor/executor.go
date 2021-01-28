@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
@@ -192,6 +193,13 @@ func initBuildTimeout(timeout time.Duration, ch chan<- error) {
 	ch <- fmt.Errorf("Timeout of %v seconds exceeded", timeout)
 }
 
+// trap sigterm signal and handle it
+func trapSignal(sigs chan os.Signal, ch chan<- error) {
+	sig := <-sigs
+	fmt.Printf("Received %s signal in launcher same shell, processing signal \n", sig)
+	ch <- fmt.Errorf("SIGTERM received, step aborted")
+}
+
 // print timeout message to build & kill shell
 func handleBuildTimeout(f *os.File, timeoutErr error) {
 	l := []string{
@@ -271,7 +279,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish EXIT;\necho ;\n",
+		"trap finish EXIT TERM INT;\necho ;\n",
 	}
 
 	setupReader := bufio.NewReader(f)
@@ -286,9 +294,15 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	timeout := time.Duration(timeoutSec) * time.Second
 	invokeTimeout := make(chan error, 1)
+	handleAbortSignal := make(chan error, 1)
+
+	// add a SIGTERM signal handler
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	// start build timeout timer
 	go initBuildTimeout(timeout, invokeTimeout)
+	go trapSignal(sigs, handleAbortSignal)
 
 	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
 
@@ -340,6 +354,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 				firstError = buildTimeout
 				code = 3
 			}
+		case stepAbort := <-handleAbortSignal:
+			if firstError == nil {
+				firstError = stepAbort
+			}
+			code = ExitLaunch
 		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
@@ -377,78 +396,4 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	}
 
 	return firstError
-}
-
-// RunTeardownOnAbort executes all teardown steps when build is aborted
-func RunTeardownOnAbort(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath, sourceDir string) error {
-	tmpFile := envFilepath + "_tmp"
-	exportFile := envFilepath + "_export"
-
-	// Set up a single pseudo-terminal
-	c := exec.Command(shellBin)
-	c.Dir = path
-	c.Env = append(env, c.Env...)
-
-	f, err := pty.Start(c)
-	if err != nil {
-		return fmt.Errorf("Cannot start shell: %v", err)
-	}
-
-	// Command to Export Env. Use tmpfile just in case export -p takes some time
-	exportEnvCmd :=
-		"tmpfile=" + tmpFile + "; exportfile=" + exportFile + "; " +
-			"export -p | grep -vi \"PS1=\" > $tmpfile && mv $tmpfile $exportfile; "
-
-	// Run setup commands
-	setupCommands := []string{
-		"set -e",
-		"export PATH=$PATH:/opt/sd",
-		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
-		"finish() { " +
-			"EXITCODE=$?; " +
-			exportEnvCmd +
-			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish EXIT;\necho ;\n",
-	}
-
-	setupReader := bufio.NewReader(f)
-	if err := doRunSetupCommand(emitter, f, setupReader, setupCommands); err != nil {
-		return err
-	}
-
-	var firstError error
-	var code int
-	var stepExitCode int
-	var cmdErr error
-
-	_, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
-	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
-
-	for index, cmd := range teardownCommands {
-		if index == 0 && firstError == nil {
-			// Exit shell only if previous user steps ran successfully
-			f.Write([]byte{4})
-		}
-
-		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
-			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
-		}
-
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir, stepExitCode)
-
-		if code != ExitOk {
-			stepExitCode = code
-		}
-
-		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
-			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
-		}
-
-		if firstError == nil {
-			firstError = cmdErr
-		}
-	}
-
-	return firstError
-
 }

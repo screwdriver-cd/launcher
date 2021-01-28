@@ -270,9 +270,6 @@ func TestMain(m *testing.M) {
 	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath, sourceDir string) error {
 		return nil
 	}
-	executorRunTeardown = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath, sourceDir string) error {
-		return nil
-	}
 	cleanExit = func() {}
 	writeFile = func(string, []byte, os.FileMode) error { return nil }
 	readFile = func(filename string) (data []byte, err error) { return nil, nil }
@@ -1536,12 +1533,6 @@ func TestPushMetrics(t *testing.T) {
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
-}
-
-func TestStartTeardownPhase(t *testing.T) {
-	testPipelineID := 9999
-	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "ABORTED")
-	startTeardownPhase(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
 }
 
 func TestSignalsAreDelivered(t *testing.T) {
