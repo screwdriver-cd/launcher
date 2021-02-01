@@ -196,7 +196,7 @@ func initBuildTimeout(timeout time.Duration, ch chan<- error) {
 // trap sigterm signal and handle it
 func trapSignal(sigs chan os.Signal, ch chan<- error) {
 	sig := <-sigs
-	fmt.Printf("Received %s signal in launcher same shell, processing signal \n", sig)
+	fmt.Printf("Received %s signal in launcher, processing signal \n", sig)
 	ch <- fmt.Errorf("SIGTERM received, step aborted")
 }
 
@@ -279,7 +279,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish EXIT TERM INT;\necho ;\n",
+		"trap finish EXIT;\necho ;\n",
 	}
 
 	setupReader := bufio.NewReader(f)

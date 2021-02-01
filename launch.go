@@ -230,32 +230,6 @@ func createWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspac
 	return w, nil
 }
 
-func getWorkspace(isLocal bool, rootDir string, rootPath string, artifactPath string, srcPaths ...string) (Workspace, error) {
-	src := path.Join(srcPaths...)
-
-	src = path.Join(rootDir, rootPath, src)
-	artifacts := path.Join(rootDir, artifactPath)
-
-	paths := []string{
-		src,
-		artifacts,
-	}
-	for _, p := range paths {
-		_, err := stat(p)
-		if err != nil && !isLocal {
-			msg := "workspace path %q, path does not exists."
-			return Workspace{}, fmt.Errorf(msg, p)
-		}
-	}
-
-	w := Workspace{
-		Root:      rootDir,
-		Src:       src,
-		Artifacts: artifacts,
-	}
-	return w, nil
-}
-
 func createMetaSpace(metaSpace string) error {
 	log.Printf("Creating Meta Space in %v", metaSpace)
 	err := mkdirAll(metaSpace, 0777)
