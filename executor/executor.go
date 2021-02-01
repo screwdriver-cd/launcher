@@ -334,8 +334,16 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 		fReader := bufio.NewReader(f)
 
+		abortSetupCommand := []string{
+			"set -e",
+			"export PATH=$PATH:/opt/sd",
+			exportEnvCmd,
+		}
+
 		go func() {
 			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
+			shargs := strings.Join(abortSetupCommand, " && ")
+			f.Write([]byte(shargs))
 			// exit code & errors from doRunCommand
 			eCode <- runCode
 			runErr <- rcErr
@@ -358,7 +366,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			if firstError == nil {
 				firstError = stepAbort
 			}
-			code = ExitLaunch
+			code = 1
 		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
