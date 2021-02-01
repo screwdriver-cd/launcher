@@ -343,7 +343,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		go func() {
 			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
 			// run export file after step execution
-			shargs := strings.Join	exportEnvCommand, " && ")
+			shargs := strings.Join(exportEnvCommand, " && ")
 			f.Write([]byte(shargs))
 			// exit code & errors from doRunCommand
 			eCode <- runCode
