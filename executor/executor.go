@@ -194,7 +194,7 @@ func initBuildTimeout(timeout time.Duration, ch chan<- error) {
 }
 
 // trap sigterm signal and handle it
-func trapSignal(sigs chan os.Signal, ch chan<- error) {
+func notifySignal(sigs chan os.Signal, ch chan<- error) {
 	sig := <-sigs
 	fmt.Printf("Received %s signal in launcher, processing signal \n", sig)
 	ch <- fmt.Errorf("SIGTERM received, step aborted")
@@ -294,7 +294,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	timeout := time.Duration(timeoutSec) * time.Second
 	invokeTimeout := make(chan error, 1)
-	handleAbortSignal := make(chan error, 1)
+	sig := make(chan error, 1)
 
 	// add a SIGTERM signal handler
 	sigs := make(chan os.Signal, 1)
@@ -302,7 +302,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// start build timeout timer
 	go initBuildTimeout(timeout, invokeTimeout)
-	go trapSignal(sigs, handleAbortSignal)
+	go notifySignal(sigs, sig)
 
 	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
 
@@ -363,7 +363,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 				firstError = buildTimeout
 				code = 3
 			}
-		case stepAbort := <-handleAbortSignal:
+		case stepAbort := <-sig:
 			if firstError == nil {
 				firstError = stepAbort
 			}
