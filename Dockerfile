@@ -1,5 +1,5 @@
-FROM alpine:3.8
-MAINTAINER The Screwdrivers <screwdriver.cd>
+FROM alpine:3.12
+LABEL MAINTAINER="Screwdriver Team <screwdriver.cd>"
 
 WORKDIR /opt/sd
 RUN set -x \
@@ -8,9 +8,7 @@ RUN set -x \
    && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2 \
    # Also, missing https for some magic reason
    && apk add --no-cache --update ca-certificates \
-   && apk add --virtual .build-dependencies wget \
-   && apk add --virtual .build-dependencies gpgme \
-
+   && apk add --no-cache --virtual .build-dependencies wget gpgme unzip \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
       | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
@@ -41,7 +39,6 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O store-cli \
    && chmod +x store-cli \
-
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
@@ -64,7 +61,10 @@ RUN set -x \
    && rm tini-static.asc \
    && mv tini-static tini \
    && chmod +x tini \
-
+   # Download dumb-init
+   && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
+   && chmod +x /usr/local/bin/dumb-init \
+   && cp /usr/local/bin/dumb-init /opt/sd/dumb-init \
    # Install Habitat
    && mkdir -p /hab/bin /opt/sd/bin \
    # Download Habitat Binary
@@ -75,25 +75,40 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker core/wget core/sed \
+   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker/19.03.8 core/wget core/sed core/jq-static/1.6 \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
+   # Install Sonar scanner cli
+   && wget -O sonarscanner-cli-linux.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.4.0.2170-linux.zip' \
+   && wget -O sonarscanner-cli-macosx.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.4.0.2170-macosx.zip' \
+   && unzip -q sonarscanner-cli-linux.zip \
+   && unzip -q sonarscanner-cli-macosx.zip \
+   && mv sonar-scanner-*-linux sonarscanner-cli-linux \
+   && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
+   # Install skope
+   && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
+   && tar -C . -ozxvf skopeo-linux.tar.gz \
+   && chmod +x skopeo \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
    && find /hab -name doc -exec rm -r {} + \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
-
+   # Cleanup Skopeo and Sonar scanner cli files
+   && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
    # Cleanup packages
-   && apk del --purge .build-dependencies
+   && apk del --purge .build-dependencies \
+   # bin link bash if not present
+   && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi
 
 # Copy optional entrypoint script to the image
 COPY Docker/launcher_entrypoint.sh /opt/sd/launcher_entrypoint.sh
 
 # Copy wrapper script to the image
 COPY Docker/run.sh /opt/sd/run.sh
+COPY Docker/local_run.sh /opt/sd/local_run.sh
 
 VOLUME /opt/sd
 VOLUME /hab

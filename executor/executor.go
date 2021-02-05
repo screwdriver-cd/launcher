@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/screwdriver-cd/launcher/screwdriver"
-	"gopkg.in/kr/pty.v1"
 	"gopkg.in/myesui/uuid.v1"
 )
 
@@ -102,6 +102,40 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 	return ExitOk, nil
 }
 
+func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, setupCommands []string) error {
+	var (
+		t      string
+		err    error
+		reader = bufio.NewReader(r)
+		reEcho = regexp.MustCompile("echo ;")
+	)
+
+	shargs := strings.Join(setupCommands, " && ")
+
+	f.Write([]byte(shargs))
+
+	t, err = readln(reader)
+	for err == nil {
+		echoCmd := reEcho.FindStringSubmatch(t)
+		if len(echoCmd) != 0 {
+			_, werr := fmt.Fprintln(emitter, t)
+			if werr != nil {
+				return fmt.Errorf("Error piping logs to emitter: %v", werr)
+			}
+			return nil
+		}
+		_, werr := fmt.Fprintln(emitter, t)
+		if werr != nil {
+			return fmt.Errorf("Error piping logs to emitter: %v", werr)
+		}
+		t, err = readln(reader)
+	}
+	if err != nil {
+		return fmt.Errorf("Error with reader: %v", err)
+	}
+	return nil
+}
+
 func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fReader io.Reader) (int, error) {
 	executionCommand := []string{
 		"export SD_STEP_ID=" + guid,
@@ -117,9 +151,9 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 }
 
 // Executes teardown commands
-func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile string) (int, error) {
+func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile, sourceDir string, stepExitCode int) (int, error) {
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd && " +
+	cmdStr := "export PATH=$PATH:/opt/sd SD_STEP_EXIT_CODE=" + strconv.Itoa(stepExitCode) + " && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
 		"if [ -f " + exportFile + " ]; then set +e; . " + exportFile + "; set -e; fi; " +
 		cmd.Cmd
@@ -131,7 +165,7 @@ func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitte
 	fmt.Fprintf(emitter, "$ %s\n", cmd.Cmd)
 	c.Stdout = emitter
 	c.Stderr = emitter
-	c.Dir = path
+	c.Dir = sourceDir
 
 	if err := c.Start(); err != nil {
 		return ExitLaunch, fmt.Errorf("Launching command %q: %v", cmd.Cmd, err)
@@ -209,7 +243,7 @@ func filterTeardowns(build screwdriver.Build) ([]screwdriver.CommandDef, []screw
 }
 
 // Run executes a slice of CommandDefs
-func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath string) error {
+func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath, sourceDir string) error {
 	tmpFile := envFilepath + "_tmp"
 	exportFile := envFilepath + "_export"
 
@@ -237,15 +271,17 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish EXIT;\n",
+		"trap finish EXIT;\necho ;\n",
 	}
 
-	shargs := strings.Join(setupCommands, " && ")
-
-	f.Write([]byte(shargs))
+	setupReader := bufio.NewReader(f)
+	if err := doRunSetupCommand(emitter, f, setupReader, setupCommands); err != nil {
+		return err
+	}
 
 	var firstError error
 	var code int
+	var stepExitCode int
 	var cmdErr error
 
 	timeout := time.Duration(timeoutSec) * time.Second
@@ -311,6 +347,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 	}
 
+	stepExitCode = code
+
 	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
 
 	for index, cmd := range teardownCommands {
@@ -323,7 +361,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
-		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile)
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir, stepExitCode)
+
+		if code != ExitOk {
+			stepExitCode = code
+		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
@@ -335,4 +377,55 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	}
 
 	return firstError
+}
+
+// RunTeardownOnAbort executes all teardown steps when build is aborted
+func RunTeardownOnAbort(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeoutSec int, envFilepath, sourceDir string) error {
+	exportFile := envFilepath + "_export"
+
+	// Set up a single pseudo-terminal
+	c := exec.Command(shellBin)
+	c.Dir = path
+	c.Env = append(env, c.Env...)
+
+	f, err := pty.Start(c)
+	if err != nil {
+		return fmt.Errorf("Cannot start shell: %v", err)
+	}
+
+	var firstError error
+	var code int
+	var stepExitCode int
+	var cmdErr error
+
+	_, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
+	teardownCommands := append(userTeardownCommands, sdTeardownCommands...)
+
+	for index, cmd := range teardownCommands {
+		if index == 0 && firstError == nil {
+			// Exit shell only if previous user steps ran successfully
+			f.Write([]byte{4})
+		}
+
+		if err := api.UpdateStepStart(buildID, cmd.Name); err != nil {
+			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
+		}
+
+		code, cmdErr = doRunTeardownCommand(cmd, emitter, path, shellBin, exportFile, sourceDir, stepExitCode)
+
+		if code != ExitOk {
+			stepExitCode = code
+		}
+
+		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
+			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
+		}
+
+		if firstError == nil {
+			firstError = cmdErr
+		}
+	}
+
+	return firstError
+
 }

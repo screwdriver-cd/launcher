@@ -93,7 +93,7 @@ func (e *emitter) processPipe() {
 // NewEmitter returns an emitter object from an emitter destination path
 func NewEmitter(path string) (Emitter, error) {
 	r, w := io.Pipe()
-	file, err := os.OpenFile(path, os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("Failed opening emitter path %q: %v", path, err)
 	}

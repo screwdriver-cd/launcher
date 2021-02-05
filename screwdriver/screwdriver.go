@@ -7,14 +7,20 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 var sleep = time.Sleep
+var UTCLoc, _ = time.LoadLocation("UTC")
+
+const CoverageURL = "coverage/info?jobId=%d&pipelineId=%d&jobName=%s&pipelineName=%s&scope=%s&prNum=%s&prParentJobId=%s"
 
 // BuildStatus is the status of a Screwdriver build
 type BuildStatus string
@@ -27,8 +33,12 @@ const (
 	Aborted             = "ABORTED"
 )
 
-const maxAttempts = 5
 const defaultBuildTimeoutBuffer = 30 // 30 minutes
+const retryWaitMin = 100
+const retryWaitMax = 300
+
+var maxRetries = 5
+var httpTimeout = time.Duration(20) * time.Second
 
 func (b BuildStatus) String() string {
 	return string(b)
@@ -40,12 +50,12 @@ type API interface {
 	EventFromID(eventID int) (Event, error)
 	JobFromID(jobID int) (Job, error)
 	PipelineFromID(pipelineID int) (Pipeline, error)
-	UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error
+	UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error
 	UpdateStepStart(buildID int, stepName string) error
 	UpdateStepStop(buildID int, stepName string, exitCode int) error
 	SecretsForBuild(build Build) (Secrets, error)
 	GetAPIURL() (string, error)
-	GetCoverageInfo() (Coverage, error)
+	GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (Coverage, error)
 	GetBuildToken(buildID int, buildTimeoutMinutes int) (string, error)
 }
 
@@ -63,15 +73,31 @@ func (e SDError) Error() string {
 type api struct {
 	baseURL string
 	token   string
-	client  *http.Client
+	client  *retryablehttp.Client
 }
 
 // New returns a new API object
 func New(url, token string) (API, error) {
+	// read config from env variables
+	if strings.TrimSpace(os.Getenv("SDAPI_TIMEOUT_SECS")) != "" {
+		apiTimeout, _ := strconv.Atoi(os.Getenv("SDAPI_TIMEOUT_SECS"))
+		httpTimeout = time.Duration(apiTimeout) * time.Second
+	}
+
+	if strings.TrimSpace(os.Getenv("SDAPI_MAXRETRIES")) != "" {
+		maxRetries, _ = strconv.Atoi(os.Getenv("SDAPI_MAXRETRIES"))
+	}
+
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = maxRetries
+	retryClient.RetryWaitMin = time.Duration(retryWaitMin) * time.Millisecond
+	retryClient.RetryWaitMax = time.Duration(retryWaitMax) * time.Millisecond
+	retryClient.Backoff = retryablehttp.LinearJitterBackoff
+	retryClient.HTTPClient.Timeout = httpTimeout
 	newapi := api{
 		url,
 		token,
-		&http.Client{Timeout: 20 * time.Second},
+		retryClient,
 	}
 	return API(newapi), nil
 }
@@ -80,6 +106,13 @@ func New(url, token string) (API, error) {
 type BuildStatusPayload struct {
 	Status string                 `json:"status"`
 	Meta   map[string]interface{} `json:"meta"`
+}
+
+// BuildStatusMessagePayload is a Screwdriver Build Status Message payload.
+type BuildStatusMessagePayload struct {
+	Status        string                 `json:"status"`
+	Meta          map[string]interface{} `json:"meta"`
+	StatusMessage string                 `json:"statusMessage"`
 }
 
 // StepStartPayload is a Screwdriver Step Start payload.
@@ -110,12 +143,21 @@ type ScmRepo struct {
 	Name string `json:"name"`
 }
 
+type JobAnnotations struct {
+	CoverageScope string `json:"screwdriver.cd/coverageScope,omitempty" default:""`
+}
+
+type JobPermutation struct {
+	Annotations JobAnnotations `json:"annotations"`
+}
+
 // Job is a Screwdriver Job.
 type Job struct {
-	ID            int    `json:"id"`
-	PipelineID    int    `json:"pipelineId"`
-	Name          string `json:"name"`
-	PrParentJobID int    `json:"prParentJobId"`
+	ID            int              `json:"id"`
+	PipelineID    int              `json:"pipelineId"`
+	Name          string           `json:"name"`
+	PrParentJobID int              `json:"prParentJobId"`
+	Permutations  []JobPermutation `json:"permutations,omitempty"`
 }
 
 // CommandDef is the definition of a single executable command.
@@ -129,19 +171,21 @@ type IntOrArray interface{}
 
 // Build is a Screwdriver Build
 type Build struct {
-	ID            int                    `json:"id"`
-	JobID         int                    `json:"jobId"`
-	SHA           string                 `json:"sha"`
-	Commands      []CommandDef           `json:"steps"`
-	Environment   []map[string]string    `json:"environment"`
-	ParentBuildID IntOrArray             `json:"parentBuildId"`
-	Meta          map[string]interface{} `json:"meta"`
-	EventID       int                    `json:"eventId"`
+	ID             int                    `json:"id"`
+	JobID          int                    `json:"jobId"`
+	SHA            string                 `json:"sha"`
+	Commands       []CommandDef           `json:"steps"`
+	Environment    []map[string]string    `json:"environment"`
+	ParentBuildID  IntOrArray             `json:"parentBuildId"`
+	Meta           map[string]interface{} `json:"meta"`
+	EventID        int                    `json:"eventId"`
+	Createtime     string                 `json:"createTime"`
+	QueueEntertime string                 `json:"stats.queueEnterTime"`
 }
 
 // Coverage is a Coverage object returned when getInfo is called
 type Coverage struct {
-	EnvVars map[string]string `json:"envVars"`
+	EnvVars map[string]interface{} `json:"envVars"`
 }
 
 // Event is a Screwdriver Event
@@ -149,6 +193,7 @@ type Event struct {
 	ID            int                    `json:"id"`
 	Meta          map[string]interface{} `json:"meta"`
 	ParentEventID int                    `json:"parentEventId"`
+	Creator       map[string]string      `json:"creator"`
 }
 
 // Secret is a Screwdriver build secret.
@@ -175,123 +220,101 @@ func tokenHeader(token string) string {
 	return fmt.Sprintf("Bearer %s", token)
 }
 
-func handleResponse(res *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Reading response Body from Screwdriver: %v", err)
-	}
-
-	if res.StatusCode/100 != 2 {
-		var err SDError
-		parserr := json.Unmarshal(body, &err)
-		if parserr != nil {
-			return nil, fmt.Errorf("Unparseable error response from Screwdriver: %v", parserr)
-		}
-		return nil, err
-	}
-	return body, nil
-}
-
-func retry(attempts int, callback func() error) (err error) {
-	for i := 0; ; i++ {
-		err = callback()
-		if err == nil {
-			return nil
-		}
-
-		if i >= (attempts - 1) {
-			break
-		}
-
-		//Exponential backoff of 2 seconds
-		duration := time.Duration(math.Pow(2, float64(i+1)))
-		sleep(duration * time.Second)
-	}
-	return fmt.Errorf("After %d attempts, Last error: %s", attempts, err)
-}
-
 func (a api) get(url *url.URL) ([]byte, error) {
-	req, err := http.NewRequest("GET", url.String(), nil)
+	requestType := "GET"
+	req, err := http.NewRequest(requestType, url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("Generating request to Screwdriver: %v", err)
 	}
+
+	defer a.client.HTTPClient.CloseIdleConnections()
+
 	req.Header.Set("Authorization", tokenHeader(a.token))
 
-	res := &http.Response{}
-	attemptNumber := 0
+	res, err := a.client.StandardClient().Do(req)
 
-	err = retry(maxAttempts, func() error {
-		attemptNumber++
-		res, err = a.client.Do(req)
-		if err != nil {
-			log.Printf("WARNING: received error from GET(%s): %v "+
-				"(attempt %d of %d)", url.String(), err, attemptNumber, maxAttempts)
-			return err
-		}
-
-		if res.StatusCode/100 == 5 {
-			log.Printf("WARNING: received response %d from GET %s "+
-				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
-			return fmt.Errorf("GET retries exhausted: %d returned from GET %s",
-				res.StatusCode, url.String())
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
+	if res != nil {
+		defer res.Body.Close()
 	}
 
-	defer res.Body.Close()
+	if err != nil {
+		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+	}
 
-	return handleResponse(res)
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("reading response Body from Screwdriver: %v", err)
+		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparseable error response from Screwdriver: %v", parseError)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
+		}
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+	}
+
+	return body, nil
 }
 
 func (a api) write(url *url.URL, requestType string, bodyType string, payload io.Reader) ([]byte, error) {
+	req := &http.Request{}
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(payload)
+
+	size, err := buf.ReadFrom(payload)
+	if err != nil {
+		log.Printf("WARNING: error:[%v], not able to read payload: %v", err, payload)
+		return nil, fmt.Errorf("WARNING: error:[%v], not able to read payload: %v", err, payload)
+	}
 	p := buf.String()
 
-	res := &http.Response{}
-	req := &http.Request{}
-	attemptNumber := 0
-
-	err := retry(maxAttempts, func() error {
-		attemptNumber++
-		var err error
-		req, err = http.NewRequest(requestType, url.String(), strings.NewReader(p))
-		if err != nil {
-			log.Printf("WARNING: received error generating new request for %s(%s): %v "+
-				"(attempt %v of %v)", requestType, url.String(), err, attemptNumber, maxAttempts)
-			return err
-		}
-
-		req.Header.Set("Authorization", tokenHeader(a.token))
-		req.Header.Set("Content-Type", bodyType)
-
-		res, err = a.client.Do(req)
-		if err != nil {
-			log.Printf("WARNING: received error from %s(%s): %v "+
-				"(attempt %d of %d)", requestType, url.String(), err, attemptNumber, maxAttempts)
-			return err
-		}
-
-		if res.StatusCode/100 == 5 {
-			log.Printf("WARNING: received response %d from %s "+
-				"(attempt %d of %d)", res.StatusCode, url.String(), attemptNumber, maxAttempts)
-			return fmt.Errorf("retries exhausted: %d returned from %s",
-				res.StatusCode, url.String())
-		}
-		return nil
-	})
-
+	req, err = http.NewRequest(requestType, url.String(), strings.NewReader(p))
 	if err != nil {
-		return nil, err
+		log.Printf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
 	}
 
-	defer res.Body.Close()
+	defer a.client.HTTPClient.CloseIdleConnections()
 
-	return handleResponse(res)
+	req.Header.Set("Authorization", tokenHeader(a.token))
+	req.Header.Set("Content-Type", bodyType)
+	req.ContentLength = size
+
+	res, err := a.client.StandardClient().Do(req)
+	if res != nil {
+		defer res.Body.Close()
+	}
+
+	if err != nil {
+		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("reading response Body from Screwdriver: %v", err)
+		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparseable error response from Screwdriver: %v", parseError)
+			return nil, fmt.Errorf("unparseable error response from Screwdriver: %v", parseError)
+		}
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+	}
+
+	return body, nil
 }
 
 func (a api) post(url *url.URL, bodyType string, payload io.Reader) ([]byte, error) {
@@ -308,8 +331,8 @@ func (a api) GetAPIURL() (string, error) {
 }
 
 // Get coverage object with coverage information
-func (a api) GetCoverageInfo() (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf("coverage/info"))
+func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (coverage Coverage, err error) {
+	url, err := a.makeURL(fmt.Sprintf(CoverageURL, jobID, pipelineID, jobName, pipelineName, scope, prNum, prParentJobId))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err
@@ -397,7 +420,7 @@ func (a api) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
 	return pipeline, nil
 }
 
-func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int) error {
+func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, buildID int, statusMessage string) error {
 	switch status {
 	case Running:
 	case Success:
@@ -412,11 +435,21 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 		return fmt.Errorf("creating url: %v", err)
 	}
 
-	bs := BuildStatusPayload{
-		Status: status.String(),
-		Meta:   meta,
+	var payload []byte
+	if statusMessage != "" {
+		bs := BuildStatusMessagePayload{
+			Status:        status.String(),
+			Meta:          meta,
+			StatusMessage: statusMessage,
+		}
+		payload, err = json.Marshal(bs)
+	} else {
+		bs := BuildStatusPayload{
+			Status: status.String(),
+			Meta:   meta,
+		}
+		payload, err = json.Marshal(bs)
 	}
-	payload, err := json.Marshal(bs)
 	if err != nil {
 		return fmt.Errorf("Marshaling JSON for Build Status: %v", err)
 	}
@@ -436,7 +469,7 @@ func (a api) UpdateStepStart(buildID int, stepName string) error {
 	}
 
 	bs := StepStartPayload{
-		StartTime: time.Now(),
+		StartTime: time.Now().In(UTCLoc),
 	}
 	payload, err := json.Marshal(bs)
 	if err != nil {
@@ -458,7 +491,7 @@ func (a api) UpdateStepStop(buildID int, stepName string, exitCode int) error {
 	}
 
 	bs := StepStopPayload{
-		EndTime:  time.Now(),
+		EndTime:  time.Now().In(UTCLoc),
 		ExitCode: exitCode,
 	}
 	payload, err := json.Marshal(bs)
