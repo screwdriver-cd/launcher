@@ -39,3 +39,4 @@ jobs:
             - GIT_KEY
             # Pushing releases to GitHub
             - GITHUB_TOKEN
+
