@@ -475,6 +475,63 @@ func TestTimeout(t *testing.T) {
 	}
 }
 
+func TestTeardownAbort(t *testing.T) {
+	envFilepath := "/tmp/testAbort"
+	setupTestCase(t, envFilepath)
+	baseEnv := []string{}
+	commands := []screwdriver.CommandDef{
+		{Cmd: "export FOO=bar", Name: "foobar"},
+		{Cmd: "export BAZ=foo", Name: "bazfoo"},
+		{Cmd: "if [ $BAZ != 'foo' ]; then exit 1; fi", Name: "teardown-baz"},
+		{Cmd: "if [ $FOO != 'bar' ]; then exit 1; fi", Name: "sd-teardown-foo"},
+		{Cmd: "exit $SD_STEP_EXIT_CODE", Name: "sd-teardown-last-tear-down"},
+	}
+	testBuild := screwdriver.Build{
+		ID:          12345,
+		Commands:    commands,
+		Environment: []map[string]string{},
+	}
+	runUserTeardown := false
+	runSdTeardown := false
+	doesNotExistCode := 0
+	testAPI := screwdriver.API(MockAPI{
+		updateStepStart: func(buildID int, stepName string) error {
+			return nil
+		},
+		updateStepStop: func(buildID int, stepName string, code int) error {
+			if buildID != testBuild.ID {
+				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if stepName == "teardown-baz" {
+				runUserTeardown = true
+			}
+			if stepName == "sd-teardown-foo" {
+				runSdTeardown = true
+			}
+			if stepName == "sd-teardown-last-tear-down" {
+				if code != doesNotExistCode { // should expect exit code 1 b/c of the step "doesnotexist"
+					t.Errorf("step %v should return exit code of %v instead of %v", stepName, doesNotExistCode, code)
+				}
+				return nil
+			}
+			return nil
+		},
+	})
+
+	err := Run("", baseEnv, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if !runUserTeardown {
+		t.Errorf("step user teardown should run")
+	}
+	if !runSdTeardown {
+		t.Errorf("step sd teardown should run")
+	}
+}
+
 func TestEnv(t *testing.T) {
 	envFilepath := "/tmp/testEnv"
 	setupTestCase(t, envFilepath)
