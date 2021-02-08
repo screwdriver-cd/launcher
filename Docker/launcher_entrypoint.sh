@@ -71,6 +71,12 @@ if ! binary_exists jq; then
     smart_run /opt/sd/bin/hab pkg binlink core/jq-static jq || echo 'Failed to symlink jq'
 fi
 
+# Binlinking jq from core/zstd into /bin
+if ! binary_exists zstd; then
+    smart_run /opt/sd/bin/hab pkg binlink core/zstd zstd || echo 'Failed to symlink zstd'
+fi
+
+
 echo 'Creating workspace and log pipe'
 date
 # Create FIFO for emitter
