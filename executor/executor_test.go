@@ -483,7 +483,9 @@ func TestTeardownAbort(t *testing.T) {
 	commands := []screwdriver.CommandDef{
 		{Cmd: "export FOO=bar", Name: "foobar"},
 		{Cmd: "export BAZ=foo", Name: "bazfoo"},
+		{Cmd: "export BAR=foo", Name: "barfoo"},
 		{Cmd: "if [ $BAZ != 'foo' ]; then exit 1; fi", Name: "teardown-baz"},
+		{Cmd: "if [ $BAR == 'foo' ]; then exit 1; fi", Name: "teardown-bar"},
 		{Cmd: "if [ $FOO != 'bar' ]; then exit 1; fi", Name: "sd-teardown-foo"},
 		{Cmd: "exit $SD_STEP_EXIT_CODE", Name: "sd-teardown-last-tear-down"},
 	}
@@ -506,6 +508,9 @@ func TestTeardownAbort(t *testing.T) {
 			if stepName == "teardown-baz" {
 				runUserTeardown = true
 			}
+			if stepName == "teardown-bar" {
+				runUserTeardown = true
+			}
 			if stepName == "sd-teardown-foo" {
 				runSdTeardown = true
 			}
@@ -519,7 +524,29 @@ func TestTeardownAbort(t *testing.T) {
 		},
 	})
 
-	err := Run("", baseEnv, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
+	sigChan := make(chan os.Signal)
+	sig := make(chan error, 1)
+
+	go func() {
+		sigChan <- syscall.Signal(syscall.SIGTERM)
+	}()
+
+	notifySignal := func(sigs chan os.Signal, ch chan<- error) {
+		chSig := <-sigs
+		t.Log("Step", chSig)
+		ch <- fmt.Errorf("SIGTERM received, step aborted")
+	}
+
+	emitter := MockEmitter{
+		startCmd: func(cmd screwdriver.CommandDef) {
+			if cmd.Cmd == "export BAR=foo" {
+				notifySignal(sigChan, sig)
+			}
+			return
+		},
+	}
+
+	err := Run("", baseEnv, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
