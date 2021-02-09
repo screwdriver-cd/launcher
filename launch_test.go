@@ -270,9 +270,6 @@ func TestMain(m *testing.M) {
 	executorRun = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath, sourceDir string) error {
 		return nil
 	}
-	executorRunTeardown = func(path string, env []string, emitter screwdriver.Emitter, build screwdriver.Build, api screwdriver.API, buildID int, shellBin string, timeout int, envFilepath, sourceDir string) error {
-		return nil
-	}
 	cleanExit = func() {}
 	writeFile = func(string, []byte, os.FileMode) error { return nil }
 	readFile = func(filename string) (data []byte, err error) { return nil, nil }
@@ -1538,12 +1535,6 @@ func TestPushMetrics(t *testing.T) {
 	}
 }
 
-func TestStartTeardownPhase(t *testing.T) {
-	testPipelineID := 9999
-	api := mockAPI(t, TestBuildID, TestJobID, testPipelineID, "ABORTED")
-	startTeardownPhase(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-}
-
 func TestSignalsAreDelivered(t *testing.T) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM)
@@ -1552,45 +1543,4 @@ func TestSignalsAreDelivered(t *testing.T) {
 	t.Logf("sigterm...")
 	main()
 	t.Logf("sigterm...")
-}
-
-func TestGetWorkspace(t *testing.T) {
-	oldMkdirAll := mkdirAll
-	defer func() { mkdirAll = oldMkdirAll }()
-	mkdirAll = os.MkdirAll
-	tmp, err := ioutil.TempDir("", "sd")
-	tmp1, err1 := ioutil.TempDir(tmp, "src")
-	tmp2, _ := ioutil.TempDir(tmp1, "launcher")
-	tmp3, _ := ioutil.TempDir(tmp, "artifacts")
-
-	fmt.Println(tmp1)
-	fmt.Println(tmp2)
-	fmt.Println(tmp3)
-
-	if err != nil || err1 != nil {
-		t.Fatalf("Couldn't create temp dir: %v %v", err, err1)
-	}
-
-	expectedWorkspace := Workspace{
-		Root:      tmp,
-		Src:       tmp2,
-		Artifacts: tmp3,
-	}
-	srcDr := tmp1[strings.LastIndex(tmp1, "/")+1:]
-	artDir := tmp3[strings.LastIndex(tmp3, "/")+1:]
-	launcherDir := tmp2[strings.LastIndex(tmp2, "/")+1:]
-	actualWorkspace, err := getWorkspace(true, tmp, srcDr, artDir, launcherDir)
-
-	defer os.RemoveAll(tmp)
-	defer os.RemoveAll(tmp1)
-	defer os.RemoveAll(tmp2)
-	defer os.RemoveAll(tmp3)
-
-	if err != nil {
-		t.Errorf("Unexpected error getting workspace: %v", err)
-	}
-
-	if actualWorkspace != expectedWorkspace {
-		t.Errorf("workspace = %q, want %q", expectedWorkspace, actualWorkspace)
-	}
 }
