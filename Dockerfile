@@ -91,10 +91,10 @@ RUN set -x \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo \
    # Install zstd
-   && wget -q -O zstd-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-1.4.8-linux.tar.gz' \
-   && wget -q -O zstd-macosx.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-1.4.8-macosx.tar.gz' \
-   && tar -C . -ozxvf zstd-linux.tar.gz \
-   && tar -C . -ozxvf zstd-macosx.tar.gz \
+   && wget -q -O zstd-cli-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz' \
+   && wget -q -O zstd-cli-macosx.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz' \
+   && tar -C . -ozxvf zstd-cli-linux.tar.gz \
+   && tar -C . -ozxvf zstd-cli-macosx.tar.gz \
    && chmod +x zstd-cli-linux \
    && chmod +x zstd-cli-macosx \
    # Cleanup Habitat Files
