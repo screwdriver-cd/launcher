@@ -75,7 +75,7 @@ RUN set -x \
    # @TODO Remove this, I don't think it belongs here.  We should use /hab/bin/hab instead.
    && cp /hab/bin/hab /opt/sd/bin/hab \
    # Install Habitat packages
-   && /hab/bin/hab pkg install core/bash core/git core/tar core/zip core/unzip core/kmod core/iptables core/docker/19.03.8 core/wget core/sed core/jq-static/1.6 core/zstd \
+   && /hab/bin/hab pkg install core/bash core/git core/zip core/unzip core/kmod core/iptables core/docker/19.03.8 core/wget core/sed core/jq-static/1.6 \
    # Install curl 7.54.1 since we use that version in artifact-bookend
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
@@ -90,6 +90,13 @@ RUN set -x \
    && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo \
+   # Install zstd
+   && wget -q -O zstd-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-1.4.8-linux.tar.gz' \
+   && wget -q -O zstd-macosx.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-1.4.8-macosx.tar.gz' \
+   && tar -C . -ozxvf zstd-linux.tar.gz \
+   && tar -C . -ozxvf zstd-macosx.tar.gz \
+   && chmod +x zstd-cli-linux \
+   && chmod +x zstd-cli-macosx \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
@@ -98,6 +105,7 @@ RUN set -x \
    && find /hab -name man -exec rm -r {} + \
    # Cleanup Skopeo and Sonar scanner cli files
    && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
+   && rm -rf /opt/sd/zstd-linux.tar.gz /opt/sd/zstd-macosx.tar.gz \
    # Cleanup packages
    && apk del --purge .build-dependencies \
    # bin link bash if not present
