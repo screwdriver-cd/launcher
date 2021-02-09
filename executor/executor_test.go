@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -696,5 +697,21 @@ func TestUserShell(t *testing.T) {
 	err := Run("", nil, &MockEmitter{}, testBuild, testAPI, testBuild.ID, "/bin/bash", TestBuildTimeout, envFilepath, "")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestNotifySignal(t *testing.T) {
+	sigChan := make(chan os.Signal)
+	sig := make(chan error, 1)
+
+	go func() {
+		sigChan <- syscall.Signal(syscall.SIGTERM)
+	}()
+
+	notifySignal(sigChan, sig)
+
+	t.Log(sig)
+	if sig == nil {
+		t.Fatal("Signal not received")
 	}
 }
