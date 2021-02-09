@@ -90,6 +90,13 @@ RUN set -x \
    && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo \
+   # Install zstd
+   && wget -q -O zstd-cli-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz' \
+   && wget -q -O zstd-cli-macosx.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz' \
+   && tar -C . -ozxvf zstd-cli-linux.tar.gz \
+   && tar -C . -ozxvf zstd-cli-macosx.tar.gz \
+   && chmod +x zstd-cli-linux \
+   && chmod +x zstd-cli-macosx \
    # Cleanup Habitat Files
    && rm -rf /hab/cache /opt/sd/hab.tar.gz /opt/sd/hab-* \
    # Cleanup docs and man pages (how could this go wrong)
@@ -98,6 +105,7 @@ RUN set -x \
    && find /hab -name man -exec rm -r {} + \
    # Cleanup Skopeo and Sonar scanner cli files
    && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
+   && rm -rf /opt/sd/zstd-linux.tar.gz /opt/sd/zstd-macosx.tar.gz \
    # Cleanup packages
    && apk del --purge .build-dependencies \
    # bin link bash if not present
