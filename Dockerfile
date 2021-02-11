@@ -105,7 +105,8 @@ RUN set -x \
    && find /hab -name man -exec rm -r {} + \
    # Cleanup Skopeo and Sonar scanner cli files
    && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
-   && rm -rf /opt/sd/zstd-linux.tar.gz /opt/sd/zstd-macosx.tar.gz \
+   # Cleanup Zstd cli files
+   && rm -rf /opt/sd/zstd-cli-linux.tar.gz /opt/sd/zstd-cli-macosx.tar.gz \
    # Cleanup packages
    && apk del --purge .build-dependencies \
    # bin link bash if not present
