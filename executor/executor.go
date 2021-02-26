@@ -71,9 +71,11 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		// Match the guid and exitCode
 		reExit = regexp.MustCompile(fmt.Sprintf("(%s) ([0-9]+)", match))
 		// Match the export SD_STEP_ID command
-		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
+		reExport    = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
+		reExportEnv = regexp.MustCompile("^tmpfile=.*export -p |")
 	)
 	t, err = readln(reader)
+	fmt.Println(t)
 	for err == nil {
 		parts := reExit.FindStringSubmatch(t)
 		if len(parts) != 0 {
@@ -88,7 +90,8 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		}
 		// Filter out the export command from the output
 		exportCmd := reExport.FindStringSubmatch(t)
-		if len(exportCmd) == 0 {
+		exportEnv := reExportEnv.FindStringSubmatch(t)
+		if len(exportCmd) == 0 && len(exportEnv) == 0 {
 			_, werr := fmt.Fprintln(w, t)
 			if werr != nil {
 				return ExitUnknown, fmt.Errorf("Error piping logs to emitter: %v", werr)
@@ -294,15 +297,15 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	timeout := time.Duration(timeoutSec) * time.Second
 	invokeTimeout := make(chan error, 1)
-	sig := make(chan error, 1)
+	handleSignal := make(chan error, 1)
 
 	// add a SIGTERM signal handler
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signalReceiver := make(chan os.Signal, 1)
+	signal.Notify(signalReceiver, syscall.SIGINT, syscall.SIGTERM)
 
 	// start build timeout timer
 	go initBuildTimeout(timeout, invokeTimeout)
-	go notifySignal(sigs, sig)
+	go notifySignal(signalReceiver, handleSignal)
 
 	userCommands, sdTeardownCommands, userTeardownCommands := filterTeardowns(build)
 
@@ -348,23 +351,29 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			}
 			code = <-eCode
 		case buildTimeout := <-invokeTimeout:
+			_ = c.Process.Signal(os.Interrupt)
 			handleBuildTimeout(f, buildTimeout)
 
 			if firstError == nil {
 				firstError = buildTimeout
 				code = 3
 			}
-		case stepAbort := <-sig:
+		case stepAbort := <-handleSignal:
 			if firstError == nil {
 				firstError = stepAbort
 			}
 			code = 1
+			// kill shell
+			_ = c.Process.Signal(os.Interrupt)
+			f.Write([]byte{4})
 		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
 			return fmt.Errorf("Updating step stop %q: %v", cmd.Name, err)
 		}
 	}
+
+	close(signalReceiver)
 
 	stepExitCode = code
 
