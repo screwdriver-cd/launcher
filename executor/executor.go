@@ -71,11 +71,9 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		// Match the guid and exitCode
 		reExit = regexp.MustCompile(fmt.Sprintf("(%s) ([0-9]+)", match))
 		// Match the export SD_STEP_ID command
-		reExport    = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
-		reExportEnv = regexp.MustCompile("^tmpfile=.*export -p |")
+		reExport = regexp.MustCompile("export SD_STEP_ID=(" + match + ")")
 	)
 	t, err = readln(reader)
-	fmt.Println(t)
 	for err == nil {
 		parts := reExit.FindStringSubmatch(t)
 		if len(parts) != 0 {
@@ -90,8 +88,7 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 		}
 		// Filter out the export command from the output
 		exportCmd := reExport.FindStringSubmatch(t)
-		exportEnv := reExportEnv.FindStringSubmatch(t)
-		if len(exportCmd) == 0 && len(exportEnv) == 0 {
+		if len(exportCmd) == 0 {
 			_, werr := fmt.Fprintln(w, t)
 			if werr != nil {
 				return ExitUnknown, fmt.Errorf("Error piping logs to emitter: %v", werr)
