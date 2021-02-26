@@ -11,7 +11,7 @@ jobs:
             - gover: go version
             - install: |
                 go mod download
-                go vendor
+                go mod vendor
             - vet: go vet ./...
             - gofmt: (! gofmt -d . | grep '^')
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
