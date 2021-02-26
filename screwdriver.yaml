@@ -12,7 +12,6 @@ jobs:
             - install: go mod download
             - vet: go vet ./...
             - gofmt: (! gofmt -d . | grep '^')
-            - test-setup: go get gotest.tools/gotestsum@v0.6.0
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             # Ensure we can compile
             - build: go build -a -o /dev/null
