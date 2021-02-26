@@ -348,8 +348,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			}
 			code = <-eCode
 		case buildTimeout := <-invokeTimeout:
-			_ = c.Process.Signal(os.Interrupt)
 			handleBuildTimeout(f, buildTimeout)
+			_ = c.Process.Signal(os.Interrupt)
 
 			if firstError == nil {
 				firstError = buildTimeout
