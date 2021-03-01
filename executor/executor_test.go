@@ -477,9 +477,12 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestTeardownAbort(t *testing.T) {
+	var executedTeardownSteps []string
+	var baseEnv []string
+	teardownSteps := []string{"teardown-baz", "teardown-bar", "sd-teardown-foo", "sd-teardown-last-tear-down"}
+
 	envFilepath := "/tmp/testAbort"
 	setupTestCase(t, envFilepath)
-	baseEnv := []string{}
 	commands := []screwdriver.CommandDef{
 		{Cmd: "export FOO=bar", Name: "foobar"},
 		{Cmd: "export BAZ=foo", Name: "bazfoo"},
@@ -494,6 +497,7 @@ func TestTeardownAbort(t *testing.T) {
 		Commands:    commands,
 		Environment: []map[string]string{},
 	}
+
 	runUserTeardown := false
 	runSdTeardown := false
 	testAPI := screwdriver.API(MockAPI{
@@ -509,17 +513,21 @@ func TestTeardownAbort(t *testing.T) {
 			}
 			if stepName == "teardown-baz" {
 				runUserTeardown = true
+				executedTeardownSteps = append(executedTeardownSteps, "teardown-baz")
 			}
 			if stepName == "teardown-bar" {
 				runUserTeardown = true
+				executedTeardownSteps = append(executedTeardownSteps, "teardown-bar")
 			}
 			if stepName == "sd-teardown-foo" {
 				runSdTeardown = true
+				executedTeardownSteps = append(executedTeardownSteps, "sd-teardown-foo")
 			}
 			if stepName == "sd-teardown-last-tear-down" {
 				// check if last teardown step is executed and returns code 1
+				executedTeardownSteps = append(executedTeardownSteps, "sd-teardown-last-tear-down")
 				if code != 1 {
-					t.Errorf("step %v should return exit code of %v instead of %v", stepName, "1", code)
+					t.Errorf("step %v should return exit code 1 ", stepName)
 				}
 				return nil
 			}
@@ -546,6 +554,10 @@ func TestTeardownAbort(t *testing.T) {
 	}
 	if !runSdTeardown {
 		t.Errorf("step sd teardown should run")
+	}
+
+	if reflect.DeepEqual(teardownSteps, executedTeardownSteps) == false {
+		t.Errorf ("teardown steps not executed as expected")
 	}
 }
 
