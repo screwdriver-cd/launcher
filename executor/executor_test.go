@@ -496,7 +496,6 @@ func TestTeardownAbort(t *testing.T) {
 	}
 	runUserTeardown := false
 	runSdTeardown := false
-	doesNotExistCode := 0
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			return nil
@@ -504,6 +503,9 @@ func TestTeardownAbort(t *testing.T) {
 		updateStepStop: func(buildID int, stepName string, code int) error {
 			if buildID != testBuild.ID {
 				t.Errorf("wrong build id got %v, want %v", buildID, testBuild.ID)
+			}
+			if stepName == "barfoo" {
+				t.Errorf("should not execute step %v, aborted in previous step %v", "barfoo", "bazfoo")
 			}
 			if stepName == "teardown-baz" {
 				runUserTeardown = true
@@ -515,8 +517,9 @@ func TestTeardownAbort(t *testing.T) {
 				runSdTeardown = true
 			}
 			if stepName == "sd-teardown-last-tear-down" {
-				if code != doesNotExistCode { // should expect exit code 1 b/c of the step "doesnotexist"
-					t.Errorf("step %v should return exit code of %v instead of %v", stepName, doesNotExistCode, code)
+				// check if last teardown step is executed and returns code 1
+				if code != 1 {
+					t.Errorf("step %v should return exit code of %v instead of %v", stepName, "1", code)
 				}
 				return nil
 			}
@@ -524,32 +527,18 @@ func TestTeardownAbort(t *testing.T) {
 		},
 	})
 
-	sigChan := make(chan os.Signal)
-	sig := make(chan error, 1)
-
-	go func() {
-		sigChan <- syscall.Signal(syscall.SIGTERM)
-	}()
-
-	notifySignal := func(sigs chan os.Signal, ch chan<- error) {
-		chSig := <-sigs
-		t.Log("Step", chSig)
-		ch <- fmt.Errorf("SIGTERM received, step aborted")
-	}
-
 	emitter := MockEmitter{
 		startCmd: func(cmd screwdriver.CommandDef) {
-			if cmd.Cmd == "export BAR=foo" {
-				notifySignal(sigChan, sig)
+			if cmd.Cmd == "export BAZ=foo" {
+				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 			}
-			return
 		},
 	}
 
 	err := Run("", baseEnv, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+	if err == nil {
+		t.Errorf("Aborted in step %v, should return error", "bazfoo")
 	}
 
 	if !runUserTeardown {
