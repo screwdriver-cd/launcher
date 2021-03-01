@@ -299,7 +299,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// add a SIGTERM signal handler
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	// start build timeout timer
 	go initBuildTimeout(timeout, invokeTimeout)
