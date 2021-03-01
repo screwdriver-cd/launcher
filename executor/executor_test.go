@@ -531,12 +531,6 @@ func TestTeardownAbort(t *testing.T) {
 		sigChan <- syscall.SIGTERM
 	}()
 
-	notifySignal := func(sigs chan os.Signal, ch chan<- error) {
-		chSig := <-sigs
-		t.Log("Step", chSig)
-		ch <- fmt.Errorf("SIGTERM received, step aborted")
-	}
-
 	emitter := MockEmitter{
 		startCmd: func(cmd screwdriver.CommandDef) {
 			if cmd.Cmd == "export BAR=foo" {
