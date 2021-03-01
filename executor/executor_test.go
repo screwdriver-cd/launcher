@@ -557,7 +557,7 @@ func TestTeardownAbort(t *testing.T) {
 	}
 
 	if reflect.DeepEqual(teardownSteps, executedTeardownSteps) == false {
-		t.Errorf ("teardown steps not executed as expected")
+		t.Errorf("teardown steps not executed as expected")
 	}
 }
 
