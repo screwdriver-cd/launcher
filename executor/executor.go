@@ -154,6 +154,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, path, shellBin, exportFile, sourceDir string, stepExitCode int) (int, error) {
 	shargs := []string{"-e", "-c"}
+
 	cmdStr := "export PATH=$PATH:/opt/sd SD_STEP_EXIT_CODE=" + strconv.Itoa(stepExitCode) + " && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
 		"if [ -f " + exportFile + " ]; then set +e; . " + exportFile + "; set -e; fi; " +
@@ -274,12 +275,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	setupCommands := []string{
 		"set -e",
 		"export PATH=$PATH:/opt/sd",
-		// trap EXIT, echo the last step ID and write ENV to /tmp/buildEnv
+		// trap ABRT(6) and EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish EXIT;\necho ;\n",
+		"trap finish ABRT EXIT;\necho ;\n",
 	}
 
 	setupReader := bufio.NewReader(f)
@@ -298,7 +299,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 
 	// add a SIGTERM signal handler
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM)
 
 	// start build timeout timer
 	go initBuildTimeout(timeout, invokeTimeout)
@@ -349,16 +350,18 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			code = <-eCode
 		case buildTimeout := <-invokeTimeout:
 			handleBuildTimeout(f, buildTimeout)
-
 			if firstError == nil {
 				firstError = buildTimeout
 				code = 3
 			}
+			_ = c.Process.Signal(syscall.SIGABRT)
 		case stepAbort := <-sig:
+			f.Write([]byte{4})
 			if firstError == nil {
 				firstError = stepAbort
+				code = 1
 			}
-			code = 1
+			_ = c.Process.Signal(syscall.SIGABRT)
 		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
