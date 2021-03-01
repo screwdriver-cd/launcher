@@ -496,7 +496,7 @@ func TestTeardownAbort(t *testing.T) {
 	}
 	runUserTeardown := false
 	runSdTeardown := false
-	doesNotExistCode := 0
+	doesNotExistCode := 1
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			return nil
@@ -528,7 +528,7 @@ func TestTeardownAbort(t *testing.T) {
 	sig := make(chan error, 1)
 
 	go func() {
-		sigChan <- syscall.Signal(syscall.SIGTERM)
+		sigChan <- syscall.SIGTERM
 	}()
 
 	notifySignal := func(sigs chan os.Signal, ch chan<- error) {
@@ -548,8 +548,9 @@ func TestTeardownAbort(t *testing.T) {
 
 	err := Run("", baseEnv, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+	// expect error as we are explicitly aborting in third step
+	if err == nil {
+		t.Errorf("Unexpected should error as we are explicity aborting")
 	}
 
 	if !runUserTeardown {
