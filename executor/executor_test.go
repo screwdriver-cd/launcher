@@ -496,7 +496,7 @@ func TestTeardownAbort(t *testing.T) {
 	}
 	runUserTeardown := false
 	runSdTeardown := false
-	doesNotExistCode := 1
+	doesNotExistCode := 0
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			return nil
