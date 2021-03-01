@@ -542,8 +542,7 @@ func TestTeardownAbort(t *testing.T) {
 
 	err := Run("", baseEnv, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 
-	// expect error as we are explicitly aborting in third step
-	if err == nil {
+	if err != nil {
 		t.Errorf("Unexpected should error as we are explicity aborting")
 	}
 
