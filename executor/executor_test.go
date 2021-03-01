@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"reflect"
 	"strconv"
 	"strings"
@@ -496,7 +497,7 @@ func TestTeardownAbort(t *testing.T) {
 	}
 	runUserTeardown := false
 	runSdTeardown := false
-	doesNotExistCode := 0
+	doesNotExistCode := 1
 	testAPI := screwdriver.API(MockAPI{
 		updateStepStart: func(buildID int, stepName string) error {
 			return nil
@@ -525,16 +526,11 @@ func TestTeardownAbort(t *testing.T) {
 	})
 
 	sigChan := make(chan os.Signal)
-	sig := make(chan error, 1)
-
-	go func() {
-		sigChan <- syscall.SIGTERM
-	}()
 
 	emitter := MockEmitter{
 		startCmd: func(cmd screwdriver.CommandDef) {
 			if cmd.Cmd == "export BAR=foo" {
-				notifySignal(sigChan, sig)
+				signal.Notify(sigChan, syscall.SIGTERM)
 			}
 			return
 		},
@@ -542,7 +538,7 @@ func TestTeardownAbort(t *testing.T) {
 
 	err := Run("", baseEnv, &emitter, testBuild, testAPI, testBuild.ID, "/bin/sh", TestBuildTimeout, envFilepath, "")
 
-	if err != nil {
+	if err == nil {
 		t.Errorf("Unexpected should error as we are explicity aborting")
 	}
 
