@@ -133,14 +133,16 @@ func TestBuildFromID(t *testing.T) {
 	}{
 		{
 			build: Build{
-				ID:             1555,
-				JobID:          3777,
-				EventID:        8765,
-				SHA:            "testSHA",
-				Commands:       testCmds,
-				Environment:    testEnv,
-				Createtime:     "2020-04-28T20:34:01.907Z",
-				QueueEntertime: "2020-05-01T20:15:31.508Z",
+				ID:          1555,
+				JobID:       3777,
+				EventID:     8765,
+				SHA:         "testSHA",
+				Commands:    testCmds,
+				Environment: testEnv,
+				Createtime:  "2020-04-28T20:34:01.907Z",
+				Stats: Stats{
+					QueueEntertime: "2020-05-01T20:15:31.508Z",
+				},
 			},
 			statusCode: 200,
 			err:        nil,
