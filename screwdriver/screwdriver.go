@@ -171,16 +171,18 @@ type IntOrArray interface{}
 
 // Build is a Screwdriver Build
 type Build struct {
-	ID             int                    `json:"id"`
-	JobID          int                    `json:"jobId"`
-	SHA            string                 `json:"sha"`
-	Commands       []CommandDef           `json:"steps"`
-	Environment    []map[string]string    `json:"environment"`
-	ParentBuildID  IntOrArray             `json:"parentBuildId"`
-	Meta           map[string]interface{} `json:"meta"`
-	EventID        int                    `json:"eventId"`
-	Createtime     string                 `json:"createTime"`
-	QueueEntertime string                 `json:"stats.queueEnterTime"`
+	ID            int                    `json:"id"`
+	JobID         int                    `json:"jobId"`
+	SHA           string                 `json:"sha"`
+	Commands      []CommandDef           `json:"steps"`
+	Environment   []map[string]string    `json:"environment"`
+	ParentBuildID IntOrArray             `json:"parentBuildId"`
+	Meta          map[string]interface{} `json:"meta"`
+	EventID       int                    `json:"eventId"`
+	Createtime    string                 `json:"createTime"`
+	Stats         struct {
+		QueueEntertime string `json:"queueEnterTime"`
+	} `json:"stats"`
 }
 
 // Coverage is a Coverage object returned when getInfo is called

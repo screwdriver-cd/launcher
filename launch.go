@@ -369,7 +369,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	buildCreateTime, _ = time.Parse(time.RFC3339, build.Createtime)
-	queueEnterTime, _ = time.Parse(time.RFC3339, build.QueueEntertime)
+	queueEnterTime, _ = time.Parse(time.RFC3339, build.Stats.QueueEntertime)
 
 	log.Printf("Fetching Job %d", build.JobID)
 	job, err := api.JobFromID(build.JobID)
