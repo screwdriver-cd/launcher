@@ -169,10 +169,6 @@ type CommandDef struct {
 // Need a generic interface to take in an int or array of ints
 type IntOrArray interface{}
 
-type Stats struct {
-	QueueEntertime string `json:"queueEnterTime"`
-}
-
 // Build is a Screwdriver Build
 type Build struct {
 	ID            int                    `json:"id"`
@@ -184,7 +180,9 @@ type Build struct {
 	Meta          map[string]interface{} `json:"meta"`
 	EventID       int                    `json:"eventId"`
 	Createtime    string                 `json:"createTime"`
-	Stats         Stats                  `json:"stats"`
+	Stats         struct {
+		QueueEntertime string `json:"queueEnterTime"`
+	} `json:"stats"`
 }
 
 // Coverage is a Coverage object returned when getInfo is called
