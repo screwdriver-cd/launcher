@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -82,7 +83,15 @@ func pushMetrics(status string, buildID int) error {
 	if strings.TrimSpace(os.Getenv("SD_PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
-		url := "http://" + os.Getenv("SD_PUSHGATEWAY_URL") + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+		url, err := url.Parse(os.Getenv("SD_PUSHGATEWAY_URL"))
+		if err != nil {
+			log.Printf("pushMetrics: failed to parse url [%v], buildId:[%v], error:[%v]", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, err)
+			return nil
+		}
+		if url.Scheme == "" {
+			url.Scheme = "http"
+		}
+		url.Path = url.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
 		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
@@ -119,7 +128,7 @@ sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId 
 `
 		body := strings.NewReader(data)
 		log.Printf("pushMetrics: post metrics to [%v]", url)
-		res, err := client.HTTPClient.Post(url, "", body)
+		res, err := client.HTTPClient.Post(url.String(), "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}

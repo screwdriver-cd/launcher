@@ -1478,6 +1478,14 @@ func TestPushMetrics(t *testing.T) {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
 
+	// SD_PUSHGATEWAY_URL no protocol
+	os.Setenv("SD_PUSHGATEWAY_URL", "fake.pushgateway.url&200&0")
+	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	err = pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
 	// build id 0
 	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	err = pushMetrics("success", 0)
