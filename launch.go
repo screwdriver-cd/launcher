@@ -72,6 +72,13 @@ func init() {
 	client = retryablehttp.NewClient()
 }
 
+/* has HTTP or HTTPS protocol
+targetUrl => URL
+*/
+func hasHTTPOrHTTPSProtocol(targetUrl string) bool {
+	return strings.HasPrefix(targetUrl, "http://") || strings.HasPrefix(targetUrl, "https://")
+}
+
 /* push metrics to prometheus
 metrics - sd_build_completed, sd_build_run_duration_secs
 status => sd build status
@@ -83,15 +90,17 @@ func pushMetrics(status string, buildID int) error {
 	if strings.TrimSpace(os.Getenv("SD_PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
-		url, err := url.Parse(os.Getenv("SD_PUSHGATEWAY_URL"))
+		var pushgatewayUrl string = os.Getenv("SD_PUSHGATEWAY_URL") 
+		if !hasHTTPOrHTTPSProtocol(pushgatewayUrl) {
+			pushgatewayUrl = "http://" + pushgatewayUrl
+		}
+		u, err := url.Parse(pushgatewayUrl)
 		if err != nil {
-			log.Printf("pushMetrics: failed to parse url [%v], buildId:[%v], error:[%v]", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, err)
+			log.Printf("pushMetrics: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayUrl, buildID, err)
 			return nil
 		}
-		if url.Scheme == "" {
-			url.Scheme = "http"
-		}
-		url.Path = url.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+                
+		u.Path = u.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
 		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
@@ -127,17 +136,17 @@ sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId
 sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
 `
 		body := strings.NewReader(data)
-		log.Printf("pushMetrics: post metrics to [%v]", url)
-		res, err := client.HTTPClient.Post(url.String(), "", body)
+		log.Printf("pushMetrics: post metrics to [%v]", u)
+		res, err := client.HTTPClient.Post(u.String(), "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}
 		if err != nil {
-			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", url, buildID, err)
+			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", u, buildID, err)
 			return nil
 		}
 		if res.StatusCode/100 != 2 {
-			log.Printf("pushMetrics: failed to push metrics to[%v], buildId:[%v], respose status code:[%v]", url, buildID, res.StatusCode)
+			log.Printf("pushMetrics: failed to push metrics to[%v], buildId:[%v], respose status code:[%v]", u, buildID, res.StatusCode)
 			return nil
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
