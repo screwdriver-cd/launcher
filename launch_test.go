@@ -20,6 +20,7 @@ import (
 
 	"github.com/screwdriver-cd/launcher/executor"
 	"github.com/screwdriver-cd/launcher/screwdriver"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -1466,30 +1467,39 @@ func fakeHttpClient() *http.Client {
 	return &http.Client{Transport: transport}
 }
 
+func TestMakePushgatewayUrl(t *testing.T) {
+	// SD_PUSHGATEWAY_URL https protocol
+	expected := "https://fake.pushgateway.url&200&0:9001/metrics/job/containerd/instance/1"
+	pushgatewayUrl, err := makePushgatewayUrl("https://fake.pushgateway.url&200&0:9001", 1)
+	assert.Equal(t, expected, pushgatewayUrl.String())
+	if err != nil {
+		assert.Fail(t, "Failed to parse url")
+	}
+
+	// SD_PUSHGATEWAY_URL no protocol
+	expected = "http://fake.pushgateway.url&200&0/metrics/job/containerd/instance/1"
+	pushgatewayUrl, err = makePushgatewayUrl("fake.pushgateway.url&200&0", 1)
+	if err != nil {
+		assert.Equal(t, "Pushgateway url has no http/https protocol. Please make sure it.", err.Error())
+	}else{
+		assert.Fail(t, "Valid url")
+	}
+
+	// SD_PUSHGATEWAY_URL Invalid url
+	pushgatewayUrl, err = makePushgatewayUrl("http://\nfake.pushgateway.url&200&0", 1)
+	assert.Error(t, err, "Valid url")
+
+}
+
 func TestPushMetrics(t *testing.T) {
 	httpTest := fakeHttpClient()
 	client.HTTPClient = httpTest
 	ts := time.Now().Unix() - 2000
+	os.Setenv("CONTAINER_IMAGE", "dummy_image")
 
 	// SD_PUSHGATEWAY_URL null
 	os.Setenv("SD_PUSHGATEWAY_URL", "")
 	err := pushMetrics("success", 1)
-	if err != nil {
-		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
-	}
-
-	// SD_PUSHGATEWAY_URL no protocol
-	os.Setenv("SD_PUSHGATEWAY_URL", "fake.pushgateway.url&200&0")
-	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
-	err = pushMetrics("success", 1)
-	if err != nil {
-		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
-	}
-
-	// SD_PUSHGATEWAY_URL no protocol and has port
-	os.Setenv("SD_PUSHGATEWAY_URL", "fake.pushgateway.url&200&0:9001")
-	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
-	err = pushMetrics("success", 1)
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
@@ -1522,7 +1532,10 @@ func TestPushMetrics(t *testing.T) {
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("success", 1)
 	if err != nil {
-		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+		expected := "pushMetrics: failed to push metrics to [http://fake.pushgateway.url&400&0/metrics/job/containerd/instance/1], buildId:[1], response status code:[400]"
+		assert.Equal(t, expected, err.Error());
+	}else{
+		assert.Fail(t, "Push metrics expect to return error")
 	}
 
 	// 200 success
@@ -1533,12 +1546,15 @@ func TestPushMetrics(t *testing.T) {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
 
-	// 500 success
+	// 500
 	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&500&0")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("failed", 1)
 	if err != nil {
-		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+		expected := "pushMetrics: failed to push metrics to [http://fake.pushgateway.url&500&0/metrics/job/containerd/instance/1], buildId:[1], response status code:[500]"
+		assert.Equal(t, expected, err.Error());
+	}else{
+		assert.Fail(t, "Push metrics expect to return error")
 	}
 
 	// 504
@@ -1547,7 +1563,10 @@ func TestPushMetrics(t *testing.T) {
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("success", 1)
 	if err != nil {
-		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+		expected := "pushMetrics: failed to push metrics to [http://fake.pushgateway.url&504&3/metrics/job/containerd/instance/1], buildId:[1], response status code:[504]"
+		assert.Equal(t, expected, err.Error());
+	}else{
+		assert.Fail(t, "Push metrics expect to return error")
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 
 	"github.com/hashicorp/go-retryablehttp"
 
@@ -79,6 +80,24 @@ func hasHTTPOrHTTPSProtocol(targetUrl string) bool {
 	return strings.HasPrefix(targetUrl, "http://") || strings.HasPrefix(targetUrl, "https://")
 }
 
+/* make pushgateway url
+baseUrl => base url for pushgateway
+buildID => sd build id
+*/
+func makePushgatewayUrl(baseUrl string, buildID int) (*url.URL, error) {
+	var pushgatewayUrl string = baseUrl
+	u, err := url.Parse(pushgatewayUrl)
+	if err != nil {
+		log.Printf("makePushgatewayUrl: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayUrl, buildID, err)
+		return nil, err
+	}
+	if !hasHTTPOrHTTPSProtocol(pushgatewayUrl) {
+		return nil, errors.New("Pushgateway url has no http/https protocol. Please make sure it.")
+	}
+	u.Path = u.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+	return u, nil
+}
+
 /* push metrics to prometheus
 metrics - sd_build_completed, sd_build_run_duration_secs
 status => sd build status
@@ -90,17 +109,7 @@ func pushMetrics(status string, buildID int) error {
 	if strings.TrimSpace(os.Getenv("SD_PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
 		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
-		var pushgatewayUrl string = os.Getenv("SD_PUSHGATEWAY_URL") 
-		if !hasHTTPOrHTTPSProtocol(pushgatewayUrl) {
-			pushgatewayUrl = "http://" + pushgatewayUrl
-		}
-		u, err := url.Parse(pushgatewayUrl)
-		if err != nil {
-			log.Printf("pushMetrics: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayUrl, buildID, err)
-			return nil
-		}
-                
-		u.Path = u.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+		pushgatewayUrl, err := makePushgatewayUrl(os.Getenv("SD_PUSHGATEWAY_URL"), buildID)
 		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
@@ -136,22 +145,23 @@ sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId
 sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
 `
 		body := strings.NewReader(data)
-		log.Printf("pushMetrics: post metrics to [%v]", u)
-		res, err := client.HTTPClient.Post(u.String(), "", body)
+		log.Printf("pushMetrics: post metrics to [%v]", pushgatewayUrl)
+		res, err := client.HTTPClient.Post(pushgatewayUrl.String(), "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}
 		if err != nil {
-			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", u, buildID, err)
-			return nil
+			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", pushgatewayUrl, buildID, err)
+			return err
 		}
 		if res.StatusCode/100 != 2 {
-			log.Printf("pushMetrics: failed to push metrics to[%v], buildId:[%v], respose status code:[%v]", u, buildID, res.StatusCode)
-			return nil
+			msg := fmt.Sprintf("pushMetrics: failed to push metrics to [%v], buildId:[%v], response status code:[%v]", pushgatewayUrl, buildID, res.StatusCode)
+			log.Printf(msg)
+			return errors.New(msg)
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
 	} else {
-		log.Printf("pushMetrics: pushgatewayUrl:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty ", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
+		log.Printf("pushMetrics: pushgatewayUrl:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
 	}
 	return nil
 }
