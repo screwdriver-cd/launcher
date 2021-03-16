@@ -111,6 +111,10 @@ func pushMetrics(status string, buildID int) error {
 		timeout := time.Duration(pushgatewayURLTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
 		pushgatewayURL, err := makePushgatewayURL(os.Getenv("SD_PUSHGATEWAY_URL"), buildID)
+		if err != nil {
+			log.Printf("pushMetrics: failed to make pushgateway url, buildId:[%v], error:[%v]", buildID, err)
+			return err
+		}
 		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")

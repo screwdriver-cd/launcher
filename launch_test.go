@@ -1504,6 +1504,11 @@ func TestPushMetrics(t *testing.T) {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
 
+	// SD_PUSHGATEWAY_URL Invalid url
+	os.Setenv("SD_PUSHGATEWAY_URL", "http://\nfake.pushgateway.url&200&0")
+	err = pushMetrics("success", 1)
+	assert.Error(t, err, "Push metrics expect to return error")
+
 	// build id 0
 	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	err = pushMetrics("success", 0)
