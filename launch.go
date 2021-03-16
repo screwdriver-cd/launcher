@@ -76,8 +76,8 @@ func init() {
 /* has HTTP or HTTPS protocol
 targetUrl => URL
 */
-func hasHTTPOrHTTPSProtocol(targetUrl string) bool {
-	return strings.HasPrefix(targetUrl, "http://") || strings.HasPrefix(targetUrl, "https://")
+func hasHTTPProtocol(targetUrl *url.URL) bool {
+	return strings.Contains(targetUrl.Scheme, "http") || strings.Contains(targetUrl.Scheme, "https")
 }
 
 /* make pushgateway url
@@ -91,7 +91,8 @@ func makePushgatewayUrl(baseUrl string, buildID int) (*url.URL, error) {
 		log.Printf("makePushgatewayUrl: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayUrl, buildID, err)
 		return nil, err
 	}
-	if !hasHTTPOrHTTPSProtocol(pushgatewayUrl) {
+
+	if !hasHTTPProtocol(u) {
 		return nil, errors.New("Pushgateway url has no http/https protocol. Please make sure it.")
 	}
 	u.Path = u.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
