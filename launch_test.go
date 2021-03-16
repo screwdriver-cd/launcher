@@ -1481,7 +1481,7 @@ func TestMakePushgatewayUrl(t *testing.T) {
 	pushgatewayUrl, err = makePushgatewayUrl("fake.pushgateway.url&200&0", 1)
 	if err != nil {
 		assert.Equal(t, "Pushgateway url has no http/https protocol. Please make sure it.", err.Error())
-	}else{
+	} else {
 		assert.Fail(t, "Valid url")
 	}
 
@@ -1533,8 +1533,8 @@ func TestPushMetrics(t *testing.T) {
 	err = pushMetrics("success", 1)
 	if err != nil {
 		expected := "pushMetrics: failed to push metrics to [http://fake.pushgateway.url&400&0/metrics/job/containerd/instance/1], buildId:[1], response status code:[400]"
-		assert.Equal(t, expected, err.Error());
-	}else{
+		assert.Equal(t, expected, err.Error())
+	} else {
 		assert.Fail(t, "Push metrics expect to return error")
 	}
 
@@ -1552,8 +1552,8 @@ func TestPushMetrics(t *testing.T) {
 	err = pushMetrics("failed", 1)
 	if err != nil {
 		expected := "pushMetrics: failed to push metrics to [http://fake.pushgateway.url&500&0/metrics/job/containerd/instance/1], buildId:[1], response status code:[500]"
-		assert.Equal(t, expected, err.Error());
-	}else{
+		assert.Equal(t, expected, err.Error())
+	} else {
 		assert.Fail(t, "Push metrics expect to return error")
 	}
 
@@ -1564,8 +1564,8 @@ func TestPushMetrics(t *testing.T) {
 	err = pushMetrics("success", 1)
 	if err != nil {
 		expected := "pushMetrics: failed to push metrics to [http://fake.pushgateway.url&504&3/metrics/job/containerd/instance/1], buildId:[1], response status code:[504]"
-		assert.Equal(t, expected, err.Error());
-	}else{
+		assert.Equal(t, expected, err.Error())
+	} else {
 		assert.Fail(t, "Push metrics expect to return error")
 	}
 }
