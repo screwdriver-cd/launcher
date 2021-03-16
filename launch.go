@@ -77,7 +77,7 @@ func init() {
 targetURL => URL
 */
 func hasHTTPProtocol(targetURL *url.URL) bool {
-	return strings.Contains(targetURL.Scheme, "http") || strings.Contains(targetURL.Scheme, "https")
+	return targetURL.Scheme == "http" || targetURL.Scheme == "https"
 }
 
 /* make pushgateway url
