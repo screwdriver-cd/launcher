@@ -1467,18 +1467,18 @@ func fakeHttpClient() *http.Client {
 	return &http.Client{Transport: transport}
 }
 
-func TestMakePushgatewayUrl(t *testing.T) {
+func TestMakePushgatewayURL(t *testing.T) {
 	// SD_PUSHGATEWAY_URL https protocol
 	expected := "https://fake.pushgateway.url&200&0:9001/metrics/job/containerd/instance/1"
-	pushgatewayUrl, err := makePushgatewayUrl("https://fake.pushgateway.url&200&0:9001", 1)
-	assert.Equal(t, expected, pushgatewayUrl.String())
+	pushgatewayURL, err := makePushgatewayURL("https://fake.pushgateway.url&200&0:9001", 1)
+	assert.Equal(t, expected, pushgatewayURL.String())
 	if err != nil {
 		assert.Fail(t, "Failed to parse url")
 	}
 
 	// SD_PUSHGATEWAY_URL no protocol
 	expected = "http://fake.pushgateway.url&200&0/metrics/job/containerd/instance/1"
-	pushgatewayUrl, err = makePushgatewayUrl("fake.pushgateway.url&200&0", 1)
+	pushgatewayURL, err = makePushgatewayURL("fake.pushgateway.url&200&0", 1)
 	if err != nil {
 		assert.Equal(t, "Pushgateway url has no http/https protocol. Please make sure it.", err.Error())
 	} else {
@@ -1486,7 +1486,7 @@ func TestMakePushgatewayUrl(t *testing.T) {
 	}
 
 	// SD_PUSHGATEWAY_URL Invalid url
-	pushgatewayUrl, err = makePushgatewayUrl("http://\nfake.pushgateway.url&200&0", 1)
+	pushgatewayURL, err = makePushgatewayURL("http://\nfake.pushgateway.url&200&0", 1)
 	assert.Error(t, err, "Valid url")
 
 }
@@ -1558,7 +1558,7 @@ func TestPushMetrics(t *testing.T) {
 	}
 
 	// 504
-	pushgatewayUrlTimeout = 1
+	pushgatewayURLTimeout = 1
 	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&504&3")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
 	err = pushMetrics("success", 1)
