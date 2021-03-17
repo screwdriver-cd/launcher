@@ -1470,7 +1470,7 @@ func fakeHttpClient() *http.Client {
 func TestMakePushgatewayURL(t *testing.T) {
 	// SD_PUSHGATEWAY_URL https protocol
 	expected := "https://fake.pushgateway.url&200&0:9001/metrics/job/containerd/instance/1"
-	pushgatewayURL, err := makePushgatewayURL("https://fake.pushgateway.url&200&0:9001", 1)
+	pushgatewayURL, err := makePushgatewayURL("https://fake.pushgateway.url&200&0:9001/", 1)
 	assert.Equal(t, expected, pushgatewayURL.String())
 	if err != nil {
 		assert.Fail(t, "Failed to parse url")

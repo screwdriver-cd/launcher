@@ -95,7 +95,7 @@ func makePushgatewayURL(baseURL string, buildID int) (*url.URL, error) {
 	if !hasHTTPProtocol(u) {
 		return nil, errors.New("Pushgateway url has no http/https protocol. Please make sure it.")
 	}
-	u.Path = u.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
+	u.Path = path.Join(u.Path, "/metrics/job/containerd/instance/" + strconv.Itoa(buildID))
 	return u, nil
 }
 
