@@ -505,15 +505,15 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		sourceDir = sourceDir + "/" + scm.RootDir
 	}
 
-	cyanFprintf(emitter, "Screwdriver Launcher information\n")
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Version:        v"), version)
-	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Pipeline:       #"), job.PipelineID)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), job.Name)
-	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Build:          #"), buildID)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Workspace Dir:  "), w.Root)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Checkout Dir:     "), w.Src)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), sourceDir)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
+	cyanFprintf(emitter, "Screwdriver Launcher information\r\n")
+	fmt.Fprintf(emitter, "%s%s\r\n", blackSprint("Version:        v"), version)
+	fmt.Fprintf(emitter, "%s%d\r\n", blackSprint("Pipeline:       #"), job.PipelineID)
+	fmt.Fprintf(emitter, "%s%s\r\n", blackSprint("Job:            "), job.Name)
+	fmt.Fprintf(emitter, "%s%d\r\n", blackSprint("Build:          #"), buildID)
+	fmt.Fprintf(emitter, "%s%s\r\n", blackSprint("Workspace Dir:  "), w.Root)
+	fmt.Fprintf(emitter, "%s%s\r\n", blackSprint("Checkout Dir:     "), w.Src)
+	fmt.Fprintf(emitter, "%s%s\r\n", blackSprint("Source Dir:     "), sourceDir)
+	fmt.Fprintf(emitter, "%s%s\r\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
 
 	if pr != "" {
 		job.Name = "main"
