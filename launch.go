@@ -84,19 +84,18 @@ func hasHTTPProtocol(targetURL *url.URL) bool {
 baseURL => base url for pushgateway
 buildID => sd build id
 */
-func makePushgatewayURL(baseURL string, buildID int) (*url.URL, error) {
+func makePushgatewayURL(baseURL string, buildID int) (string, error) {
 	var pushgatewayURL string = baseURL
 	u, err := url.Parse(pushgatewayURL)
 	if err != nil {
 		log.Printf("makePushgatewayURL: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayURL, buildID, err)
-		return nil, err
+		return "", err
 	}
-
+	u.Path = path.Join(u.Path, "/metrics/job/containerd/instance/"+strconv.Itoa(buildID))
 	if !hasHTTPProtocol(u) {
-		return nil, errors.New("Pushgateway url has no http/https protocol. Please make sure it.")
+		return "http://" + u.String(), nil
 	}
-	u.Path = path.Join(u.Path, "/metrics/job/containerd/instance/" + strconv.Itoa(buildID))
-	return u, nil
+	return u.String(), nil
 }
 
 /* push metrics to prometheus
@@ -151,7 +150,7 @@ sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId 
 `
 		body := strings.NewReader(data)
 		log.Printf("pushMetrics: post metrics to [%v]", pushgatewayURL)
-		res, err := client.HTTPClient.Post(pushgatewayURL.String(), "", body)
+		res, err := client.HTTPClient.Post(pushgatewayURL, "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}
