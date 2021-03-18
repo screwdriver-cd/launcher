@@ -91,10 +91,11 @@ func makePushgatewayURL(baseURL string, buildID int) (string, error) {
 		log.Printf("makePushgatewayURL: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayURL, buildID, err)
 		return "", err
 	}
-	u.Path = path.Join(u.Path, "/metrics/job/containerd/instance/"+strconv.Itoa(buildID))
 	if !hasHTTPProtocol(u) {
-		return "http://" + u.String(), nil
+		u, _ = url.Parse("http://" + pushgatewayURL)
 	}
+	u.Path = path.Join(u.Path, "/metrics/job/containerd/instance/"+strconv.Itoa(buildID))
+
 	return u.String(), nil
 }
 

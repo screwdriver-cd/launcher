@@ -1469,23 +1469,31 @@ func fakeHttpClient() *http.Client {
 
 func TestMakePushgatewayURL(t *testing.T) {
 	// SD_PUSHGATEWAY_URL https protocol
-	expected := "https://fake.pushgateway.url&200&0:9001/metrics/job/containerd/instance/1"
-	pushgatewayURL, err := makePushgatewayURL("https://fake.pushgateway.url&200&0:9001/", 1)
+	expected := "https://fake.pushgateway.url:9001/metrics/job/containerd/instance/1"
+	pushgatewayURL, err := makePushgatewayURL("https://fake.pushgateway.url:9001/", 1)
 	assert.Equal(t, expected, pushgatewayURL)
 	if err != nil {
 		assert.Fail(t, "Failed to parse url")
 	}
 
 	// SD_PUSHGATEWAY_URL no protocol
-	expected = "http://fake.pushgateway.url&200&0/metrics/job/containerd/instance/1"
-	pushgatewayURL, err = makePushgatewayURL("fake.pushgateway.url&200&0", 1)
+	expected = "http://fake.pushgateway.url/metrics/job/containerd/instance/1"
+	pushgatewayURL, err = makePushgatewayURL("fake.pushgateway.url", 1)
+	assert.Equal(t, expected, pushgatewayURL)
+	if err != nil {
+		assert.Fail(t, "Failed to parse url")
+	}
+
+	// SD_PUSHGATEWAY_URL has port and no protocol
+	expected = "http://fake.pushgateway.url:9001/metrics/job/containerd/instance/1"
+	pushgatewayURL, err = makePushgatewayURL("fake.pushgateway.url:9001", 1)
 	assert.Equal(t, expected, pushgatewayURL)
 	if err != nil {
 		assert.Fail(t, "Failed to parse url")
 	}
 
 	// SD_PUSHGATEWAY_URL Invalid url
-	pushgatewayURL, err = makePushgatewayURL("http://\nfake.pushgateway.url&200&0", 1)
+	pushgatewayURL, err = makePushgatewayURL("http://\nfake.pushgateway.url", 1)
 	assert.Error(t, err, "Valid url")
 
 }
@@ -1499,6 +1507,13 @@ func TestPushMetrics(t *testing.T) {
 	// SD_PUSHGATEWAY_URL null
 	os.Setenv("SD_PUSHGATEWAY_URL", "")
 	err := pushMetrics("success", 1)
+	if err != nil {
+		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
+	}
+
+	// SD_PUSHGATEWAY_URL no protocol
+	os.Setenv("SD_PUSHGATEWAY_URL", "fake.pushgateway.url&200&0")
+	err = pushMetrics("success", 1)
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
