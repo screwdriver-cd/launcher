@@ -63,6 +63,10 @@ func (e *emitter) processPipe() {
 	var line string
 	var readErr error
 
+	// temporary hack - without this delay the datetime is printing incorrectly for kata containers
+	time.Sleep(15 * time.Second)
+	//
+
 	reader := bufio.NewReader(e.reader)
 	encoder := json.NewEncoder(e.file)
 
