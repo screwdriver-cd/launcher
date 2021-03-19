@@ -438,6 +438,14 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return err
 	}
 
+	// Always merge event meta
+	if len(event.Meta) > 0 { // If has meta, marshal it
+		log.Printf("Fetching Event Meta JSON %v", event.ID)
+		if event.Meta != nil {
+			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
+		}
+	}
+
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata (join case)
 		// Get meta from all parent builds
 		for _, pbID := range parentBuildIDs {
@@ -465,12 +473,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		if parentEvent.Meta != nil {
 			mergedMeta = deepMergeJSON(parentEvent.Meta, mergedMeta)
 		}
+
 		metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
-	} else if len(event.Meta) > 0 { // If has meta, marshal it
-		log.Printf("Fetching Event Meta JSON %v", event.ID)
-		if event.Meta != nil {
-			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
-		}
 	}
 
 	// Initialize pr comments (Issue #1858)
