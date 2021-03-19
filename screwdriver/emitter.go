@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -64,7 +65,10 @@ func (e *emitter) processPipe() {
 	var readErr error
 
 	// temporary hack - without this delay the datetime is printing incorrectly for kata containers
-	time.Sleep(15 * time.Second)
+	// runtime class env is populated for kata containers
+	if strings.TrimSpace(os.Getenv("SD_RUNTIME_CLASS")) != "" {
+		time.Sleep(15 * time.Second)
+	}
 	//
 
 	reader := bufio.NewReader(e.reader)
