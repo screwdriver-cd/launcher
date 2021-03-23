@@ -44,9 +44,9 @@ var readFile = ioutil.ReadFile
 var newEmitter = screwdriver.NewEmitter
 var marshal = json.Marshal
 var unmarshal = json.Unmarshal
-var cyanFprintf = color.New(color.FgCyan).Add(color.Underline).FprintfFunc()
-var blackSprint = color.New(color.FgHiBlack).SprintFunc()
-var pushgatewayURLTimeout = 15
+var cyanSprint = color.New(color.FgCyan).Add(color.Underline).SprintFunc()
+var blackSprintf = color.New(color.FgHiBlack).SprintfFunc()
+var pushgatewayUrlTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
 
@@ -462,6 +462,14 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return err
 	}
 
+	// Always merge event meta
+	if len(event.Meta) > 0 { // If has meta, marshal it
+		log.Printf("Fetching Event Meta JSON %v", event.ID)
+		if event.Meta != nil {
+			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
+		}
+	}
+
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata (join case)
 		// Get meta from all parent builds
 		for _, pbID := range parentBuildIDs {
@@ -489,12 +497,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		if parentEvent.Meta != nil {
 			mergedMeta = deepMergeJSON(parentEvent.Meta, mergedMeta)
 		}
+
 		metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
-	} else if len(event.Meta) > 0 { // If has meta, marshal it
-		log.Printf("Fetching Event Meta JSON %v", event.ID)
-		if event.Meta != nil {
-			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
-		}
 	}
 
 	// Initialize pr comments (Issue #1858)
@@ -529,15 +533,25 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		sourceDir = sourceDir + "/" + scm.RootDir
 	}
 
-	cyanFprintf(emitter, "Screwdriver Launcher information\n")
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Version:        v"), version)
-	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Pipeline:       #"), job.PipelineID)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Job:            "), job.Name)
-	fmt.Fprintf(emitter, "%s%d\n", blackSprint("Build:          #"), buildID)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Workspace Dir:  "), w.Root)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Checkout Dir:     "), w.Src)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Source Dir:     "), sourceDir)
-	fmt.Fprintf(emitter, "%s%s\n", blackSprint("Artifacts Dir:  "), w.Artifacts)
+	infoMessages := []string{
+		cyanSprint("Screwdriver Launcher information"),
+		blackSprintf("Version:        v%s", version),
+		blackSprintf("Pipeline:       #%d", job.PipelineID),
+		blackSprintf("Job:            %s", job.Name),
+		blackSprintf("Build:          #%d", buildID),
+		blackSprintf("Workspace Dir:  %s", w.Root),
+		blackSprintf("Checkout Dir:   %s", w.Src),
+		blackSprintf("Source Dir:     %s", sourceDir),
+		blackSprintf("Artifacts Dir:  %s", w.Artifacts),
+	}
+
+	for _, v := range infoMessages {
+		if isLocal {
+			log.Print(v)
+		} else {
+			fmt.Fprintf(emitter, "%s\n", v)
+		}
+	}
 
 	if pr != "" {
 		job.Name = "main"

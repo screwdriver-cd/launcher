@@ -1063,18 +1063,29 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	initCoverageMeta()
 	oldWriteFile := writeFile
 	defer func() { writeFile = oldWriteFile }()
-	var mockMeta map[string]interface{}
-	mockMeta = make(map[string]interface{})
+	mockParentMeta := make(map[string]interface{})
+	mockParentMeta["hoge"] = "fuga"
+	mockEventMeta := make(map[string]interface{})
+	mockEventMeta["spooky"] = "ghost"
+
 	var parentMeta []byte
 	var buildMeta []byte
 
-	mockMeta["hoge"] = "fuga"
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
 		if buildID == TestParentBuildID {
-			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, JobID: TestParentJobID, Meta: mockMeta}), nil
+			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, EventID: TestEventID, JobID: TestParentJobID, Meta: mockParentMeta}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
+		return screwdriver.Build(FakeBuild{ID: buildID, EventID: TestEventID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestEventID {
+			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: mockEventMeta}), nil
+		}
+		if eventID == TestParentEventID {
+			return screwdriver.Event(FakeEvent{ID: TestParentEventID}), nil
+		}
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -1084,7 +1095,7 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		if pipelineID == TestParentPipelineID {
-			return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+			return screwdriver.Pipeline(FakePipeline{ID: TestParentPipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 		}
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
@@ -1099,11 +1110,11 @@ func TestFetchParentBuildMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"spooky\":\"ghost\"}")
 	wantParent := []byte("{\"hoge\":\"fuga\"}")
 
 	if err != nil || string(parentMeta) != string(wantParent) {
-		t.Errorf("Expected parentMeta is %v, but: %v", string(want), string(parentMeta))
+		t.Errorf("Expected parentMeta is %v, but: %v", string(wantParent), string(parentMeta))
 	}
 
 	if err != nil || string(buildMeta) != string(want) {
