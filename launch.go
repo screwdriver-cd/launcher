@@ -46,7 +46,7 @@ var marshal = json.Marshal
 var unmarshal = json.Unmarshal
 var cyanSprint = color.New(color.FgCyan).Add(color.Underline).SprintFunc()
 var blackSprintf = color.New(color.FgHiBlack).SprintfFunc()
-var pushgatewayUrlTimeout = 15
+var pushgatewayURLTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
 
