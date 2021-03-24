@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -62,6 +63,13 @@ func readln(r *bufio.Reader) (string, error) {
 func (e *emitter) processPipe() {
 	var line string
 	var readErr error
+
+	// TODO: fix temporary hack - without this delay the datetime is printing incorrectly for kata containers
+	// runtime class env is populated for kata containers
+	if strings.TrimSpace(os.Getenv("SD_RUNTIME_CLASS")) != "" {
+		time.Sleep(15 * time.Second)
+	}
+	//
 
 	reader := bufio.NewReader(e.reader)
 	encoder := json.NewEncoder(e.file)

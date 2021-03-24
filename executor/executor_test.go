@@ -537,7 +537,7 @@ func TestTeardownAbort(t *testing.T) {
 
 	emitter := MockEmitter{
 		startCmd: func(cmd screwdriver.CommandDef) {
-			if cmd.Cmd == "export BAZ=foo" {
+			if cmd.Cmd == "export FOO=bar" {
 				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 			}
 		},
