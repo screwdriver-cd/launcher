@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -45,7 +46,7 @@ var marshal = json.Marshal
 var unmarshal = json.Unmarshal
 var cyanSprint = color.New(color.FgCyan).Add(color.Underline).SprintFunc()
 var blackSprintf = color.New(color.FgHiBlack).SprintfFunc()
-var pushgatewayUrlTimeout = 15
+var pushgatewayURLTimeout = 15
 var buildCreateTime time.Time
 var queueEnterTime time.Time
 
@@ -72,6 +73,32 @@ func init() {
 	client = retryablehttp.NewClient()
 }
 
+/* has HTTP or HTTPS protocol
+targetURL => URL
+*/
+func hasHTTPProtocol(targetURL *url.URL) bool {
+	return targetURL.Scheme == "http" || targetURL.Scheme == "https"
+}
+
+/* make pushgateway url
+baseURL => base url for pushgateway
+buildID => sd build id
+*/
+func makePushgatewayURL(baseURL string, buildID int) (string, error) {
+	var pushgatewayURL string = baseURL
+	u, err := url.Parse(pushgatewayURL)
+	if err != nil {
+		log.Printf("makePushgatewayURL: failed to parse url [%v], buildId:[%v], error:[%v]", pushgatewayURL, buildID, err)
+		return "", err
+	}
+	if !hasHTTPProtocol(u) {
+		u, _ = url.Parse("http://" + pushgatewayURL)
+	}
+	u.Path = path.Join(u.Path, "/metrics/job/containerd/instance/"+strconv.Itoa(buildID))
+
+	return u.String(), nil
+}
+
 /* push metrics to prometheus
 metrics - sd_build_completed, sd_build_run_duration_secs
 status => sd build status
@@ -81,24 +108,20 @@ func pushMetrics(status string, buildID int) error {
 	// push metrics if pushgateway url is available
 	log.Printf("push metrics for buildID:[%v], status:[%v]", buildID, status)
 	if strings.TrimSpace(os.Getenv("SD_PUSHGATEWAY_URL")) != "" && strings.TrimSpace(os.Getenv("CONTAINER_IMAGE")) != "" && strings.TrimSpace(os.Getenv("SD_PIPELINE_ID")) != "" && buildID > 0 {
-		timeout := time.Duration(pushgatewayUrlTimeout) * time.Second
+		timeout := time.Duration(pushgatewayURLTimeout) * time.Second
 		client.HTTPClient.Timeout = timeout
-		url, err := url.Parse(os.Getenv("SD_PUSHGATEWAY_URL"))
+		pushgatewayURL, err := makePushgatewayURL(os.Getenv("SD_PUSHGATEWAY_URL"), buildID)
 		if err != nil {
-			log.Printf("pushMetrics: failed to parse url [%v], buildId:[%v], error:[%v]", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, err)
-			return nil
+			log.Printf("pushMetrics: failed to make pushgateway url, buildId:[%v], error:[%v]", buildID, err)
+			return err
 		}
-		if url.Scheme == "" {
-			url.Scheme = "http"
-		}
-		url.Path = url.Path + "/metrics/job/containerd/instance/" + strconv.Itoa(buildID)
 		defer client.HTTPClient.CloseIdleConnections()
 		image := os.Getenv("CONTAINER_IMAGE")
 		pipelineId := os.Getenv("SD_PIPELINE_ID")
 		node := os.Getenv("NODE_ID")
 		jobId := os.Getenv("SD_JOB_ID")
 		jobName := os.Getenv("SD_JOB_NAME")
-		scmUrl := os.Getenv("SCM_URL")
+		scmURL := os.Getenv("SCM_URL")
 		sdBuildPrefix := os.Getenv("SD_BUILD_PREFIX")
 		launcherStartTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_START_TS"), 10, 64)
 		buildStartTS, _ := strconv.ParseInt(os.Getenv("SD_BUILD_START_TS"), 10, 64)
@@ -120,29 +143,30 @@ func pushMetrics(status string, buildID int) error {
 		buildSetupTimeSecs := buildStartTS - queueEnterTS   // setup time => build start - queue enter time
 
 		// data need to be specified in this format for pushgateway
-		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} 1
-sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
-sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildTimeSecs, 10) + `
-sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildQueuedTimeSecs, 10) + `
-sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmUrl + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
+		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} 1
+sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
+sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildTimeSecs, 10) + `
+sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildQueuedTimeSecs, 10) + `
+sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
 `
 		body := strings.NewReader(data)
-		log.Printf("pushMetrics: post metrics to [%v]", url)
-		res, err := client.HTTPClient.Post(url.String(), "", body)
+		log.Printf("pushMetrics: post metrics to [%v]", pushgatewayURL)
+		res, err := client.HTTPClient.Post(pushgatewayURL, "", body)
 		if res != nil {
 			defer res.Body.Close()
 		}
 		if err != nil {
-			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", url, buildID, err)
-			return nil
+			log.Printf("pushMetrics: failed to push metrics to [%v], buildId:[%v], error:[%v]", pushgatewayURL, buildID, err)
+			return err
 		}
 		if res.StatusCode/100 != 2 {
-			log.Printf("pushMetrics: failed to push metrics to[%v], buildId:[%v], respose status code:[%v]", url, buildID, res.StatusCode)
-			return nil
+			msg := fmt.Sprintf("pushMetrics: failed to push metrics to [%v], buildId:[%v], response status code:[%v]", pushgatewayURL, buildID, res.StatusCode)
+			log.Printf(msg)
+			return errors.New(msg)
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)
 	} else {
-		log.Printf("pushMetrics: pushgatewayUrl:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty ", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
+		log.Printf("pushMetrics: pushgatewayURL:[%v], buildID:[%v], image: [%v], pipelineId: [%v] is empty", os.Getenv("SD_PUSHGATEWAY_URL"), buildID, os.Getenv("CONTAINER_IMAGE"), os.Getenv("SD_PIPELINE_ID"))
 	}
 	return nil
 }
@@ -828,7 +852,7 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		apiUrl := c.String("api-uri")
+		apiURL := c.String("api-uri")
 		token := c.String("token")
 		workspace := c.String("workspace")
 		emitterPath := c.String("emitter")
@@ -864,7 +888,7 @@ func main() {
 		}
 
 		if containerError {
-			temporalAPI, err := screwdriver.New(apiUrl, token)
+			temporalAPI, err := screwdriver.New(apiURL, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
@@ -874,7 +898,7 @@ func main() {
 		}
 
 		if fetchFlag {
-			temporalAPI, err := screwdriver.New(apiUrl, token)
+			temporalAPI, err := screwdriver.New(apiURL, token)
 			if err != nil {
 				log.Printf("Error creating temporal Screwdriver API %v: %v", buildID, err)
 				exit(screwdriver.Failure, buildID, nil, metaSpace, "")
@@ -904,9 +928,9 @@ func main() {
 				cleanExit()
 			}
 
-			api, err = screwdriver.NewLocal(apiUrl, localJobName, localBuild)
+			api, err = screwdriver.NewLocal(apiURL, localJobName, localBuild)
 		} else {
-			api, err = screwdriver.New(apiUrl, token)
+			api, err = screwdriver.New(apiURL, token)
 		}
 
 		if err != nil {
