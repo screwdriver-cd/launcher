@@ -310,7 +310,7 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 			externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
 			writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
 			if join {
-				resultMeta = deepMergeJSON(parentBuild.Meta, resultMeta)
+				resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
 			}
 
 			// delete local version of external meta
@@ -324,7 +324,7 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 				}
 			}
 		} else {
-			resultMeta = deepMergeJSON(parentBuild.Meta, resultMeta)
+			resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
 		}
 	}
 
@@ -453,7 +453,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"build": buildMeta,
 	}
 	if build.Meta != nil {
-		mergedMeta = deepMergeJSON(build.Meta, mergedMeta)
+		mergedMeta = deepMergeJSON(mergedMeta, build.Meta)
 	}
 
 	// Create meta space
@@ -466,7 +466,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	if len(event.Meta) > 0 { // If has meta, marshal it
 		log.Printf("Fetching Event Meta JSON %v", event.ID)
 		if event.Meta != nil {
-			mergedMeta = deepMergeJSON(event.Meta, mergedMeta)
+			mergedMeta = deepMergeJSON(mergedMeta, event.Meta)
 		}
 	}
 
@@ -495,7 +495,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		}
 
 		if parentEvent.Meta != nil {
-			mergedMeta = deepMergeJSON(parentEvent.Meta, mergedMeta)
+			mergedMeta = deepMergeJSON(mergedMeta, parentEvent.Meta)
 		}
 
 		metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
