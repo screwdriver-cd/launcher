@@ -1272,12 +1272,12 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
 	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
 		if buildID == TestParentBuildID {
-			return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestParentJobID, Meta: TestMeta1}), nil
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestParentJobID, Meta: TestMeta1}), nil
 		}
 		if buildID == 2222 {
-			return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: 1114, Meta: TestMeta2}), nil
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: 1114, Meta: TestMeta2}), nil
 		}
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs}), nil
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: IDs}), nil
 	}
 	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
 		if jobID == TestParentJobID {
@@ -1314,7 +1314,7 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
 
-	want := []byte("{\"batman\":\"robin\",\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":{\"bird\":\"chirp\",\"cat\":\"meow\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
+	want := []byte("{\"batman\":\"robin\",\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":{\"bird\":\"twitter\",\"cat\":\"meow\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
 	wantParent := []byte("{\"batman\":\"robin\",\"foo\":{\"bird\":\"chirp\",\"cat\":\"meow\"}}")
 	wantParent2 := []byte("{\"foo\":{\"bird\":\"twitter\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
 
