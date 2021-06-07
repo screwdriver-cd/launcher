@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/google/uuid"
 	"github.com/screwdriver-cd/launcher/screwdriver"
-	"gopkg.in/myesui/uuid.v1"
 )
 
 const (
@@ -323,8 +323,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Writing to step script file: %v", err)
 		}
 
-		// Generate guid for the step
-		guid := uuid.NewV4().String()
+		// Generate guid v4 for the step
+		guid := uuid.Must(uuid.NewRandom()).String()
 
 		runErr := make(chan error, 1)
 		eCode := make(chan int, 1)
