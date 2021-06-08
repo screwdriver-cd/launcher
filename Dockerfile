@@ -87,14 +87,16 @@ RUN set -x \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
    && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
    # Install skope
-   && wget -q -O skopeo-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=skopeo-1.0.0-linux.tar.gz' \
+   && wget -q -O skopeo-linux.tar.gz 'https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/skopeo-linux.tar.gz' \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo \
    # Install zstd
-   && wget -q -O zstd-cli-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz' \
-   && wget -q -O zstd-cli-macosx.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz' \
+   && wget -q -O zstd-cli-linux.tar.gz 'https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz' \
+   && wget -q -O zstd-cli-macosx.tar.gz 'https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz' \
    && tar -C . -ozxvf zstd-cli-linux.tar.gz \
+   && mv zstd zstd-cli-linux \
    && tar -C . -ozxvf zstd-cli-macosx.tar.gz \
+   && mv zstd zstd-cli-macosx \
    && chmod +x zstd-cli-linux \
    && chmod +x zstd-cli-macosx \
    # Cleanup Habitat Files
