@@ -17,7 +17,7 @@ scaffolding_go_base_path="github.com/screwdriver-cd"
 scaffolding_go_build_deps=(
     github.com/creack/pty
     github.com/urfave/cli
-    gopkg.in/myesui/uuid.v1
+    github.com/google/uuid
     gopkg.in/fatih/color.v1
 )
 
