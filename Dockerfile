@@ -12,9 +12,15 @@ RUN set -x \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
       | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/launcher_linux_amd64/\1 \2/" >> tool-versions \
+   && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
+      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
       | wget --base=http://github.com/ -i - -O launch \
    && chmod +x launch \
    # Download Log Service
+   && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
+      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/log-service_linux_amd64/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
       | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
       | wget --base=http://github.com/ -i - -O logservice \
@@ -22,9 +28,15 @@ RUN set -x \
    # Download Meta CLI
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
       | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/meta-cli_linux_amd64/\1 \2/" >> tool-versions \
+   && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
+      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O meta \
    && chmod +x meta \
    # Download sd-step
+   && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
+      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/sd-step_linux_amd64/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
       | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
       | wget --base=http://github.com/ -i - -O sd-step \
@@ -32,9 +44,15 @@ RUN set -x \
    # Download sd-cmd
    && wget -q -O - https://github.com/screwdriver-cd/sd-cmd/releases/latest \
       | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_linux_amd64' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/sd-cmd_linux_amd64/\1 \2/" >> tool-versions \
+   && wget -q -O - https://github.com/screwdriver-cd/sd-cmd/releases/latest \
+      | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_linux_amd64' \
       | wget --base=http://github.com/ -i - -O sd-cmd \
    && chmod +x sd-cmd \
    # Download store-cli
+   && wget -q -O - https://github.com/screwdriver-cd/store-cli/releases/latest \
+      | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/store-cli_linux_amd64/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/store-cli/releases/latest \
       | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O store-cli \
