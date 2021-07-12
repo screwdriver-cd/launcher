@@ -494,7 +494,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	}
 
 	// Set build parameter explicitly (Issue #2501)
-	if mergedMeta["parameters"] != nil {
+	if build.Meta["parameters"] != nil {
 		mergedMeta["parameters"] = build.Meta["parameters"]
 	}
 
