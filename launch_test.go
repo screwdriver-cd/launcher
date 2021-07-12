@@ -1059,6 +1059,53 @@ func TestFetchDefaultMeta(t *testing.T) {
 	}
 }
 
+func TestFetchBuildParameterMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+	mockMeta := make(map[string]interface{})
+	mockMeta["foo"] = "bar"
+	mockMeta["meta"] = map[string]interface{}{
+		"baz":     "qux",
+		"summary": map[string]string{"comment": "it should be deleted"},
+	}
+	mockMeta["parameters"] = map[string]interface{}{
+		"baz": "qux",
+	}
+	mockParentEventMeta := make(map[string]interface{})
+	mockParentEventMeta["parameters"] = map[string]interface{}{
+		"baz": "parent",
+	}
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: mockMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: mockParentEventMeta}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":\"bar\",\"meta\":{\"baz\":\"qux\"},\"parameters\":{\"baz\":\"qux\"}}")
+
+	if err != nil || string(defaultMeta) != string(want) {
+		t.Errorf("Expected Meta is %v, but: %v", string(want), string(defaultMeta))
+	}
+}
+
 func TestFetchParentBuildMeta(t *testing.T) {
 	initCoverageMeta()
 	oldWriteFile := writeFile

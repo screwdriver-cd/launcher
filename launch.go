@@ -506,6 +506,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		delete(metadata.(map[string]interface{}), "summary")
 	}
 
+	// Set build parameter explicitly (Issue #2501)
+	if mergedMeta["parameters"] != nil {
+		mergedMeta["parameters"] = build.Meta["parameters"]
+	}
+
 	log.Println("Marshalling Merged Meta JSON")
 	metaByte, err = marshal(mergedMeta)
 
