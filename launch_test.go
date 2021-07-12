@@ -1065,11 +1065,6 @@ func TestFetchBuildParameterMeta(t *testing.T) {
 	defer func() { writeFile = oldWriteFile }()
 	var defaultMeta []byte
 	mockMeta := make(map[string]interface{})
-	mockMeta["foo"] = "bar"
-	mockMeta["meta"] = map[string]interface{}{
-		"baz":     "qux",
-		"summary": map[string]string{"comment": "it should be deleted"},
-	}
 	mockMeta["parameters"] = map[string]interface{}{
 		"baz": "qux",
 	}
@@ -1099,7 +1094,7 @@ func TestFetchBuildParameterMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":\"bar\",\"meta\":{\"baz\":\"qux\"},\"parameters\":{\"baz\":\"qux\"}}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"parameters\":{\"baz\":\"qux\"}}")
 
 	if err != nil || string(defaultMeta) != string(want) {
 		t.Errorf("Expected Meta is %v, but: %v", string(want), string(defaultMeta))
