@@ -436,22 +436,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	coverageInfo, coverageErr := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
 
 	parentBuildIDs := convertToArray(build.ParentBuildID)
-	buildMeta := map[string]interface{}{
-		"pipelineId": strconv.Itoa(job.PipelineID),
-		"eventId":    strconv.Itoa(build.EventID),
-		"jobId":      strconv.Itoa(job.ID),
-		"buildId":    strconv.Itoa(buildID),
-		"jobName":    job.Name,
-		"sha":        build.SHA,
-	}
 
-	if coverageErr == nil {
-		buildMeta["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
-	}
+	mergedMeta := map[string]interface{}{}
 
-	mergedMeta := map[string]interface{}{
-		"build": buildMeta,
-	}
 	if build.Meta != nil {
 		mergedMeta = deepMergeJSON(mergedMeta, build.Meta)
 	}
@@ -505,6 +492,26 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	if metadata, ok := mergedMeta["meta"]; ok {
 		delete(metadata.(map[string]interface{}), "summary")
 	}
+
+	// Set build parameter explicitly (Issue #2501)
+	if build.Meta["parameters"] != nil {
+		mergedMeta["parameters"] = build.Meta["parameters"]
+	}
+
+	buildMeta := map[string]interface{}{
+		"pipelineId": strconv.Itoa(job.PipelineID),
+		"eventId":    strconv.Itoa(build.EventID),
+		"jobId":      strconv.Itoa(job.ID),
+		"buildId":    strconv.Itoa(buildID),
+		"jobName":    job.Name,
+		"sha":        build.SHA,
+	}
+
+	if coverageErr == nil {
+		buildMeta["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
+	}
+
+	mergedMeta["build"] = buildMeta
 
 	log.Println("Marshalling Merged Meta JSON")
 	metaByte, err = marshal(mergedMeta)
