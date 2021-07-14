@@ -1442,6 +1442,10 @@ func TestFetchEventMeta(t *testing.T) {
 
 	mockMeta := make(map[string]interface{})
 	mockMeta["spooky"] = "ghost"
+	mockMeta["build"] = map[string]interface{}{
+		"buildId": "1111",
+		"foo":     "bar",
+	}
 	var eventMeta []byte
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
@@ -1462,7 +1466,7 @@ func TestFetchEventMeta(t *testing.T) {
 	}
 
 	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
+	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"2234\",\"foo\":\"bar\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
 
 	if err != nil || string(eventMeta) != string(want) {
 		t.Errorf("Expected eventMeta is %v, but: %v", string(want), string(eventMeta))
