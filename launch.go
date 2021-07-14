@@ -511,7 +511,11 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		buildMeta["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
 	}
 
-	mergedMeta["build"] = buildMeta
+	if mergedMeta["build"] != nil {
+		mergedMeta["build"] = deepMergeJSON(mergedMeta["build"].(map[string]interface{}), buildMeta)
+	} else {
+		mergedMeta["build"] = buildMeta
+	}
 
 	log.Println("Marshalling Merged Meta JSON")
 	metaByte, err = marshal(mergedMeta)
