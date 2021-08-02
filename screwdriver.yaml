@@ -21,7 +21,7 @@ jobs:
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
     publish:
         image: golang:1.14
-        requires: [docker-publish]
+        requires: main
         steps:
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
             - get: go mod download
