@@ -24,6 +24,7 @@ RUN set -x \
    && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
       | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
       | wget --base=http://github.com/ -i - -O logservice \
+
    && chmod +x logservice \
    # Download Meta CLI
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
@@ -57,6 +58,14 @@ RUN set -x \
       | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
       | wget --base=http://github.com/ -i - -O store-cli \
    && chmod +x store-cli \
+   # Download gitversion
+   && wget -q -O - https://github.com/screwdriver-cd/gitversion/releases/latest \
+       | egrep -o '/screwdriver-cd/gitversion/releases/download/v[0-9.]*/gitversion_linux_amd64' \
+       | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/gitversion_linux_amd64/\1 \2/" >> tool-versions \
+   && wget -q -O - https://github.com/screwdriver-cd/gitversion/releases/latest \
+       | egrep -o '/screwdriver-cd/gitversion/releases/download/v[0-9.]*/gitversion_linux_amd64' \
+       | wget --base=http://github.com/ -i - -O gitversion \
+   && chmod +x gitversion \
    # Download Tini Static
    && wget -q -O - https://github.com/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
