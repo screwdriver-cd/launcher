@@ -991,43 +991,6 @@ func TestUserShellBin(t *testing.T) {
 	}
 }
 
-func TestFetchPredefinedMeta(t *testing.T) {
-	initCoverageMeta()
-	oldWriteFile := writeFile
-	defer func() { writeFile = oldWriteFile }()
-	var defaultMeta []byte
-	mockMeta := make(map[string]interface{})
-	mockMeta["foo"] = "bar"
-	mockMeta["meta"] = map[string]interface{}{
-		"baz":     "qux",
-		"summary": map[string]string{"comment": "it should be deleted"},
-	}
-
-	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
-	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: mockMeta}), nil
-	}
-	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
-	}
-	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
-	}
-	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		if path == "./data/meta/meta.json" {
-			defaultMeta = data
-		}
-		return nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":\"bar\",\"meta\":{\"baz\":\"qux\"}}")
-
-	if err != nil || string(defaultMeta) != string(want) {
-		t.Errorf("Expected defaultMeta is %v, but: %v", string(want), string(defaultMeta))
-	}
-}
-
 func TestFetchDefaultMeta(t *testing.T) {
 	initCoverageMeta()
 	oldWriteFile := writeFile
@@ -1056,111 +1019,6 @@ func TestFetchDefaultMeta(t *testing.T) {
 
 	if err != nil || string(defaultMeta) != string(want) {
 		t.Errorf("Expected defaultMeta is %v, but: %v", string(want), string(defaultMeta))
-	}
-}
-
-func TestFetchBuildParameterMeta(t *testing.T) {
-	initCoverageMeta()
-	oldWriteFile := writeFile
-	defer func() { writeFile = oldWriteFile }()
-	var defaultMeta []byte
-	mockMeta := make(map[string]interface{})
-	mockMeta["parameters"] = map[string]interface{}{
-		"baz": "qux",
-	}
-	mockParentEventMeta := make(map[string]interface{})
-	mockParentEventMeta["parameters"] = map[string]interface{}{
-		"baz": "parent",
-	}
-
-	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
-	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: mockMeta}), nil
-	}
-	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
-	}
-	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: mockParentEventMeta}), nil
-	}
-	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
-		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
-	}
-	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		if path == "./data/meta/meta.json" {
-			defaultMeta = data
-		}
-		return nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"parameters\":{\"baz\":\"qux\"}}")
-
-	if err != nil || string(defaultMeta) != string(want) {
-		t.Errorf("Expected Meta is %v, but: %v", string(want), string(defaultMeta))
-	}
-}
-
-func TestFetchParentBuildMeta(t *testing.T) {
-	initCoverageMeta()
-	oldWriteFile := writeFile
-	defer func() { writeFile = oldWriteFile }()
-	mockParentMeta := make(map[string]interface{})
-	mockParentMeta["hoge"] = "fuga"
-	mockEventMeta := make(map[string]interface{})
-	mockEventMeta["spooky"] = "ghost"
-
-	var parentMeta []byte
-	var buildMeta []byte
-
-	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
-	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		if buildID == TestParentBuildID {
-			return screwdriver.Build(FakeBuild{ID: TestParentBuildID, EventID: TestEventID, JobID: TestParentJobID, Meta: mockParentMeta}), nil
-		}
-		return screwdriver.Build(FakeBuild{ID: buildID, EventID: TestEventID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat}), nil
-	}
-	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		if eventID == TestEventID {
-			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: mockEventMeta}), nil
-		}
-		if eventID == TestParentEventID {
-			return screwdriver.Event(FakeEvent{ID: TestParentEventID}), nil
-		}
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
-	}
-	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
-		if jobID == TestParentJobID {
-			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestParentPipelineID, Name: "component"}), nil
-		}
-		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
-	}
-	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
-		if pipelineID == TestParentPipelineID {
-			return screwdriver.Pipeline(FakePipeline{ID: TestParentPipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
-		}
-		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
-	}
-	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		if path == "./data/meta/sd@1113:component.json" {
-			parentMeta = data
-		}
-		if path == "./data/meta/meta.json" {
-			buildMeta = data
-		}
-		return nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"2234\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"spooky\":\"ghost\"}")
-	wantParent := []byte("{\"hoge\":\"fuga\"}")
-
-	if err != nil || string(parentMeta) != string(wantParent) {
-		t.Errorf("Expected parentMeta is %v, but: %v", string(wantParent), string(parentMeta))
-	}
-
-	if err != nil || string(buildMeta) != string(want) {
-		t.Errorf("Expected build meta is %v, but: %v", string(want), string(buildMeta))
 	}
 }
 
@@ -1436,43 +1294,6 @@ func TestFetchParentEventMetaWriteError(t *testing.T) {
 	}
 }
 
-func TestFetchEventMeta(t *testing.T) {
-	oldWriteFile := writeFile
-	defer func() { writeFile = oldWriteFile }()
-
-	mockMeta := make(map[string]interface{})
-	mockMeta["spooky"] = "ghost"
-	mockMeta["build"] = map[string]interface{}{
-		"buildId": "1111",
-		"foo":     "bar",
-	}
-	var eventMeta []byte
-
-	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
-	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
-		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, SHA: TestSHA}), nil
-	}
-	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		if eventID == TestEventID {
-			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: mockMeta}), nil
-		}
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
-	}
-	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
-		if path == "./data/meta/meta.json" {
-			eventMeta = data
-		}
-		return nil
-	}
-
-	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"2234\",\"foo\":\"bar\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"0\",\"sha\":\"abc123\"},\"spooky\":\"ghost\"}")
-
-	if err != nil || string(eventMeta) != string(want) {
-		t.Errorf("Expected eventMeta is %v, but: %v", string(want), string(eventMeta))
-	}
-}
-
 func TestFetchEventMetaMarshalError(t *testing.T) {
 	oldMarshal := marshal
 	defer func() { marshal = oldMarshal }()
@@ -1496,6 +1317,997 @@ func TestFetchEventMetaMarshalError(t *testing.T) {
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
+	}
+}
+
+func TestMetaWhenStartPipeline(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only": "build_value", // Remain
+		"parameters": map[string]string{
+			"build_only": "build_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only": "build_value",
+			},
+			"build_only": "build_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":     "build_value", // Overwrote by default value
+			"jobId":       "build_value", // Overwrote by default value
+			"eventId":     "build_value", // Overwrote by default value
+			"pipelineId":  "build_value", // Overwrote by default value
+			"sha":         "build_value", // Overwrote by default value
+			"jobName":     "build_value", // Overwrote by default value
+			"coverageKey": "build_value", // Overwrote by default value
+			"build_only":  "build_value", // Remain
+		},
+	}
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"build_only": "build_value",
+		"build": {
+			"buildId": "%d",
+			"jobId": "%d",
+			"eventId": "0",
+			"pipelineId": "%d",
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s",
+			"build_only": "build_value"
+		},
+		"meta": {
+			"build_only": "build_value"
+		},
+		"parameters": {
+			"build_only": "build_value"
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+
+	assert.JSONEq(t, want, string(defaultMeta))
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
+func TestMetaWhenTriggeredFromParentBuildWithoutParentBuildMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only":      "build_value", // Remain
+		"build_and_event": "build_value", // Overwrote by event
+		"parameters": map[string]string{
+			"build_only":      "build_value", // Remain
+			"build_and_event": "build_value", // Overwrote by event
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only":      "build_value",
+				"build_and_event": "build_value",
+			},
+			"build_only":      "build_value", // Remain
+			"build_and_event": "build_value", // Overwrote by event
+		},
+		"build": map[string]interface{}{
+			"buildId":         "build_value", // Overwrote by default value
+			"jobId":           "build_value", // Overwrote by default value
+			"eventId":         "build_value", // Overwrote by default value
+			"pipelineId":      "build_value", // Overwrote by default value
+			"sha":             "build_value", // Overwrote by default value
+			"jobName":         "build_value", // Overwrote by default value
+			"coverageKey":     "build_value", // Overwrote by default value
+			"build_only":      "build_value", // Remain
+			"build_and_event": "build_value", // Overwrote by event
+		},
+	}
+
+	eventFromIDMeta := map[string]interface{}{
+		"event_only":      "event_value", // Remain
+		"build_and_event": "event_value", // Remain
+		"parameters": map[string]string{
+			"event_only":      "event_value", // This should be deleted
+			"build_and_event": "event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"event_only":      "event_value",
+				"build_and_event": "event_value",
+			},
+			"event_only":      "event_value", // This should be deleted
+			"build_and_event": "event_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":         "event_value", // Overwrote by default value
+			"jobId":           "event_value", // Overwrote by default value
+			"eventId":         "event_value", // Overwrote by default value
+			"pipelineId":      "event_value", // Overwrote by default value
+			"sha":             "event_value", // Overwrote by default value
+			"jobName":         "event_value", // Overwrote by default value
+			"coverageKey":     "event_value", // Overwrote by default value
+			"event_only":      "event_value", // Remain
+			"build_and_event": "event_value", // Remain
+		},
+	}
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"build_only": "build_value",
+		"event_only": "event_value",
+		"build_and_event": "event_value",
+		"build":{
+			"buildId": "%d",
+			"jobId": "%d",
+			"eventId": "0",
+			"pipelineId": "%d",
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s",
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"build_and_event": "event_value"
+		},
+		"meta":{
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"build_and_event": "event_value"
+		},
+		"parameters":{
+			"build_only": "build_value",
+			"build_and_event": "build_value"
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+
+	assert.JSONEq(t, want, string(defaultMeta))
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
+func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta, externalMeta []byte
+
+	for i, s := range TestParentBuildIDs {
+		IDs[i] = s
+	}
+	var InnerParentBuildID = TestParentBuildID
+	var InnerParentJobID = TestParentJobID
+	var InnerPipelineID = TestPipelineID
+	var ExternalParentBuildID = 2222
+	var ExternalParentJobID = 1114
+	var ExternalPipelineID = TestParentPipelineID
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only":                            "build_value", // Remain
+		"build_and_event_and_inner_pipeline":    "build_value", // Overwrote by inner pipeline
+		"build_and_event_and_external_pipeline": "build_value", // Overwrote by external pipeline
+		"parameters": map[string]string{
+			"build_only":                            "build_value", // Remain
+			"build_and_event_and_inner_pipeline":    "build_value", // Remain
+			"build_and_event_and_external_pipeline": "build_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only":                            "build_value",
+				"build_and_event_and_inner_pipeline":    "build_value",
+				"build_and_event_and_external_pipeline": "build_value",
+			},
+			"build_only":                            "build_value", // Remain
+			"build_and_event_and_inner_pipeline":    "build_value", // Overwrote by inner pipeline
+			"build_and_event_and_external_pipeline": "build_value", // Overwrote by external pipeline
+		},
+		"build": map[string]interface{}{
+			"buildId":                               "build_value", // Overwrote by default value
+			"jobId":                                 "build_value", // Overwrote by default value
+			"eventId":                               "build_value", // Overwrote by default value
+			"pipelineId":                            "build_value", // Overwrote by default value
+			"sha":                                   "build_value", // Overwrote by default value
+			"jobName":                               "build_value", // Overwrote by default value
+			"coverageKey":                           "build_value", // Overwrote by default value
+			"build_only":                            "build_value", // Remain
+			"build_and_event_and_inner_pipeline":    "build_value", // Overwrote by inner pipeline
+			"build_and_event_and_external_pipeline": "build_value", // Overwrote by external pipeline
+		},
+		"sd": map[string]interface{}{
+			"build_only": "build_value", // Remain
+			strconv.Itoa(InnerPipelineID): map[string]string{
+				"build_only":   "build_value", // Remain
+				"inner_parent": "build_value", // Overwrote by inner pipeline
+			},
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"build_only":      "build_value", // Remain
+				"external_parent": "build_value", // This should be deleted
+			},
+		},
+	}
+
+	eventFromIDMeta := map[string]interface{}{
+		"event_only":                            "event_value", // Remain
+		"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by inner pipeline
+		"build_and_event_and_external_pipeline": "event_value", // Overwrote by external pipeline
+		"parameters": map[string]string{
+			"event_only":                            "event_value", // This should be deleted
+			"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by build
+			"build_and_event_and_external_pipeline": "event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"event_only":                            "event_value",
+				"build_and_event_and_inner_pipeline":    "event_value",
+				"build_and_event_and_external_pipeline": "event_value",
+			},
+			"event_only":                            "event_value", // Remain
+			"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by inner pipeline
+			"build_and_event_and_external_pipeline": "event_value", // Overwrote by external pipeline
+		},
+		"build": map[string]interface{}{
+			"buildId":                               "event_value", // Overwrote by default value
+			"jobId":                                 "event_value", // Overwrote by default value
+			"eventId":                               "event_value", // Overwrote by default value
+			"pipelineId":                            "event_value", // Overwrote by default value
+			"sha":                                   "event_value", // Overwrote by default value
+			"jobName":                               "event_value", // Overwrote by default value
+			"coverageKey":                           "event_value", // Overwrote by default value
+			"event_only":                            "event_value", // Remain
+			"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by inner pipeline
+			"build_and_event_and_external_pipeline": "event_value", // Overwrote by external pipeline
+		},
+		"sd": map[string]interface{}{
+			"event_only": "event_value", // Remain
+			strconv.Itoa(InnerPipelineID): map[string]string{
+				"event_only":   "event_value", // Remain
+				"inner_parent": "event_value", // Overwrote by inner pipeline
+			},
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"event_only":      "event_value", // Remain
+				"external_parent": "event_value", // This should be deleted
+			},
+		},
+	}
+
+	innerParentBuildMeta := map[string]interface{}{
+		"inner_pipeline_only":                "inner_pipeline_value", // Remain
+		"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		"parameters": map[string]string{
+			"inner_pipeline_only":                "inner_pipeline_value", // This should be deleted
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"inner_pipeline_only":                "inner_pipeline_value",
+				"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+			},
+			"inner_pipeline_only":                "inner_pipeline_value", // Remain
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                            "inner_pipeline_value", // Overwrote by default value
+			"jobId":                              "inner_pipeline_value", // Overwrote by default value
+			"eventId":                            "inner_pipeline_value", // Overwrote by default value
+			"pipelineId":                         "inner_pipeline_value", // Overwrote by default value
+			"sha":                                "inner_pipeline_value", // Overwrote by default value
+			"jobName":                            "inner_pipeline_value", // Overwrote by default value
+			"coverageKey":                        "inner_pipeline_value", // Overwrote by default value
+			"inner_pipeline_only":                "inner_pipeline_value", // Remain
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		},
+		"sd": map[string]interface{}{
+			"inner_pipeline_only": "inner_pipeline_value", // Remain
+			strconv.Itoa(InnerPipelineID): map[string]string{
+				"inner_pipeline_only": "inner_pipeline_value", // Remain
+				"inner_parent":        "inner_pipeline_value", // Remain
+			},
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"inner_pipeline_only": "inner_pipeline_value", // Remain
+			},
+		},
+	}
+
+	externalParentBuildMeta := map[string]interface{}{
+		"external_pipeline_only":                "external_pipeline_value", // Remain
+		"build_and_event_and_external_pipeline": "external_pipeline_value", // Remain
+		"parameters": map[string]string{
+			"external_pipeline_only":                "external_pipeline_value", // This should be deleted
+			"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"external_pipeline_only":                "external_pipeline_value",
+				"build_and_event_and_external_pipeline": "external_pipeline_value",
+			},
+			"external_pipeline_only":                "external_pipeline_value", // Remain
+			"build_and_event_and_external_pipeline": "external_pipeline_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                               "external_pipeline_value", // Overwrote by default value
+			"jobId":                                 "external_pipeline_value", // Overwrote by default value
+			"eventId":                               "external_pipeline_value", // Overwrote by default value
+			"pipelineId":                            "external_pipeline_value", // Overwrote by default value
+			"sha":                                   "external_pipeline_value", // Overwrote by default value
+			"jobName":                               "external_pipeline_value", // Overwrote by default value
+			"coverageKey":                           "external_pipeline_value", // Overwrote by default value
+			"external_pipeline_only":                "external_pipeline_value", // Remain
+			"build_and_event_and_external_pipeline": "external_pipeline_value", // Remain
+		},
+		"sd": map[string]interface{}{
+			"external_pipeline_only": "external_pipeline_value", // Remain
+			strconv.Itoa(InnerPipelineID): map[string]string{
+				"external_pipeline_only": "external_pipeline_value", // Remain
+			},
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"external_pipeline_only": "external_pipeline_value", // Remain
+				"external_parent":        "external_pipeline_value", // This should be deleted
+			},
+		},
+	}
+
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == InnerParentBuildID {
+			// inner parent build
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: InnerParentJobID, Meta: innerParentBuildMeta}), nil
+		}
+		if buildID == ExternalParentBuildID {
+			// external parent build
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: ExternalParentJobID, Meta: externalParentBuildMeta}), nil
+		}
+		// target build
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: IDs, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == InnerParentJobID {
+			// inner parent job
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "inner_parent"}), nil
+		}
+		if jobID == ExternalParentJobID {
+			// external parent job
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: ExternalPipelineID, Name: "external_parent"}), nil
+		}
+		// target build
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		if path == fmt.Sprintf("./data/meta/sd@%d:external_parent.json", ExternalPipelineID) {
+			externalMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"build_only": "build_value",
+		"event_only": "event_value",
+		"external_pipeline_only": "external_pipeline_value",
+		"inner_pipeline_only": "inner_pipeline_value",
+		"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+		"build_and_event_and_external_pipeline": "external_pipeline_value",
+		"build":{
+			"buildId": "%d",
+			"jobId": "%d",
+			"eventId": "0",
+			"pipelineId": "%d",
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s",
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"inner_pipeline_only": "inner_pipeline_value",
+			"external_pipeline_only": "external_pipeline_value",
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+			"build_and_event_and_external_pipeline": "external_pipeline_value"
+		},
+		"meta": {
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"external_pipeline_only": "external_pipeline_value",
+			"inner_pipeline_only": "inner_pipeline_value",
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+			"build_and_event_and_external_pipeline": "external_pipeline_value"
+		},
+		"parameters": {
+			"build_only": "build_value",
+			"build_and_event_and_inner_pipeline": "build_value",
+			"build_and_event_and_external_pipeline": "build_value"
+		},
+		"sd": {
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"inner_pipeline_only": "inner_pipeline_value",
+			"external_pipeline_only": "external_pipeline_value",
+			"%d":{
+				"build_only": "build_value",
+				"event_only": "event_value",
+				"inner_pipeline_only": "inner_pipeline_value",
+				"external_pipeline_only": "external_pipeline_value",
+				"inner_parent": "inner_pipeline_value"
+			},
+			"%d":{
+				"build_only": "build_value",
+				"event_only": "event_value",
+				"inner_pipeline_only": "inner_pipeline_value",
+				"external_pipeline_only": "external_pipeline_value"
+			}
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], InnerPipelineID, ExternalPipelineID)
+	assert.JSONEq(t, want, string(defaultMeta))
+
+	wantExternalMetaByte, _ := marshal(externalParentBuildMeta)
+	assert.JSONEq(t, string(wantExternalMetaByte), string(externalMeta))
+
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
+func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only":                         "build_value", // Remain
+		"build_and_event_and_inner_pipeline": "build_value", // Overwrote by inner pipeline
+		"parameters": map[string]string{
+			"build_only":                         "build_value", // Remain
+			"build_and_event_and_inner_pipeline": "build_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only":                         "build_value",
+				"build_and_event_and_inner_pipeline": "build_value",
+			},
+			"build_only":                         "build_value", // Remain
+			"build_and_event_and_inner_pipeline": "build_value", // Overwrote by inner pipeline
+		},
+		"build": map[string]interface{}{
+			"buildId":                            "build_value", // Overwrote by default value
+			"jobId":                              "build_value", // Overwrote by default value
+			"eventId":                            "build_value", // Overwrote by default value
+			"pipelineId":                         "build_value", // Overwrote by default value
+			"sha":                                "build_value", // Overwrote by default value
+			"jobName":                            "build_value", // Overwrote by default value
+			"coverageKey":                        "build_value", // Overwrote by default value
+			"build_only":                         "build_value", // Remain
+			"build_and_event_and_inner_pipeline": "build_value", // Overwrote by inner pipeline
+		},
+	}
+
+	eventFromIDMeta := map[string]interface{}{
+		"event_only":                         "event_value", // Remain
+		"build_and_event_and_inner_pipeline": "event_value", // Overwrote by inner pipeline
+		"parameters": map[string]string{
+			"event_only":                         "event_value", // This should be deleted
+			"build_and_event_and_inner_pipeline": "event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"event_only":                         "event_value",
+				"build_and_event_and_inner_pipeline": "event_value",
+			},
+			"event_only":                         "event_value", // Remain
+			"build_and_event_and_inner_pipeline": "event_value", // Overwrote by inner pipeline
+		},
+		"build": map[string]interface{}{
+			"buildId":                            "event_value", // Overwrote by default value
+			"jobId":                              "event_value", // Overwrote by default value
+			"eventId":                            "event_value", // Overwrote by default value
+			"pipelineId":                         "event_value", // Overwrote by default value
+			"sha":                                "event_value", // Overwrote by default value
+			"jobName":                            "event_value", // Overwrote by default value
+			"coverageKey":                        "event_value", // Overwrote by default value
+			"event_only":                         "event_value", // Remain
+			"build_and_event_and_inner_pipeline": "event_value", // Overwrote by inner pipeline
+		},
+	}
+
+	innerParentBuildMeta := map[string]interface{}{
+		"inner_pipeline_only":                "inner_pipeline_value", // Remain
+		"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		"parameters": map[string]string{
+			"inner_pipeline_only":                "inner_pipeline_value", // This should be deleted
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"inner_pipeline_only":                "inner_pipeline_value",
+				"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+			},
+			"inner_pipeline_only":                "inner_pipeline_value", // Remain
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                            "inner_pipeline_value", // Overwrote by default value
+			"jobId":                              "inner_pipeline_value", // Overwrote by default value
+			"eventId":                            "inner_pipeline_value", // Overwrote by default value
+			"pipelineId":                         "inner_pipeline_value", // Overwrote by default value
+			"sha":                                "inner_pipeline_value", // Overwrote by default value
+			"jobName":                            "inner_pipeline_value", // Overwrote by default value
+			"coverageKey":                        "inner_pipeline_value", // Overwrote by default value
+			"inner_pipeline_only":                "inner_pipeline_value", // Remain
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		},
+	}
+
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	var InnerParentBuildID = TestParentBuildID
+	var InnerParentJobID = TestParentJobID
+	var InnerPipelineID = TestPipelineID
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == InnerParentBuildID {
+			// inner parent build
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: InnerParentJobID, Meta: innerParentBuildMeta}), nil
+		}
+		// target build
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == InnerParentJobID {
+			// inner parent job
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "inner_parent"}), nil
+		}
+		// target build
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"build_only": "build_value",
+		"event_only": "event_value",
+		"inner_pipeline_only": "inner_pipeline_value",
+		"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+		"build":{
+			"buildId": "%d",
+			"jobId": "%d",
+			"eventId": "0",
+			"pipelineId": "%d",
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s",
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"inner_pipeline_only": "inner_pipeline_value",
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value"
+		},
+		"meta": {
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"inner_pipeline_only": "inner_pipeline_value",
+			"build_and_event_and_inner_pipeline": "inner_pipeline_value"
+		},
+		"parameters": {
+			"build_only": "build_value",
+			"build_and_event_and_inner_pipeline": "build_value"
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+	assert.JSONEq(t, want, string(defaultMeta))
+
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
+func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta, externalMeta []byte
+
+	var InnerPipelineID = TestPipelineID
+	var ExternalParentBuildID = TestParentBuildID
+	var ExternalParentJobID = TestParentJobID
+	var ExternalPipelineID = TestParentPipelineID
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only":                            "build_value", // Remain
+		"build_and_event_and_external_pipeline": "build_value", // Overwrote by event
+		"parameters": map[string]string{
+			"build_only":                            "build_value", // Remain
+			"build_and_event_and_external_pipeline": "build_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only":                            "build_value",
+				"build_and_event_and_external_pipeline": "build_value",
+			},
+			"build_only":                            "build_value", // Remain
+			"build_and_event_and_external_pipeline": "build_value", // Overwrote by event
+		},
+		"build": map[string]interface{}{
+			"buildId":                               "build_value", // Overwrote by default value
+			"jobId":                                 "build_value", // Overwrote by default value
+			"eventId":                               "build_value", // Overwrote by default value
+			"pipelineId":                            "build_value", // Overwrote by default value
+			"sha":                                   "build_value", // Overwrote by default value
+			"jobName":                               "build_value", // Overwrote by default value
+			"coverageKey":                           "build_value", // Overwrote by default value
+			"build_only":                            "build_value", // Remain
+			"build_and_event_and_external_pipeline": "build_value", // Overwrote by event
+		},
+		"sd": map[string]interface{}{
+			"build_only": "build_value", // Remain
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"build_only":      "build_value", // Remain
+				"external_parent": "build_value", // This should be deleted
+			},
+		},
+	}
+
+	eventFromIDMeta := map[string]interface{}{
+		"event_only":                            "event_value", // Remain
+		"build_and_event_and_external_pipeline": "event_value", // Remain
+		"parameters": map[string]string{
+			"event_only":                            "event_value", // This should be deleted
+			"build_and_event_and_external_pipeline": "event_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"event_only":                            "event_value",
+				"build_and_event_and_external_pipeline": "event_value",
+			},
+			"event_only":                            "event_value", // Remain
+			"build_and_event_and_external_pipeline": "event_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                               "event_value", // Overwrote by default value
+			"jobId":                                 "event_value", // Overwrote by default value
+			"eventId":                               "event_value", // Overwrote by default value
+			"pipelineId":                            "event_value", // Overwrote by default value
+			"sha":                                   "event_value", // Overwrote by default value
+			"jobName":                               "event_value", // Overwrote by default value
+			"coverageKey":                           "event_value", // Overwrote by default value
+			"event_only":                            "event_value", // Remain
+			"build_and_event_and_external_pipeline": "event_value", // Remain
+		},
+		"sd": map[string]interface{}{
+			"event_only": "event_value", // Remain
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"event_only":      "event_value", // Remain
+				"external_parent": "event_value", // This should be deleted
+			},
+		},
+	}
+
+	externalParentBuildMeta := map[string]interface{}{
+		"external_pipeline_only":                "external_pipeline_value", // This should be deleted
+		"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by event
+		"parameters": map[string]string{
+			"external_pipeline_only":                "external_pipeline_value", // This should be deleted
+			"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"external_pipeline_only":                "external_pipeline_value",
+				"build_and_event_and_external_pipeline": "external_pipeline_value",
+			},
+			"external_pipeline_only":                "external_pipeline_value", // This should be deleted
+			"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by event
+		},
+		"build": map[string]interface{}{
+			"buildId":                               "external_pipeline_value", // Overwrote by default value
+			"jobId":                                 "external_pipeline_value", // Overwrote by default value
+			"eventId":                               "external_pipeline_value", // Overwrote by default value
+			"pipelineId":                            "external_pipeline_value", // Overwrote by default value
+			"sha":                                   "external_pipeline_value", // Overwrote by default value
+			"jobName":                               "external_pipeline_value", // Overwrote by default value
+			"coverageKey":                           "external_pipeline_value", // Overwrote by default value
+			"external_pipeline_only":                "external_pipeline_value", // This should be deleted
+			"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by event
+		},
+		"sd": map[string]interface{}{
+			"external_pipeline_only": "external_pipeline_value", // This should be deleted
+			strconv.Itoa(ExternalPipelineID): map[string]string{
+				"external_pipeline_only": "external_pipeline_value", // This should be deleted
+				"external_parent":        "external_pipeline_value", // This should be deleted
+			},
+		},
+	}
+
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == ExternalParentBuildID {
+			// external parent build
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: ExternalParentJobID, Meta: externalParentBuildMeta}), nil
+		}
+		// target build
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, ParentBuildID: TestParentBuildIDFloat, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == ExternalParentJobID {
+			// external parent job
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: ExternalPipelineID, Name: "external_parent"}), nil
+		}
+		// target build
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		if path == fmt.Sprintf("./data/meta/sd@%d:external_parent.json", ExternalPipelineID) {
+			externalMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"build_only": "build_value",
+		"event_only": "event_value",
+		"build_and_event_and_external_pipeline": "event_value",
+		"build":{
+			"buildId": "%d",
+			"jobId": "%d",
+			"eventId": "0",
+			"pipelineId": "%d",
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s",
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"build_and_event_and_external_pipeline": "event_value"
+		},
+		"meta": {
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"build_and_event_and_external_pipeline": "event_value"
+		},
+		"parameters": {
+			"build_only": "build_value",
+			"build_and_event_and_external_pipeline": "build_value"
+		},
+		"sd": {
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"%d":{
+				"build_only": "build_value",
+				"event_only": "event_value"
+			}
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], ExternalPipelineID)
+	assert.JSONEq(t, want, string(defaultMeta))
+
+	wantExternalMetaByte, _ := marshal(externalParentBuildMeta)
+	assert.JSONEq(t, string(wantExternalMetaByte), string(externalMeta))
+
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
+func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only":                       "build_value", // Remain
+		"build_and_event_and_parent_event": "build_value", // Overwrote parent event
+		"parameters": map[string]string{
+			"build_only":                       "build_value", // Remain
+			"build_and_event_and_parent_event": "build_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only":                       "build_value",
+				"build_and_event_and_parent_event": "build_value",
+			},
+			"build_only":                       "build_value", // Remain
+			"build_and_event_and_parent_event": "build_value", // Overwrote by parent event
+		},
+		"build": map[string]interface{}{
+			"buildId":                          "build_value", // Overwrote by default value
+			"jobId":                            "build_value", // Overwrote by default value
+			"eventId":                          "build_value", // Overwrote by default value
+			"pipelineId":                       "build_value", // Overwrote by default value
+			"sha":                              "build_value", // Overwrote by default value
+			"jobName":                          "build_value", // Overwrote by default value
+			"coverageKey":                      "build_value", // Overwrote by default value
+			"build_only":                       "build_value", // Remain
+			"build_and_event_and_parent_event": "build_value", // Overwrote by parent event
+		},
+	}
+
+	eventFromIDMeta := map[string]interface{}{
+		"event_only":                       "event_value", // Remain
+		"build_and_event_and_parent_event": "event_value", // Overwrote by parent event
+		"parameters": map[string]string{
+			"event_only":                       "event_value", // This should be deleted
+			"build_and_event_and_parent_event": "event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"event_only":                       "event_value",
+				"build_and_event_and_parent_event": "event_value",
+			},
+			"event_only":                       "event_value", // Remain
+			"build_and_event_and_parent_event": "event_value", // Overwrote by parent event
+		},
+		"build": map[string]interface{}{
+			"buildId":                          "event_value", // Overwrote by default value
+			"jobId":                            "event_value", // Overwrote by default value
+			"eventId":                          "event_value", // Overwrote by default value
+			"pipelineId":                       "event_value", // Overwrote by default value
+			"sha":                              "event_value", // Overwrote by default value
+			"jobName":                          "event_value", // Overwrote by default value
+			"coverageKey":                      "event_value", // Overwrote by default value
+			"event_only":                       "event_value", // Remain
+			"build_and_event_and_parent_event": "event_value", // Overwrote by parent event
+		},
+	}
+
+	parentEventMeta := map[string]interface{}{
+		"parent_event_only":                "parent_event_value", // Remain
+		"build_and_event_and_parent_event": "parent_event_value", // Remain
+		"parameters": map[string]string{
+			"parent_event_only":                "parent_event_value", // This should be deleted
+			"build_and_event_and_parent_event": "parent_event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"parent_event_only":                "parent_event_value",
+				"build_and_event_and_parent_event": "parent_event_value",
+			},
+			"parent_event_only":                "parent_event_value", // Remain
+			"build_and_event_and_parent_event": "parent_event_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                          "parent_event_value", // Overwrote by default value
+			"jobId":                            "parent_event_value", // Overwrote by default value
+			"eventId":                          "parent_event_value", // Overwrote by default value
+			"pipelineId":                       "parent_event_value", // Overwrote by default value
+			"sha":                              "parent_event_value", // Overwrote by default value
+			"jobName":                          "parent_event_value", // Overwrote by default value
+			"coverageKey":                      "parent_event_value", // Overwrote by default value
+			"parent_event_only":                "parent_event_value", // Remain
+			"build_and_event_and_parent_event": "parent_event_value", // Remain
+		},
+	}
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestParentEventID {
+			// parent event
+			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: parentEventMeta}), nil
+		}
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"build_only": "build_value",
+		"event_only": "event_value",
+		"parent_event_only": "parent_event_value",
+		"build_and_event_and_parent_event": "parent_event_value",
+		"build":{
+			"buildId": "%d",
+			"jobId": "%d",
+			"eventId": "0",
+			"pipelineId": "%d",
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s",
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"parent_event_only": "parent_event_value",
+			"build_and_event_and_parent_event": "parent_event_value"
+		},
+		"meta":{
+			"build_only": "build_value",
+			"event_only": "event_value",
+			"parent_event_only": "parent_event_value",
+			"build_and_event_and_parent_event": "parent_event_value"
+		},
+		"parameters":{
+			"build_only": "build_value",
+			"build_and_event_and_parent_event": "build_value"
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+
+	assert.JSONEq(t, want, string(defaultMeta))
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
