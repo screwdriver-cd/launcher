@@ -63,7 +63,6 @@ find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirnam
 
 # Create directory for hab pkg binlink destination
 smart_run mkdir -p /usr/sd/bin
-PATH=${PATH}:/usr/sd/bin
 
 # Binlinking bash from core/bash into /bin
 if ! binary_exists bash; then

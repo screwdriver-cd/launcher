@@ -155,7 +155,7 @@ func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fR
 // Executes teardown commands
 func doRunTeardownCommand(cmd screwdriver.CommandDef, emitter screwdriver.Emitter, shellBin, exportFile, sourceDir string, stepExitCode int) (int, error) {
 	shargs := []string{"-e", "-c"}
-	cmdStr := "export PATH=$PATH:/opt/sd SD_STEP_EXIT_CODE=" + strconv.Itoa(stepExitCode) + " && " +
+	cmdStr := "export PATH=${PATH}:/opt/sd:/usr/sd/bin SD_STEP_EXIT_CODE=" + strconv.Itoa(stepExitCode) + " && " +
 		"START=$(date +'%s'); while ! [ -f " + exportFile + " ] && [ $(($(date +'%s')-$START)) -lt " + strconv.Itoa(WaitTimeout) + " ]; do sleep 1; done; " +
 		"if [ -f " + exportFile + " ]; then set +e; . " + exportFile + "; set -e; fi; " +
 		cmd.Cmd
@@ -274,7 +274,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Run setup commands
 	setupCommands := []string{
 		"set -e",
-		"export PATH=$PATH:/opt/sd",
+		"export PATH=${PATH}:/opt/sd:/usr/sd/bin",
 		// trap ABRT(6) and EXIT, echo the last step ID and write ENV to /tmp/buildEnv
 		"finish() { " +
 			"EXITCODE=$?; " +
