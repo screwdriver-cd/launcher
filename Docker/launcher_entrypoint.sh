@@ -66,10 +66,10 @@ smart_run mkdir -p /usr/sd/bin
 
 # Binlinking bash from core/bash into /bin
 if ! binary_exists bash; then
-    smart_run /opt/sd/bin/hab pkg binlink -d /usr/sd/bin core/bash bash || echo 'Failed to symlink bash'
+    smart_run /opt/sd/bin/hab pkg binlink core/bash bash || echo 'Failed to symlink bash'
 fi
 
-# Binlinking jq from core/jq into /bin
+# Binlinking jq from core/jq into /usr/sd/bin
 if ! binary_exists jq; then
     smart_run /opt/sd/bin/hab pkg binlink -d /usr/sd/bin core/jq-static jq || echo 'Failed to symlink jq'
 fi
