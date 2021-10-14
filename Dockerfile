@@ -107,8 +107,8 @@ RUN set -x \
    # https://github.com/screwdriver-cd/artifact-bookend/blob/master/commands.txt
    && /hab/bin/hab pkg install core/curl/7.54.1 \
    # Install Sonar scanner cli
-   && wget -O sonarscanner-cli-linux.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.4.0.2170-linux.zip' \
-   && wget -O sonarscanner-cli-macosx.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.4.0.2170-macosx.zip' \
+   && wget -O sonarscanner-cli-linux.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip' \
+   && wget -O sonarscanner-cli-macosx.zip 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-macosx.zip' \
    && unzip -q sonarscanner-cli-linux.zip \
    && unzip -q sonarscanner-cli-macosx.zip \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
