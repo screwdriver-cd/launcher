@@ -52,26 +52,29 @@ smart_run whoami
 
 echo 'Symlink hab cache'
 date
-smart_run mkdir -p -m 777 /hab/bin || echo 'Failed to create /hab/bin'
-smart_run ln -sf /opt/sd/bin/hab /hab/bin/hab || echo 'Failed to symlink hab bin'
-smart_run mkdir -p -m 777 /hab/pkgs || echo 'Failed to create /hab/pkgs/'
-smart_run mkdir -p -m 777 /hab/pkgs/core  || echo 'Failed to create /hab/pkgs/core'
-# this cmd will create dirs for all hab pkgs in this format: /hab/pkgs/core/curl/7.54.1
-find /opt/sd/hab/pkgs/core -mindepth 2 -maxdepth 2 -exec sh -c 'mkdir -p `echo $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to create /hab/pkgs/core/*'
-# this cmd will symlink the specific version: ln -s  /opt/sd/hab/pkgs/core/curl/7.54.1/20181008145326 /hab/pkgs/core/curl/7.54.1
-find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
 
-# Create directory for hab pkg binlink destination
-smart_run mkdir -p /usr/sd/bin
+if ! $SD_NO_HAB; then
+    smart_run mkdir -p -m 777 /hab/bin || echo 'Failed to create /hab/bin'
+    smart_run ln -sf /opt/sd/bin/hab /hab/bin/hab || echo 'Failed to symlink hab bin'
+    smart_run mkdir -p -m 777 /hab/pkgs || echo 'Failed to create /hab/pkgs/'
+    smart_run mkdir -p -m 777 /hab/pkgs/core  || echo 'Failed to create /hab/pkgs/core'
+    # this cmd will create dirs for all hab pkgs in this format: /hab/pkgs/core/curl/7.54.1
+    find /opt/sd/hab/pkgs/core -mindepth 2 -maxdepth 2 -exec sh -c 'mkdir -p `echo $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to create /hab/pkgs/core/*'
+    # this cmd will symlink the specific version: ln -s  /opt/sd/hab/pkgs/core/curl/7.54.1/20181008145326 /hab/pkgs/core/curl/7.54.1
+    find /opt/sd/hab/pkgs/core -mindepth 3 -maxdepth 3 -exec sh -c 'ln -s $1 `dirname $1 | sed "s/\/opt\/sd//"`' -- {} \; || echo 'Failed to symlink hab cache'
 
-# Binlinking bash from core/bash into /bin
-if ! binary_exists bash; then
-    smart_run /opt/sd/bin/hab pkg binlink core/bash bash || echo 'Failed to symlink bash'
-fi
+    # Create directory for hab pkg binlink destination
+    smart_run mkdir -p /usr/sd/bin
+
+    # Binlinking bash from core/bash into /bin
+    if ! binary_exists bash; then
+        smart_run /opt/sd/bin/hab pkg binlink core/bash bash || echo 'Failed to symlink bash'
+    fi
 
 # Binlinking jq from core/jq into /usr/sd/bin
-if ! binary_exists jq; then
-    smart_run /opt/sd/bin/hab pkg binlink -d /usr/sd/bin core/jq-static jq || echo 'Failed to symlink jq'
+    if ! binary_exists jq; then
+        smart_run /opt/sd/bin/hab pkg binlink -d /usr/sd/bin core/jq-static jq || echo 'Failed to symlink jq'
+    fi
 fi
 
 echo 'Creating workspace and log pipe'
