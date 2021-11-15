@@ -53,7 +53,7 @@ smart_run whoami
 echo 'Symlink hab cache'
 date
 
-if ! $SD_NO_HAB; then
+if [ "$SD_HAB_ENABLED" = "yes" ]; then
     smart_run mkdir -p -m 777 /hab/bin || echo 'Failed to create /hab/bin'
     smart_run ln -sf /opt/sd/bin/hab /hab/bin/hab || echo 'Failed to symlink hab bin'
     smart_run mkdir -p -m 777 /hab/pkgs || echo 'Failed to create /hab/pkgs/'
