@@ -35,7 +35,7 @@ fi
 
 echo "run launch"
 # wrapper script for run build in multiple executors.
-if [ "$SD_AWS_INTEGRATION" = "yes" ]; then
+if [ "$SD_AWS_INTEGRATION" = "true" ]; then
   # use environment variables from aws codebuild executor
   SD_TOKEN=`/opt/sd/launch --only-fetch-token --token "$TOKEN" --api-uri "$API" --store-uri "$STORE" --ui-uri "$UI" --emitter /sd/emitter --build-timeout "$TIMEOUT" --cache-strategy "$7" --pipeline-cache-dir "$8" --job-cache-dir "$9" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --cache-max-go-threads "${14}" "$SDBUILDID"` && (/opt/sd/launch --token "$SD_TOKEN" --api-uri "$API" --store-uri "$STORE" --ui-uri "$UI" --emitter /sd/emitter --build-timeout "$TIMEOUT" --cache-strategy "$7" --pipeline-cache-dir "$8" --job-cache-dir "$9" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --cache-max-go-threads "${14}" "$SDBUILDID" & /opt/sd/logservice --token "$SD_TOKEN" --emitter /sd/emitter --api-uri "$API" --store-uri "$STORE" --build "$SDBUILDID" & wait $(jobs -p))
 else
