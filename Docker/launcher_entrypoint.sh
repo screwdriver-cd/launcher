@@ -95,8 +95,5 @@ done
 echo 'Symlink hab cache, log pipe is ready'
 date
 
-if [ -x "$(command -v /bin/bash)" ]; then SD_LAUNCHER_SHELL="/bin/bash"; fi
-SD_LAUNCHER_SHELL="${SD_LAUNCHER_SHELL:-/bin/sh}"
-
 # exec run.sh using dumbinit
-exec /opt/sd/dumb-init -- $SD_LAUNCHER_SHELL -c "$@"
+exec /opt/sd/dumb-init -- /bin/bash -c "$@"
