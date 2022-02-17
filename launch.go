@@ -310,6 +310,9 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 			externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
 			writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
 			if join {
+				// Always exclude parameters from external meta
+				delete(parentBuild.Meta, "parameters")
+
 				resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
 			}
 
