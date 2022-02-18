@@ -310,8 +310,15 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 			externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
 			writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
 			if join {
+				marshallValue, err := json.Marshal(parentBuild.Meta)
+				if err != nil {
+					return resultMeta, fmt.Errorf("Cloning meta of Parent Build ID %d: %v", parentBuildID, err)
+				}
+				var externalParentBuildMeta map[string]interface{}
+				json.Unmarshal(marshallValue, &externalParentBuildMeta)
+
 				// Always exclude parameters from external meta
-				delete(parentBuild.Meta, "parameters")
+				delete(externalParentBuildMeta, "parameters")
 
 				resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
 			}
