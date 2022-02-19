@@ -320,7 +320,7 @@ func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedM
 				// Always exclude parameters from external meta
 				delete(externalParentBuildMeta, "parameters")
 
-				resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
+				resultMeta = deepMergeJSON(resultMeta, externalParentBuildMeta)
 			}
 
 			// delete local version of external meta
