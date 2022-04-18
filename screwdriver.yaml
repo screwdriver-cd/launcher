@@ -37,18 +37,3 @@ jobs:
             DOCKER_MULTI_PLATFORM_BUILDS_ENABLED: 1
         requires: publish
         template: sd/dind@latest
-        steps:
-            - build-push: |
-                  docker login --username $DOCKER_REGISTRY_USER --password $DOCKER_REGISTRY_TOKEN
-                  DOCKER_TAG=`cat VERSION`
-                  if [[ $DOCKER_MULTI_PLATFORM_BUILDS_ENABLED -eq 1 ]]; then
-                      for PLATFORM in ${DOCKER_TARGET_PLATFORMS//,/ }
-                      do
-                          ITEMS=(${PLATFORM//\// })
-                          ARCH=${ITEMS[1]}
-                          echo $PLATFORM $ARCH
-                          docker buildx build --push --progress plain --platform $PLATFORM --cache-from $DOCKER_REPO:latest --build-arg BUILDKIT_INLINE_CACHE=1 ARCH=$ARCH $DOCKER_BUILD_EXTRA_FLAGS -t $DOCKER_REPO:latest -f $DOCKERFILE_NAME $DOCKERFILE_PATH
-                          sleep 10
-                          docker buildx build --push --progress plain --platform $PLATFORM --cache-from $DOCKER_REPO:latest --build-arg BUILDKIT_INLINE_CACHE=1 ARCH=$ARCH -t $DOCKER_REPO:$DOCKER_TAG -f $DOCKERFILE_NAME $DOCKERFILE_PATH
-                      done
-                  fi
