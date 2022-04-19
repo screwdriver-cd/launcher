@@ -1,6 +1,8 @@
 FROM alpine:3.12
 LABEL MAINTAINER="Screwdriver Team <screwdriver.cd>"
 
+ARG TARGETOS TARGETARCH
+
 WORKDIR /opt/sd
 RUN set -x \
    # Alpine ships with musl instead of glibc (this fixes the symlink)
@@ -11,58 +13,58 @@ RUN set -x \
    && apk add --no-cache --virtual .build-dependencies wget gpgme unzip \
    # Download Launcher
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
-      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
-      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/launcher_linux_amd64/\1 \2/" >> tool-versions \
+      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_$TARGETOS_$TARGETARCH' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/launcher_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/launcher/releases/latest \
-      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_linux_amd64' \
+      | egrep -o '/screwdriver-cd/launcher/releases/download/v[0-9.]*/launcher_$TARGETOS_$TARGETARCH' \
       | wget --base=http://github.com/ -i - -O launch \
    && chmod +x launch \
    # Download Log Service
    && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
-      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
-      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/log-service_linux_amd64/\1 \2/" >> tool-versions \
+      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_$TARGETOS_$TARGETARCH' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/log-service_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
-      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_linux_amd64' \
+      | egrep -o '/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_$TARGETOS_$TARGETARCH' \
       | wget --base=http://github.com/ -i - -O logservice \
    && chmod +x logservice \
    # Download Meta CLI
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
-      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
-      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/meta-cli_linux_amd64/\1 \2/" >> tool-versions \
+      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_$TARGETOS_$TARGETARCH' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/meta-cli_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
-      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_linux_amd64' \
+      | egrep -o '/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_$TARGETOS_$TARGETARCH' \
       | wget --base=http://github.com/ -i - -O meta \
    && chmod +x meta \
    # Download sd-step
    && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
-      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
-      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/sd-step_linux_amd64/\1 \2/" >> tool-versions \
+      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_$TARGETOS_$TARGETARCH' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/sd-step_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
-      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_linux_amd64' \
+      | egrep -o '/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_$TARGETOS_$TARGETARCH' \
       | wget --base=http://github.com/ -i - -O sd-step \
    && chmod +x sd-step \
    # Download sd-cmd
    && wget -q -O - https://github.com/screwdriver-cd/sd-cmd/releases/latest \
-      | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_linux_amd64' \
-      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/sd-cmd_linux_amd64/\1 \2/" >> tool-versions \
+      | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_$TARGETOS_$TARGETARCH' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/sd-cmd_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/sd-cmd/releases/latest \
-      | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_linux_amd64' \
+      | egrep -o '/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_$TARGETOS_$TARGETARCH' \
       | wget --base=http://github.com/ -i - -O sd-cmd \
    && chmod +x sd-cmd \
    # Download store-cli
    && wget -q -O - https://github.com/screwdriver-cd/store-cli/releases/latest \
-      | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
-      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/store-cli_linux_amd64/\1 \2/" >> tool-versions \
+      | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_$TARGETOS_$TARGETARCH' \
+      | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/store-cli_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/store-cli/releases/latest \
-      | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_linux_amd64' \
+      | egrep -o '/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_$TARGETOS_$TARGETARCH' \
       | wget --base=http://github.com/ -i - -O store-cli \
    && chmod +x store-cli \
    # Download gitversion
    && wget -q -O - https://github.com/screwdriver-cd/gitversion/releases/latest \
-       | egrep -o '/screwdriver-cd/gitversion/releases/download/v[0-9.]*/gitversion_linux_amd64' \
-       | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/gitversion_linux_amd64/\1 \2/" >> tool-versions \
+       | egrep -o '/screwdriver-cd/gitversion/releases/download/v[0-9.]*/gitversion_$TARGETOS_$TARGETARCH' \
+       | sed -e "s/\/screwdriver-cd\/\([a-zA-Z-]*\)\/releases\/download\/\(v[0-9.]*\)\/gitversion_$TARGETOS_$TARGETARCH/\1 \2/" >> tool-versions \
    && wget -q -O - https://github.com/screwdriver-cd/gitversion/releases/latest \
-       | egrep -o '/screwdriver-cd/gitversion/releases/download/v[0-9.]*/gitversion_linux_amd64' \
+       | egrep -o '/screwdriver-cd/gitversion/releases/download/v[0-9.]*/gitversion_$TARGETOS_$TARGETARCH' \
        | wget --base=http://github.com/ -i - -O gitversion \
    && chmod +x gitversion \
    # Download Tini Static
@@ -89,7 +91,7 @@ RUN set -x \
    && mv tini-static tini \
    && chmod +x tini \
    # Download dumb-init
-   && wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
+   && wget -O /usr/local/bin/dumb-init 'https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_$TARGETARCH' \
    && chmod +x /usr/local/bin/dumb-init \
    && cp /usr/local/bin/dumb-init /opt/sd/dumb-init \
    # Install Habitat

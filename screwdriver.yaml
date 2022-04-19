@@ -6,7 +6,7 @@ jobs:
     main:
         image: golang:1.17
         environment:
-            SD_SONAR_OPTS:  "-Dsonar.sources=./ -Dsonar.exclusions=**/*_test.go,**/vendor/** -Dsonar.tests=./ -Dsonar.test.inclusions=**/*_test.go -Dsonar.test.exclusions=**/vendor/** -Dsonar.go.coverage.reportPaths=${SD_ARTIFACTS_DIR}/coverage.out -Dsonar.go.tests.reportPaths=${SD_ARTIFACTS_DIR}/report.json"
+            SD_SONAR_OPTS: "-Dsonar.sources=./ -Dsonar.exclusions=**/*_test.go,**/vendor/** -Dsonar.tests=./ -Dsonar.test.inclusions=**/*_test.go -Dsonar.test.exclusions=**/vendor/** -Dsonar.go.coverage.reportPaths=${SD_ARTIFACTS_DIR}/coverage.out -Dsonar.go.tests.reportPaths=${SD_ARTIFACTS_DIR}/report.json"
         requires: [~commit, ~pr]
         steps:
             - gover: go version
@@ -33,5 +33,7 @@ jobs:
             # Pushing releases to GitHub
             - GITHUB_TOKEN
     docker-publish:
+        environment:
+            DOCKER_MULTI_PLATFORM_BUILDS_ENABLED: 1
         requires: publish
         template: sd/dind@latest
