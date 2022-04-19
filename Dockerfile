@@ -92,7 +92,7 @@ RUN set -x \
    && mv tini-static tini \
    && chmod +x tini \
    # Download dumb-init
-   && wget -O /usr/local/bin/dumb-init "https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_$TARGETARCH" \
+   && wget -O /usr/local/bin/dumb-init "https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_${TARGETARCH}" \
    && chmod +x /usr/local/bin/dumb-init \
    && cp /usr/local/bin/dumb-init /opt/sd/dumb-init \
    # Install Habitat
