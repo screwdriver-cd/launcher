@@ -35,5 +35,6 @@ jobs:
     docker-publish:
         environment:
             DOCKER_MULTI_PLATFORM_BUILDS_ENABLED: 1
+            DOCKER_BUILDKIT: 1
         requires: publish
         template: sd/dind@latest
