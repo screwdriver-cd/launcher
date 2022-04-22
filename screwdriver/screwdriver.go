@@ -140,7 +140,8 @@ type Pipeline struct {
 
 // ScmRepo contains the full name of the repository for a Pipeline, e.g. "screwdriver-cd/launcher"
 type ScmRepo struct {
-	Name string `json:"name"`
+	Name    string `json:"name"`
+	Private bool   `json:"private"`
 }
 
 type JobAnnotations struct {

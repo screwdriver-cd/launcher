@@ -795,6 +795,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_JOB_CACHE_DIR":       "",
 		"SD_EVENT_CACHE_DIR":     "",
 		"SD_SCHEDULED_BUILD":     "false",
+		"SD_PRIVATE_PIPELINE":    "false",
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, TestPipelineID, "RUNNING")
@@ -849,6 +850,27 @@ func TestSetEnv(t *testing.T) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI + ":lib", ScmRepo: TestScmRepo}), nil
 	}
 	tests["SD_SOURCE_DIR"] = tests["SD_SOURCE_DIR"] + "/lib"
+	TestEnvVars = map[string]interface{}{}
+	foundEnv = map[string]string{}
+	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
+	for k, v := range tests {
+		if foundEnv[k] != v {
+			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
+		}
+	}
+
+	// in case of the pipeline is private
+	TestPrivateScmRepo := screwdriver.ScmRepo(FakeScmRepo{
+		Name:    "screwdriver-cd/launcher",
+		Private: true,
+	})
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI + ":lib", ScmRepo: TestPrivateScmRepo}), nil
+	}
+	tests["SD_PRIVATE_PIPELINE"] = "true"
 	TestEnvVars = map[string]interface{}{}
 	foundEnv = map[string]string{}
 	err = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)

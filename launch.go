@@ -632,6 +632,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_CACHE_MAX_SIZE_MB":    fmt.Sprintf("%v", cacheMaxSizeInMB),
 		"SD_CACHE_MAX_GO_THREADS": fmt.Sprintf("%v", cacheMaxGoThreads),
 		"SD_SCHEDULED_BUILD":      isScheduler,
+		"SD_PRIVATE_PIPELINE":     strconv.FormatBool(pipeline.ScmRepo.Private),
 	}
 
 	// Add coverage env vars

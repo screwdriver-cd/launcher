@@ -56,7 +56,7 @@ func (a localApi) JobFromID(jobID int) (job Job, err error) {
 func (a localApi) PipelineFromID(pipelineID int) (pipeline Pipeline, err error) {
 	pipeline = Pipeline{
 		ID:      0,
-		ScmRepo: ScmRepo{"sd-local/local-build"},
+		ScmRepo: ScmRepo{"sd-local/local-build", false},
 		ScmURI:  "screwdriver.cd:123456:master",
 	}
 
