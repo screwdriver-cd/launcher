@@ -376,6 +376,18 @@ func TestPipelineFromID(t *testing.T) {
 			err:        nil,
 		},
 		{
+			pipeline: Pipeline{
+				ID:     1555,
+				ScmURI: "github.com:123456:master",
+				ScmRepo: ScmRepo{
+					Name:    "screwdriver-cd/launcher",
+					Private: true,
+				},
+			},
+			statusCode: 200,
+			err:        nil,
+		},
+		{
 			pipeline:   Pipeline{},
 			statusCode: 500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/pipelines/0): " +
@@ -404,6 +416,10 @@ func TestPipelineFromID(t *testing.T) {
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from PipelineFromID: \n%v\n want \n%v", err, test.err)
+		}
+
+		if !test.pipeline.ScmRepo.Private {
+			test.pipeline.ScmRepo.Private = false
 		}
 
 		if !reflect.DeepEqual(pipeline, test.pipeline) {
