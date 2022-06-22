@@ -138,9 +138,11 @@ func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, set
 	return nil
 }
 
-func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fReader io.Reader) (int, error) {
+func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fReader io.Reader, stepName string) (int, error) {
 	executionCommand := []string{
 		"export SD_STEP_ID=" + guid,
+		// escape not necessary because step name is limited to [A-Za-z0-9_-]
+		";export SD_STEP_NAME=" + stepName,
 		";. " + path,
 		";echo",
 		";echo " + guid + " $?\n",
@@ -336,7 +338,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		fReader := bufio.NewReader(f)
 
 		go func() {
-			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader)
+			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader, cmd.Name)
 			// exit code & errors from doRunCommand
 			eCode <- runCode
 			runErr <- rcErr
