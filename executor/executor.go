@@ -356,7 +356,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 				firstError = buildTimeout
 				code = 3
 			}
-			_ = c.Process.Signal(syscall.SIGABRT)
+			syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
 			terminateSleep(shellBin, sourceDir, true) // kill all running sleep
 
 		case stepAbort := <-sig:
@@ -365,7 +365,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 				firstError = stepAbort
 				code = 1
 			}
-			_ = c.Process.Signal(syscall.SIGABRT)
+			syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
 			terminateSleep(shellBin, sourceDir, false) // kill all running sleep other than sleep $SD_TERMINATION_GRACE_PERIOD_SECS
 		}
 
