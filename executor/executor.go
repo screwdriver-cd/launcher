@@ -357,7 +357,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 				code = 3
 			}
 			_ = c.Process.Signal(syscall.SIGABRT)
-			terminateSleep(shellBin, sourceDir, true) // kill all running sleep
+			TerminateSleep(shellBin, sourceDir, true) // kill all running sleep
 
 		case stepAbort := <-sig:
 			f.Write([]byte{4})
@@ -366,7 +366,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 				code = 1
 			}
 			_ = c.Process.Signal(syscall.SIGABRT)
-			terminateSleep(shellBin, sourceDir, false) // kill all running sleep other than sleep $SD_TERMINATION_GRACE_PERIOD_SECS
+			TerminateSleep(shellBin, sourceDir, false) // kill all running sleep other than sleep $SD_TERMINATION_GRACE_PERIOD_SECS
 		}
 
 		if err := api.UpdateStepStop(buildID, cmd.Name, code); err != nil {
@@ -402,12 +402,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			firstError = cmdErr
 		}
 	}
-	terminateSleep(shellBin, sourceDir, true) // kill running sleep $SD_TERMINATION_GRACE_PERIOD_SECS
 	return firstError
 }
 
 // terminate long running sleep process for abort, timeout, n after teardown steps
-func terminateSleep(shellBin, sourceDir string, killAll bool) {
+func TerminateSleep(shellBin, sourceDir string, killAll bool) {
 	var stdout, stderr bytes.Buffer
 	shargs := []string{"-e", "-c"}
 	cmdStr := "pids=$(ps -ef | grep '[s]leep' | awk '{print $2}'); pidcnt=$(echo $pids | wc -w); if [ $pidcnt -gt 1 ]; then kill $(echo $pids | awk '{$NF=\"\"}1'); else echo $pids; fi;"
