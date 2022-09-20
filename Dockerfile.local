@@ -51,36 +51,36 @@ RUN set -x \
 FROM base-${TARGETARCH} AS final
 RUN set -x \
    # Download Log Service
-   && wget -q -O - https://github.com/screwdriver-cd/log-service/releases/latest \
+   && wget -q -O - https://api.github.com/repos/screwdriver-cd/log-service/releases/latest \
       | egrep -o "/screwdriver-cd/log-service/releases/download/v[0-9.]*/log-service_${TARGETOS}_${TARGETARCH}" \
       | wget --base=http://github.com/ -i - -O logservice \
    && chmod +x logservice \
    # Download Meta CLI
-   && wget -q -O - https://github.com/screwdriver-cd/meta-cli/releases/latest \
+   && wget -q -O - https://api.github.com/repos/screwdriver-cd/meta-cli/releases/latest \
       | egrep -o "/screwdriver-cd/meta-cli/releases/download/v[0-9.]*/meta-cli_${TARGETOS}_${TARGETARCH}" \
       | wget --base=http://github.com/ -i - -O meta \
    && chmod +x meta \
    # Download sd-step
-   && wget -q -O - https://github.com/screwdriver-cd/sd-step/releases/latest \
+   && wget -q -O - https://api.github.com/repos/screwdriver-cd/sd-step/releases/latest \
       | egrep -o "/screwdriver-cd/sd-step/releases/download/v[0-9.]*/sd-step_${TARGETOS}_${TARGETARCH}" \
       | wget --base=http://github.com/ -i - -O sd-step \
    && chmod +x sd-step \
    # Download sd-cmd
-   && wget -q -O - https://github.com/screwdriver-cd/sd-cmd/releases/latest \
+   && wget -q -O - https://api.github.com/repos/screwdriver-cd/sd-cmd/releases/latest \
       | egrep -o "/screwdriver-cd/sd-cmd/releases/download/v[0-9.]*/sd-cmd_${TARGETOS}_${TARGETARCH}" \
       | wget --base=http://github.com/ -i - -O sd-cmd \
    && chmod +x sd-cmd \
    # Download store-cli
-   && wget -q -O - https://github.com/screwdriver-cd/store-cli/releases/latest \
+   && wget -q -O - https://api.github.com/repos/screwdriver-cd/store-cli/releases/latest \
       | egrep -o "/screwdriver-cd/store-cli/releases/download/v[0-9.]*/store-cli_${TARGETOS}_${TARGETARCH}" \
       | wget --base=http://github.com/ -i - -O store-cli \
    && chmod +x store-cli \
    # Download Tini Static
-   && wget -q -O - https://github.com/krallin/tini/releases/latest \
+   && wget -q -O - https://api.github.com/repos/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static' \
       | head -1 \
       | wget --base=http://github.com/ -i - -O tini-static \
-   && wget -q -O - https://github.com/krallin/tini/releases/latest \
+   && wget -q -O - https://api.github.com/repos/krallin/tini/releases/latest \
       | egrep -o '/krallin/tini/releases/download/v[0-9.]*/tini-static.asc' \
       | wget --base=http://github.com/ -i - -O tini-static.asc \
    && found=''; \
