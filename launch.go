@@ -527,6 +527,16 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		mergedMeta["build"] = buildMeta
 	}
 
+	eventMeta := map[string]interface{}{
+		"creator": event.Creator["username"],
+	}
+
+	if mergedMeta["event"] != nil {
+		mergedMeta["event"] = deepMergeJSON(mergedMeta["event"].(map[string]interface{}), eventMeta)
+	} else {
+		mergedMeta["event"] = eventMeta
+	}
+
 	log.Println("Marshalling Merged Meta JSON")
 	metaByte, err = marshal(mergedMeta)
 

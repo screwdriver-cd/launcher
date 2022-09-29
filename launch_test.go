@@ -53,6 +53,7 @@ var TestEnvVars = make(map[string]interface{})
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
 })
+var TestEventCreator = map[string]string{"username": "stjohn"}
 
 type FakeBuild screwdriver.Build
 type FakeCoverage screwdriver.Coverage
@@ -76,7 +77,7 @@ func mockAPI(t *testing.T, testBuildID, testJobID, testPipelineID int, testStatu
 			return screwdriver.Build(FakeBuild{ID: testBuildID, EventID: TestEventID, JobID: testJobID, SHA: TestSHA, ParentBuildID: float64(1234)}), nil
 		},
 		eventFromID: func(eventID int) (screwdriver.Event, error) {
-			return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID}), nil
+			return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Creator: TestEventCreator}), nil
 		},
 		jobFromID: func(jobID int) (screwdriver.Job, error) {
 			if jobID != testJobID {
@@ -1141,10 +1142,25 @@ func TestFetchDefaultMeta(t *testing.T) {
 	}
 
 	err, _, _ := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	want := []byte("{\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"}}")
 
-	if err != nil || string(defaultMeta) != string(want) {
-		t.Errorf("Expected defaultMeta is %v, but: %v", string(want), string(defaultMeta))
+	want := fmt.Sprintf(`{
+		"build": {
+			"buildId": "1234",
+			"coverageKey": "job:fake",
+			"eventId": "0",
+			"jobId": "2345",
+			"jobName": "main",
+			"pipelineId": "3456",
+			"sha": ""
+		},
+		"event": {
+			"creator": "%s"
+		}
+	}`, TestEventCreator["username"])
+
+	assert.JSONEq(t, want, string(defaultMeta))
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
@@ -1380,20 +1396,49 @@ func TestFetchParentBuildsMeta(t *testing.T) {
 
 	err, _, _ := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
 
-	want := []byte("{\"batman\":\"robin\",\"build\":{\"buildId\":\"1234\",\"coverageKey\":\"job:fake\",\"eventId\":\"0\",\"jobId\":\"2345\",\"jobName\":\"main\",\"pipelineId\":\"3456\",\"sha\":\"\"},\"foo\":{\"bird\":\"twitter\",\"cat\":\"meow\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
-	wantParent := []byte("{\"batman\":\"robin\",\"foo\":{\"bird\":\"chirp\",\"cat\":\"meow\"}}")
-	wantParent2 := []byte("{\"foo\":{\"bird\":\"twitter\",\"dog\":\"woof\"},\"wonder\":\"woman\"}")
+	want := fmt.Sprintf(`{
+		"batman": "robin",
+		"build": {
+			"buildId": "1234",
+			"coverageKey": "job:fake",
+			"eventId": "0",
+			"jobId": "2345",
+			"jobName": "main",
+			"pipelineId": "3456",
+			"sha": ""
+		},
+		"event": {
+			"creator": "%s"
+		},
+		"foo": {
+			"bird": "twitter",
+			"cat": "meow",
+			"dog": "woof"
+		},
+		"wonder": "woman"
+	}`, TestEventCreator["username"])
 
-	if err != nil || string(parentMeta) != string(wantParent) {
-		t.Errorf("Expected parentMeta is %v, but: %v", string(wantParent), string(parentMeta))
-	}
+	wantParent := `{
+		"batman": "robin",
+		"foo": {
+			"bird": "chirp",
+			"cat": "meow"
+		}
+	}`
 
-	if err != nil || string(parentMeta2) != string(wantParent2) {
-		t.Errorf("Expected parentMeta2 is %v, but: %v", string(wantParent2), string(parentMeta2))
-	}
+	wantParent2 := `{
+		"foo": {
+			"bird": "twitter",
+			"dog": "woof"
+		},
+		"wonder": "woman"
+	}`
 
-	if err != nil || string(buildMeta) != string(want) {
-		t.Errorf("Expected build meta is %v, but: %v", string(want), string(buildMeta))
+	assert.JSONEq(t, want, string(buildMeta))
+	assert.JSONEq(t, wantParent, string(parentMeta))
+	assert.JSONEq(t, wantParent2, string(parentMeta2))
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
@@ -1533,6 +1578,9 @@ func TestMetaWhenStartPipeline(t *testing.T) {
 			"coverageKey": "build_value", // Overwrote by default value
 			"build_only":  "build_value", // Remain
 		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
@@ -1565,13 +1613,16 @@ func TestMetaWhenStartPipeline(t *testing.T) {
 			"coverageKey": "%s",
 			"build_only": "build_value"
 		},
+		"event": {
+			"creator": "%s"
+		},
 		"meta": {
 			"build_only": "build_value"
 		},
 		"parameters": {
 			"build_only": "build_value"
 		}
-	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"])
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
@@ -1611,6 +1662,9 @@ func TestMetaWhenTriggeredFromParentBuildWithoutParentBuildMeta(t *testing.T) {
 			"build_only":      "build_value", // Remain
 			"build_and_event": "build_value", // Overwrote by event
 		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
 	}
 
 	eventFromIDMeta := map[string]interface{}{
@@ -1639,6 +1693,9 @@ func TestMetaWhenTriggeredFromParentBuildWithoutParentBuildMeta(t *testing.T) {
 			"event_only":      "event_value", // Remain
 			"build_and_event": "event_value", // Remain
 		},
+		"event": map[string]interface{}{
+			"creator": "event_value", // Overwrote by default value
+		},
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
@@ -1649,7 +1706,7 @@ func TestMetaWhenTriggeredFromParentBuildWithoutParentBuildMeta(t *testing.T) {
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
@@ -1678,6 +1735,9 @@ func TestMetaWhenTriggeredFromParentBuildWithoutParentBuildMeta(t *testing.T) {
 			"event_only": "event_value",
 			"build_and_event": "event_value"
 		},
+		"event": {
+			"creator": "%s"
+		},
 		"meta":{
 			"build_only": "build_value",
 			"event_only": "event_value",
@@ -1687,7 +1747,7 @@ func TestMetaWhenTriggeredFromParentBuildWithoutParentBuildMeta(t *testing.T) {
 			"build_only": "build_value",
 			"build_and_event": "build_value"
 		}
-	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"])
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
@@ -1742,6 +1802,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"build_and_event_and_inner_pipeline":    "build_value", // Overwrote by inner pipeline
 			"build_and_event_and_external_pipeline": "build_value", // Overwrote by external pipeline
 		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
 		"sd": map[string]interface{}{
 			"build_only": "build_value", // Remain
 			strconv.Itoa(InnerPipelineID): map[string]string{
@@ -1786,6 +1849,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by inner pipeline
 			"build_and_event_and_external_pipeline": "event_value", // Overwrote by external pipeline
 		},
+		"event": map[string]interface{}{
+			"creator": "event_value", // Overwrote by default value
+		},
 		"sd": map[string]interface{}{
 			"event_only": "event_value", // Remain
 			strconv.Itoa(InnerPipelineID): map[string]string{
@@ -1825,6 +1891,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"inner_pipeline_only":                "inner_pipeline_value", // Remain
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
 		},
+		"event": map[string]interface{}{
+			"creator": "inner_pipeline_value", // Overwrote by default value
+		},
 		"sd": map[string]interface{}{
 			"inner_pipeline_only": "inner_pipeline_value", // Remain
 			strconv.Itoa(InnerPipelineID): map[string]string{
@@ -1862,6 +1931,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"coverageKey":                           "external_pipeline_value", // Overwrote by default value
 			"external_pipeline_only":                "external_pipeline_value", // Remain
 			"build_and_event_and_external_pipeline": "external_pipeline_value", // Remain
+		},
+		"event": map[string]interface{}{
+			"creator": "external_pipeline_value", // Overwrote by default value
 		},
 		"sd": map[string]interface{}{
 			"external_pipeline_only": "external_pipeline_value", // Remain
@@ -1904,7 +1976,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
@@ -1942,6 +2014,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
 			"build_and_event_and_external_pipeline": "external_pipeline_value"
 		},
+		"event": {
+			"creator": "%s"
+		},
 		"meta": {
 			"build_only": "build_value",
 			"event_only": "event_value",
@@ -1974,7 +2049,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 				"external_pipeline_only": "external_pipeline_value"
 			}
 		}
-	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], InnerPipelineID, ExternalPipelineID)
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"], InnerPipelineID, ExternalPipelineID)
 	assert.JSONEq(t, want, string(defaultMeta))
 
 	wantExternalMetaByte, _ := marshal(externalParentBuildMeta)
@@ -2017,6 +2092,9 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"build_only":                         "build_value", // Remain
 			"build_and_event_and_inner_pipeline": "build_value", // Overwrote by inner pipeline
 		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
 	}
 
 	eventFromIDMeta := map[string]interface{}{
@@ -2044,6 +2122,9 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"coverageKey":                        "event_value", // Overwrote by default value
 			"event_only":                         "event_value", // Remain
 			"build_and_event_and_inner_pipeline": "event_value", // Overwrote by inner pipeline
+		},
+		"event": map[string]interface{}{
+			"creator": "event_value", // Overwrote by default value
 		},
 	}
 
@@ -2073,6 +2154,9 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"inner_pipeline_only":                "inner_pipeline_value", // Remain
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
 		},
+		"event": map[string]interface{}{
+			"creator": "inner_pipeline_value", // Overwrote by default value
+		},
 	}
 
 	oldMarshal := marshal
@@ -2100,7 +2184,7 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
@@ -2131,6 +2215,9 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"inner_pipeline_only": "inner_pipeline_value",
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value"
 		},
+		"event": {
+			"creator": "%s"
+		},
 		"meta": {
 			"build_only": "build_value",
 			"event_only": "event_value",
@@ -2141,7 +2228,7 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"build_only": "build_value",
 			"build_and_event_and_inner_pipeline": "build_value"
 		}
-	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"])
 	assert.JSONEq(t, want, string(defaultMeta))
 
 	if err != nil {
@@ -2186,6 +2273,9 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"build_only":                            "build_value", // Remain
 			"build_and_event_and_external_pipeline": "build_value", // Overwrote by event
 		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
 		"sd": map[string]interface{}{
 			"build_only": "build_value", // Remain
 			strconv.Itoa(ExternalPipelineID): map[string]string{
@@ -2220,6 +2310,9 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"coverageKey":                           "event_value", // Overwrote by default value
 			"event_only":                            "event_value", // Remain
 			"build_and_event_and_external_pipeline": "event_value", // Remain
+		},
+		"event": map[string]interface{}{
+			"creator": "event_value", // Overwrote by default value
 		},
 		"sd": map[string]interface{}{
 			"event_only": "event_value", // Remain
@@ -2256,6 +2349,9 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"external_pipeline_only":                "external_pipeline_value", // This should be deleted
 			"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by event
 		},
+		"event": map[string]interface{}{
+			"creator": "external_pipeline_value", // Overwrote by default value
+		},
 		"sd": map[string]interface{}{
 			"external_pipeline_only": "external_pipeline_value", // This should be deleted
 			strconv.Itoa(ExternalPipelineID): map[string]string{
@@ -2286,7 +2382,7 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
@@ -2318,6 +2414,9 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"event_only": "event_value",
 			"build_and_event_and_external_pipeline": "event_value"
 		},
+		"event": {
+			"creator": "%s"
+		},
 		"meta": {
 			"build_only": "build_value",
 			"event_only": "event_value",
@@ -2335,7 +2434,7 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 				"event_only": "event_value"
 			}
 		}
-	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], ExternalPipelineID)
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"], ExternalPipelineID)
 	assert.JSONEq(t, want, string(defaultMeta))
 
 	wantExternalMetaByte, _ := marshal(externalParentBuildMeta)
@@ -2378,6 +2477,9 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"build_only":                       "build_value", // Remain
 			"build_and_event_and_parent_event": "build_value", // Overwrote by parent event
 		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
 	}
 
 	eventFromIDMeta := map[string]interface{}{
@@ -2405,6 +2507,9 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"coverageKey":                      "event_value", // Overwrote by default value
 			"event_only":                       "event_value", // Remain
 			"build_and_event_and_parent_event": "event_value", // Overwrote by parent event
+		},
+		"event": map[string]interface{}{
+			"creator": "event_value", // Overwrote by default value
 		},
 	}
 
@@ -2434,6 +2539,9 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"parent_event_only":                "parent_event_value", // Remain
 			"build_and_event_and_parent_event": "parent_event_value", // Remain
 		},
+		"event": map[string]interface{}{
+			"creator": "parent_event_value", // Overwrote by default value
+		},
 	}
 
 	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
@@ -2448,7 +2556,7 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			// parent event
 			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: parentEventMeta}), nil
 		}
-		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta}), nil
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
@@ -2479,6 +2587,9 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"parent_event_only": "parent_event_value",
 			"build_and_event_and_parent_event": "parent_event_value"
 		},
+		"event": {
+			"creator": "%s"
+		},
 		"meta":{
 			"build_only": "build_value",
 			"event_only": "event_value",
@@ -2489,7 +2600,7 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"build_only": "build_value",
 			"build_and_event_and_parent_event": "build_value"
 		}
-	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"])
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"])
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
