@@ -174,7 +174,7 @@ func TestUnmocked(t *testing.T) {
 		{"doesntexist", fmt.Errorf("Launching command exit with code: %v", DoesNotExistExitCode), "/bin/sh"},
 		{"ls && sh -c 'exit 5' && sh -c 'exit 2'", fmt.Errorf("Launching command exit with code: %v", 5), "/bin/sh"},
 		// Custom shell
-		{"ls", nil, "/bin/sh"},
+		{"ls", nil, "/bin/bash"},
 	}
 
 	for index, test := range tests {
