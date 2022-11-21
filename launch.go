@@ -728,7 +728,7 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 		}
 
 		prepareExit(screwdriver.Failure, buildID, api, metaSpace, "")
-		TerminateSleep(sourceDir, launchShellBin, true)
+		TerminateSleep(launchShellBin, sourceDir, true)
 		cleanExit()
 		return nil
 	}
