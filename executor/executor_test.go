@@ -167,7 +167,7 @@ func TestUnmocked(t *testing.T) {
 		shell   string
 	}{
 		{"ls", nil, "/bin/sh"},
-		{"sleep 1", nil, "/bin/sh"},
+		{"echo 'foo'", nil, "/bin/sh"},
 		{"ls && ls ", nil, "/bin/sh"},
 		// Large single-line
 		{"openssl rand -hex 1000000", nil, "/bin/sh"},
