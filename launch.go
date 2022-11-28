@@ -74,14 +74,16 @@ func init() {
 	client = retryablehttp.NewClient()
 }
 
-/* has HTTP or HTTPS protocol
+/*
+has HTTP or HTTPS protocol
 targetURL => URL
 */
 func hasHTTPProtocol(targetURL *url.URL) bool {
 	return targetURL.Scheme == "http" || targetURL.Scheme == "https"
 }
 
-/* make pushgateway url
+/*
+make pushgateway url
 baseURL => base url for pushgateway
 buildID => sd build id
 */
@@ -100,7 +102,8 @@ func makePushgatewayURL(baseURL string, buildID int) (string, error) {
 	return u.String(), nil
 }
 
-/* push metrics to prometheus
+/*
+push metrics to prometheus
 metrics - sd_build_completed, sd_build_run_duration_secs
 status => sd build status
 buildID => sd build id
@@ -230,8 +233,8 @@ type Workspace struct {
 
 // createWorkspace makes a Scrwedriver workspace from path components
 // e.g. ["github.com", "screwdriver-cd" "screwdriver"] creates
-//     /sd/workspace/src/github.com/screwdriver-cd/screwdriver
-//     /sd/workspace/artifacts
+// /sd/workspace/src/github.com/screwdriver-cd/screwdriver
+// /sd/workspace/artifacts
 func createWorkspace(isLocal bool, rootDir string, srcPaths ...string) (Workspace, error) {
 	srcPaths = append([]string{"src"}, srcPaths...)
 	src := path.Join(srcPaths...)
