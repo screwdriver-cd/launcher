@@ -263,7 +263,12 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
-	f, err := pty.Start(c)
+	// Set up the Cols of the virtual terminal　
+	winSize := &pty.Winsize {
+		Cols: 200,
+	}
+
+	f, err := pty.StartWithSize(c, winSize)
 	if err != nil {
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
