@@ -263,8 +263,8 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	c.Dir = path
 	c.Env = append(env, c.Env...)
 
-	// Set up the Cols of the virtual terminal　
-	winSize := &pty.Winsize {
+	// Set up the Cols of the virtual terminal
+	winSize := &pty.Winsize{
 		Cols: 200,
 	}
 
