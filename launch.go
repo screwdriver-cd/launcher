@@ -635,6 +635,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"SD_STORE_URL":            fmt.Sprintf("%s/%s/", storeURL, "v1"),
 		"SD_UI_URL":               fmt.Sprintf("%s/", uiURL),
 		"SD_UI_BUILD_URL":         fmt.Sprintf("%s/pipelines/%s/builds/%s", uiURL, strconv.Itoa(job.PipelineID), strconv.Itoa(buildID)),
+		"SD_BUILD_CLUSTER_NAME":   build.BuildClusterName,
 		"SD_TOKEN":                buildToken,
 		"SD_CACHE_STRATEGY":       cacheStrategy,
 		"SD_PIPELINE_CACHE_DIR":   pipelineCacheDir,

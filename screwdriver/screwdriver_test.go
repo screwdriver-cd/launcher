@@ -145,6 +145,7 @@ func TestBuildFromID(t *testing.T) {
 				}{
 					QueueEntertime: "2020-05-01T20:15:31.508Z",
 				},
+				BuildClusterName: "test-build-cluster-name",
 			},
 			statusCode: 200,
 			err:        nil,

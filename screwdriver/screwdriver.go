@@ -184,6 +184,7 @@ type Build struct {
 	Stats         struct {
 		QueueEntertime string `json:"queueEnterTime"`
 	} `json:"stats"`
+	BuildClusterName string `json:"buildClusterName"`
 }
 
 // Coverage is a Coverage object returned when getInfo is called

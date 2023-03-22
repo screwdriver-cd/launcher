@@ -40,6 +40,7 @@ const (
 	TestStoreURL         = "https://store.screwdriver.cd"
 	TestUIURL            = "https://screwdriver.cd"
 	TestBuildToken       = "foobar"
+	TestBuildClusterName = "test-build-cluster-name"
 
 	TestScmURI = "github.com:123456:master"
 	TestSHA    = "abc123"
@@ -863,6 +864,7 @@ func TestSetEnv(t *testing.T) {
 		"SD_UI_URL":              "https://screwdriver.cd/",
 		"SD_UI_BUILD_URL":        "https://screwdriver.cd/pipelines/3456/builds/1234",
 		"SD_TOKEN":               "foobar",
+		"SD_BUILD_CLUSTER_NAME":  "",
 		"SD_SONAR_AUTH_URL":      "https://api.screwdriver.cd/v4/coverage/token",
 		"SD_SONAR_HOST":          "https://sonar.screwdriver.cd",
 		"SD_PIPELINE_CACHE_DIR":  "",
@@ -952,6 +954,23 @@ func TestSetEnv(t *testing.T) {
 		t.Errorf("shellBin == %s, want %s", shellBin, expectShellBin)
 	}
 
+	for k, v := range tests {
+		if foundEnv[k] != v {
+			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
+		}
+	}
+
+	// in case of the build cluster exists
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, EventID: TestEventID, JobID: TestJobID, BuildClusterName: TestBuildClusterName, SHA: TestSHA, ParentBuildID: float64(1234)}), nil
+	}
+	tests["SD_BUILD_CLUSTER_NAME"] = TestBuildClusterName
+	TestEnvVars = map[string]interface{}{}
+	foundEnv = map[string]string{}
+	err, _, _ = launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	if err != nil {
+		t.Fatalf("Unexpected error from launch: %v", err)
+	}
 	for k, v := range tests {
 		if foundEnv[k] != v {
 			t.Fatalf("foundEnv[%s] = %s, want %s", k, foundEnv[k], v)
