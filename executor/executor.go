@@ -276,7 +276,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 	// Command to Export Env. Use tmpfile just in case export -p takes some time
 	exportEnvCmd :=
 		"tmpfile=" + tmpFile + "; exportfile=" + exportFile + "; " +
-			"export -p | grep -vi \"PS1=\" > $tmpfile && mv -f $tmpfile $exportfile; "
+			"export -p | grep -vi \"PS1=|SHELLOPTS=\" > $tmpfile && mv -f $tmpfile $exportfile; "
 
 	// Run setup commands
 	setupCommands := []string{
