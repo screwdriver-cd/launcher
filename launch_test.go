@@ -54,7 +54,10 @@ var TestEnvVars = make(map[string]interface{})
 var TestScmRepo = screwdriver.ScmRepo(FakeScmRepo{
 	Name: "screwdriver-cd/launcher",
 })
-var TestEventCreator = map[string]string{"username": "stjohn"}
+var TestEventCreator = map[string]interface{}{
+	"id":       1234,
+	"username": "stjohn",
+}
 
 type FakeBuild screwdriver.Build
 type FakeCoverage screwdriver.Coverage
