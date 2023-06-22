@@ -203,7 +203,7 @@ func TestEventFromID(t *testing.T) {
 				ParentEventID: 8765,
 				Creator: map[string]interface{}{
 					"username": "testUsername",
-					"id":       1234,
+					"id":       float64(1234),
 				},
 			},
 			statusCode: 200,
