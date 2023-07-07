@@ -2557,6 +2557,7 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"coverageKey":                      "parent_event_value", // Overwrote by default value
 			"parent_event_only":                "parent_event_value", // Remain
 			"build_and_event_and_parent_event": "parent_event_value", // Remain
+			"warning":                          "parent_event_value", // Removed from merged meta
 		},
 		"event": map[string]interface{}{
 			"creator": "parent_event_value", // Overwrote by default value
