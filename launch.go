@@ -524,11 +524,12 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		buildMeta["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
 	}
 
+	mergedBuildMeta := buildMeta
 	if mergedMeta["build"] != nil {
-		mergedMeta["build"] = deepMergeJSON(mergedMeta["build"].(map[string]interface{}), buildMeta)
-	} else {
-		mergedMeta["build"] = buildMeta
+		mergedBuildMeta = deepMergeJSON(mergedMeta["build"].(map[string]interface{}), buildMeta)
 	}
+	delete(mergedBuildMeta, "warning")
+	mergedMeta["build"] = mergedBuildMeta
 
 	eventMeta := map[string]interface{}{
 		"creator": event.Creator["username"],
