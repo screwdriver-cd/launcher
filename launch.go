@@ -449,7 +449,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 
 	pipelineName := pipeline.ScmRepo.Name
 	if scm.RootDir != "" {
-		pipelineName = pipeline.ScmRepo.Name + ":" + scm.RootDir
+		pipelineName += ":" + scm.RootDir
 	}
 
 	coverageScope := ""
