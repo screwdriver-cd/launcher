@@ -419,11 +419,12 @@ func TestParseScmURI(t *testing.T) {
 	wantOrg := "screwdriver-cd"
 	wantRepo := "launcher"
 	wantBranch := "master"
+	wantRootDir := "childDirectory"
 
-	scmURI := "github.com:123456:master"
+	scmURI := "github.com:123456:master:childDirectory"
 	scmName := "screwdriver-cd/launcher"
 	parsedURL, err := parseScmURI(scmURI, scmName)
-	host, org, repo, branch := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch
+	host, org, repo, branch, rootDir := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch, parsedURL.RootDir
 	if err != nil {
 		t.Errorf("Unexpected error parsing SCM URI %q: %v", scmURI, err)
 	}
@@ -442,6 +443,10 @@ func TestParseScmURI(t *testing.T) {
 
 	if branch != wantBranch {
 		t.Errorf("branch = %q, want %q", branch, wantBranch)
+	}
+
+	if rootDir != wantRootDir {
+		t.Errorf("rootDir = %q, want %q", rootDir, wantRootDir)
 	}
 }
 

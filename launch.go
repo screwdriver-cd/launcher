@@ -442,11 +442,21 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	oldJobName := job.Name
 	pr := prNumber(job.Name)
 
+	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
+	if err != nil {
+		return err, "", ""
+	}
+
+	pipelineName := pipeline.ScmRepo.Name
+	if scm.RootDir != "" {
+		pipelineName = pipeline.ScmRepo.Name + ":" + scm.RootDir
+	}
+
 	coverageScope := ""
 	if len(job.Permutations) > 0 {
 		coverageScope = job.Permutations[0].Annotations.CoverageScope
 	}
-	coverageInfo, coverageErr := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipeline.ScmRepo.Name, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
+	coverageInfo, coverageErr := api.GetCoverageInfo(job.ID, job.PipelineID, job.Name, pipelineName, coverageScope, pr, strconv.Itoa(job.PrParentJobID))
 
 	parentBuildIDs := convertToArray(build.ParentBuildID)
 
@@ -551,11 +561,6 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	err = writeFile(metaSpace+"/"+metaFile, metaByte, 0666)
 	if err != nil {
 		return fmt.Errorf("Writing Parent %v Meta JSON: %v", metaLog, err), "", ""
-	}
-
-	scm, err := parseScmURI(pipeline.ScmURI, pipeline.ScmRepo.Name)
-	if err != nil {
-		return err, "", ""
 	}
 
 	log.Printf("Creating Workspace in %v", rootDir)
