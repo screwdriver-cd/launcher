@@ -106,6 +106,7 @@ func New(url, token string) (API, error) {
 type BuildStatusPayload struct {
 	Status string                 `json:"status"`
 	Meta   map[string]interface{} `json:"meta"`
+	Stats  map[string]interface{} `json:"stats"`
 }
 
 // BuildStatusMessagePayload is a Screwdriver Build Status Message payload.
@@ -113,6 +114,7 @@ type BuildStatusMessagePayload struct {
 	Status        string                 `json:"status"`
 	Meta          map[string]interface{} `json:"meta"`
 	StatusMessage string                 `json:"statusMessage"`
+	Stats         map[string]interface{} `json:"stats"`
 }
 
 // StepStartPayload is a Screwdriver Step Start payload.
@@ -439,18 +441,27 @@ func (a api) UpdateBuildStatus(status BuildStatus, meta map[string]interface{}, 
 		return fmt.Errorf("creating url: %v", err)
 	}
 
+	stats := map[string]interface{}{}
+	nodeId := os.Getenv("NODE_ID")
+
+	if nodeId != "" {
+		stats["hostname"] = nodeId
+	}
+
 	var payload []byte
 	if statusMessage != "" {
 		bs := BuildStatusMessagePayload{
 			Status:        status.String(),
 			Meta:          meta,
 			StatusMessage: statusMessage,
+			Stats:         stats,
 		}
 		payload, err = json.Marshal(bs)
 	} else {
 		bs := BuildStatusPayload{
 			Status: status.String(),
 			Meta:   meta,
+			Stats:  stats,
 		}
 		payload, err = json.Marshal(bs)
 	}
