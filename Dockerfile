@@ -35,7 +35,9 @@ RUN set -x \
    && find /hab -name docs -exec rm -r {} + \
    && find /hab -name man -exec rm -r {} + \
    # bin link bash if not present
-   && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi
+   && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi \
+   # Download zstd
+   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz"
 
 FROM base AS base-arm64
 RUN set -x \
@@ -45,7 +47,9 @@ RUN set -x \
    && apk add --no-cache --update ca-certificates \
    && apk add --no-cache --virtual .build-dependencies gpgme \
    # Donwload pkgs needed in container
-   && apk add --no-cache composer wget zip unzip git bash iptables sed docker jq curl kmod
+   && apk add --no-cache composer wget zip unzip git bash iptables sed docker jq curl kmod \
+   # Download zstd
+   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux-aarch64.tar.gz"
 
 # Install common dependencies by target architcture
 FROM base-${TARGETARCH} AS final
@@ -145,7 +149,6 @@ RUN set -x \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo \
    # Install zstd
-   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz" \
    && wget -q -O zstd-cli-macosx.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz" \
    && tar -C . -ozxvf zstd-cli-linux.tar.gz \
    && mv zstd zstd-cli-linux \
