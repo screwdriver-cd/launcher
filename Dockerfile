@@ -49,7 +49,13 @@ RUN set -x \
    # Donwload pkgs needed in container
    && apk add --no-cache composer wget zip unzip git bash iptables sed docker jq curl kmod \
    # Download zstd
-   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux-aarch64.tar.gz"
+   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux-aarch64.tar.gz" \
+   # Download sonar scanner cli any
+   && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip" \
+   && unzip -q sonarscanner-cli-any.zip \
+   && mv sonar-scanner-*-any sonarscanner-cli-macosx-arm64 \
+   # Cleanup
+   && rm -rf /opt/sd/sonarscanner-cli-any.zip /opt/sd/sonar-scanner-*-any
 
 # Install common dependencies by target architcture
 FROM base-${TARGETARCH} AS final
