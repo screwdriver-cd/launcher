@@ -53,9 +53,9 @@ RUN set -x \
    # Download sonar scanner cli any
    && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip" \
    && unzip -q sonarscanner-cli-any.zip \
-   && mv sonar-scanner-*-any sonarscanner-cli-macosx-arm64 \
+   && mv sonar-scanner-* sonarscanner-cli-macosx-arm64 \
    # Cleanup
-   && rm -rf /opt/sd/sonarscanner-cli-any.zip /opt/sd/sonar-scanner-*
+   && rm -rf /opt/sd/sonarscanner-cli-any.zip
 
 # Install common dependencies by target architcture
 FROM base-${TARGETARCH} AS final
