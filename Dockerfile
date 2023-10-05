@@ -55,7 +55,7 @@ RUN set -x \
    && unzip -q sonarscanner-cli-any.zip \
    && mv sonar-scanner-*-any sonarscanner-cli-macosx-arm64 \
    # Cleanup
-   && rm -rf /opt/sd/sonarscanner-cli-any.zip /opt/sd/sonar-scanner-*-any
+   && rm -rf /opt/sd/sonarscanner-cli-any.zip /opt/sd/sonar-scanner-*
 
 # Install common dependencies by target architcture
 FROM base-${TARGETARCH} AS final
@@ -144,8 +144,8 @@ RUN set -x \
    && chmod +x /usr/local/bin/dumb-init \
    && cp /usr/local/bin/dumb-init /opt/sd/dumb-init \
    # Install Sonar scanner cli
-   && wget -O sonarscanner-cli-linux.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip" \
-   && wget -O sonarscanner-cli-macosx.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-macosx.zip" \
+   && wget -O sonarscanner-cli-linux.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip" \
+   && wget -O sonarscanner-cli-macosx.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-macosx.zip" \
    && unzip -q sonarscanner-cli-linux.zip \
    && unzip -q sonarscanner-cli-macosx.zip \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
