@@ -3,14 +3,21 @@
 # Trap these SIGNALs and run teardown
 trap 'trap_handler $@' INT TERM
 
-trap_handler () {
-    code=$?
-    if [ $code -ne 0 ]; then
-        echo "Exit code:$code received in run.sh, waiting for $SD_TERMINATION_GRACE_PERIOD_SECONDS seconds"
-        # this trap does not wait for launcher SIGTERM processing completion 
-        # so add sleep until timeoutgraceperiodseconds is elapsed
-        sleep $SD_TERMINATION_GRACE_PERIOD_SECONDS
-    fi
+dump_event() {
+  if [ -r /tmp/sd_event.json ]; then
+    cat /tmp/sd_event.json
+  fi
+}
+
+trap_handler() {
+  code=$?
+  if [ $code -ne 0 ]; then
+    echo "Exit code:$code received in run.sh, waiting for $SD_TERMINATION_GRACE_PERIOD_SECONDS seconds"
+    # this trap does not wait for launcher SIGTERM processing completion
+    # so add sleep until timeoutgraceperiodseconds is elapsed
+    sleep $((SD_TERMINATION_GRACE_PERIOD_SECONDS - 1))
+    dump_event
+  fi
 }
 
 # Get push gateway url and container image from env variable
@@ -42,6 +49,4 @@ else
   SD_TOKEN=`/opt/sd/launch --only-fetch-token --token "$1" --api-uri "$2" --store-uri "$3" --ui-uri "$6" --emitter /sd/emitter --build-timeout "$4" --cache-strategy "$7" --pipeline-cache-dir "$8" --job-cache-dir "$9" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --cache-max-go-threads "${14}" "$5"` && (/opt/sd/launch --token "$SD_TOKEN" --api-uri "$2" --store-uri "$3" --ui-uri "$6" --emitter /sd/emitter --build-timeout "$4" --cache-strategy "$7" --pipeline-cache-dir "$8" --job-cache-dir "$9" --event-cache-dir "${10}" --cache-compress "${11}" --cache-md5check "${12}" --cache-max-size-mb "${13}" --cache-max-go-threads "${14}" "$5" & /opt/sd/logservice --token "$SD_TOKEN" --emitter /sd/emitter --api-uri "$2" --store-uri "$3" --build "$5" & wait $(jobs -p))
 fi
 
-if [ -r /tmp/sd_event.json ]; then
-  cat /tmp/sd_event.json
-fi
+dump_event
