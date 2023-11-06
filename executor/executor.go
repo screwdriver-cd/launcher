@@ -109,7 +109,7 @@ func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, set
 		t      string
 		err    error
 		reader = bufio.NewReader(r)
-		reEcho = regexp.MustCompile("echo ;")
+		reEcho = regexp.MustCompile("^$")
 	)
 
 	shargs := strings.Join(setupCommands, " && ")
