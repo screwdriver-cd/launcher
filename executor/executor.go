@@ -287,7 +287,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish ABRT EXIT;\necho ;\n",
+		"trap finish ABRT EXIT;\n\necho ;\n",
 	}
 
 	setupReader := bufio.NewReader(f)
