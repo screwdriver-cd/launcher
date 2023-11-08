@@ -109,7 +109,7 @@ func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, set
 		t      string
 		err    error
 		reader = bufio.NewReader(r)
-		reEcho = regexp.MustCompile("echo ;")
+		reEcho = regexp.MustCompile("^$")
 	)
 
 	shargs := strings.Join(setupCommands, " && ")
@@ -287,7 +287,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish ABRT EXIT;\necho ;\n",
+		"trap finish ABRT EXIT;\n\n",
 	}
 
 	setupReader := bufio.NewReader(f)
