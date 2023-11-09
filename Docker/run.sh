@@ -3,9 +3,12 @@
 # Trap these SIGNALs and run teardown
 trap 'trap_handler $@' INT TERM
 
+event_dumped=""
 dump_event() {
-  if [ -r /tmp/sd_event.json ]; then
+  if [ -r /tmp/sd_event.json ] && [ -z "$event_dumped" ]; then
+    echo
     cat /tmp/sd_event.json
+    event_dumped=1
   fi
 }
 
@@ -13,6 +16,7 @@ trap_handler() {
   code=$?
   if [ $code -ne 0 ]; then
     echo "Exit code:$code received in run.sh, waiting for $SD_TERMINATION_GRACE_PERIOD_SECONDS seconds"
+    dump_event
     # this trap does not wait for launcher SIGTERM processing completion
     # so add sleep until timeoutgraceperiodseconds is elapsed
     sleep $((SD_TERMINATION_GRACE_PERIOD_SECONDS - 1))
