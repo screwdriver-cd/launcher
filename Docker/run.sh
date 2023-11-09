@@ -5,6 +5,7 @@ trap 'trap_handler $@' INT TERM
 
 dump_event() {
   if [ -r /tmp/sd_event.json ]; then
+    echo
     cat /tmp/sd_event.json
   fi
 }
