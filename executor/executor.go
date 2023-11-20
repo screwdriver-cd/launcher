@@ -118,6 +118,7 @@ func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, set
 
 	t, err = readln(reader)
 	for err == nil {
+		t = strings.TrimLeft(t, "# ")
 		t = strings.TrimLeft(t, "$ ")
 		echoCmd := reEcho.FindStringSubmatch(t)
 		if len(echoCmd) != 0 {
@@ -288,7 +289,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish ABRT EXIT;\n\n",
+		"trap finish ABRT EXIT;\necho ;\n",
 	}
 
 	setupReader := bufio.NewReader(f)
