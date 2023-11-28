@@ -338,7 +338,9 @@ func (a api) GetAPIURL() (string, error) {
 
 // Get coverage object with coverage information
 func (a api) GetCoverageInfo(jobID, pipelineID int, jobName, pipelineName, scope, prNum, prParentJobId string) (coverage Coverage, err error) {
-	url, err := a.makeURL(fmt.Sprintf(CoverageURL, jobID, pipelineID, jobName, pipelineName, scope, prNum, prParentJobId))
+	// If pipelineName contains a percent sign (%), it needs to be encoded to ensure the URL can be parsed correctly.
+	encodedPipelineName := strings.Replace(pipelineName, "%", "%25", -1)
+	url, err := a.makeURL(fmt.Sprintf(CoverageURL, jobID, pipelineID, jobName, encodedPipelineName, scope, prNum, prParentJobId))
 	body, err := a.get(url)
 	if err != nil {
 		return coverage, err

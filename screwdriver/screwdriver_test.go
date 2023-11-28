@@ -252,11 +252,13 @@ func TestGetCoverageInfo(t *testing.T) {
 		"SD_SONAR_ENTERPRISE": false,
 	}
 	tests := []struct {
-		coverage   Coverage
-		statusCode int
-		err        error
+		pipelineName string
+		coverage     Coverage
+		statusCode   int
+		err          error
 	}{
 		{
+			pipelineName: "d2lam/mytest",
 			coverage: Coverage{
 				EnvVars: envVars,
 			},
@@ -264,16 +266,26 @@ func TestGetCoverageInfo(t *testing.T) {
 			err:        nil,
 		},
 		{
-			coverage:   Coverage{},
-			statusCode: 500,
+			pipelineName: "specialCharacter/!\"#$%&'()-=|@`{;+]},<.>　🚗",
+			coverage: Coverage{
+				EnvVars: envVars,
+			},
+			statusCode: 200,
+			err:        nil,
+		},
+		{
+			pipelineName: "d2lam/mytest",
+			coverage:     Coverage{},
+			statusCode:   500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId=): " +
 				"Get \"http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId=\": " +
 				"GET http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId= giving up after 5 attempts "),
 		},
 		{
-			coverage:   Coverage{},
-			statusCode: 404,
-			err:        errors.New("WARNING: received response 404 from http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId= "),
+			pipelineName: "d2lam/mytest",
+			coverage:     Coverage{},
+			statusCode:   404,
+			err:          errors.New("WARNING: received response 404 from http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId= "),
 		},
 	}
 
@@ -288,7 +300,7 @@ func TestGetCoverageInfo(t *testing.T) {
 		client.HTTPClient = makeFakeHTTPClient(t, test.statusCode, string(JSON))
 		testAPI := api{"http://fakeurl", "faketoken", client}
 
-		coverage, err := testAPI.GetCoverageInfo(123, 456, "main", "d2lam/mytest", "", "", "")
+		coverage, err := testAPI.GetCoverageInfo(123, 456, "main", test.pipelineName, "", "", "")
 
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("Unexpected error from GetCoverageInfo: \n%v\n want \n%v", err.Error(), test.err.Error())
