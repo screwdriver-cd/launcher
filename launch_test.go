@@ -419,9 +419,9 @@ func TestParseScmURI(t *testing.T) {
 	wantOrg := "screwdriver-cd"
 	wantRepo := "launcher"
 	wantBranch := "master"
-	wantRootDir := "childDirectory"
+	wantRootDir := "child:Directory"
 
-	scmURI := "github.com:123456:master:childDirectory"
+	scmURI := "github.com:123456:master:child:Directory"
 	scmName := "screwdriver-cd/launcher"
 	parsedURL, err := parseScmURI(scmURI, scmName)
 	host, org, repo, branch, rootDir := parsedURL.Host, parsedURL.Org, parsedURL.Repo, parsedURL.Branch, parsedURL.RootDir

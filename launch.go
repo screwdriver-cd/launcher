@@ -205,7 +205,7 @@ func parseScmURI(scmURI, scmName string) (scmPath, error) {
 	uri := strings.Split(scmURI, ":")
 	orgRepo := strings.Split(scmName, "/")
 
-	if (len(uri) != 3 && len(uri) != 4) || len(orgRepo) != 2 {
+	if len(uri) < 3 || len(orgRepo) != 2 {
 		return scmPath{}, fmt.Errorf("Unable to parse scmUri %v and scmName %v", scmURI, scmName)
 	}
 
@@ -218,7 +218,7 @@ func parseScmURI(scmURI, scmName string) (scmPath, error) {
 	}
 
 	if len(uri) > 3 {
-		parsed.RootDir = uri[3]
+		parsed.RootDir = strings.Join(uri[3:], ":")
 	}
 
 	return parsed, nil
