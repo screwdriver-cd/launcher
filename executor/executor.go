@@ -105,16 +105,12 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 }
 
 func doRunSetupCommand(guid string, emitter screwdriver.Emitter, f *os.File, r io.Reader, setupCommands []string) error {
-	var (
-		err    error
-	)
-
 	shargs := strings.Join(setupCommands, " && ")
 
 	f.Write([]byte(shargs))
 
 	// ignore exit code in setup commands
-	_, err = copyLinesUntil(r, emitter, guid)
+	_, err := copyLinesUntil(r, emitter, guid)
 
 	return err
 }
