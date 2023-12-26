@@ -104,40 +104,19 @@ func copyLinesUntil(r io.Reader, w io.Writer, match string) (int, error) {
 	return ExitOk, nil
 }
 
-func doRunSetupCommand(emitter screwdriver.Emitter, f *os.File, r io.Reader, setupCommands []string) error {
+func doRunSetupCommand(guid string, emitter screwdriver.Emitter, f *os.File, r io.Reader, setupCommands []string) error {
 	var (
-		t      string
 		err    error
-		reader = bufio.NewReader(r)
-		reEcho = regexp.MustCompile("^$")
 	)
 
 	shargs := strings.Join(setupCommands, " && ")
 
 	f.Write([]byte(shargs))
 
-	t, err = readln(reader)
-	for err == nil {
-		t = strings.TrimLeft(t, "# ")
-		t = strings.TrimLeft(t, "$ ")
-		echoCmd := reEcho.FindStringSubmatch(t)
-		if len(echoCmd) != 0 {
-			_, werr := fmt.Fprintln(emitter, t)
-			if werr != nil {
-				return fmt.Errorf("Error piping logs to emitter: %v", werr)
-			}
-			return nil
-		}
-		_, werr := fmt.Fprintln(emitter, t)
-		if werr != nil {
-			return fmt.Errorf("Error piping logs to emitter: %v", werr)
-		}
-		t, err = readln(reader)
-	}
-	if err != nil {
-		return fmt.Errorf("Error with reader: %v", err)
-	}
-	return nil
+	// ignore exit code in setup commands
+	_, err = copyLinesUntil(r, emitter, guid)
+
+	return err
 }
 
 func doRunCommand(guid, path string, emitter screwdriver.Emitter, f *os.File, fReader io.Reader, stepName string) (int, error) {
@@ -275,6 +254,9 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		return fmt.Errorf("Cannot start shell: %v", err)
 	}
 
+	// Generate guid v4 for the setup commands
+	guid := uuid.Must(uuid.NewRandom()).String()
+
 	// Command to Export Env. Use tmpfile just in case export -p takes some time
 	exportEnvCmd :=
 		"tmpfile=" + tmpFile + "; exportfile=" + exportFile + "; " +
@@ -289,11 +271,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			"EXITCODE=$?; " +
 			exportEnvCmd +
 			"echo $SD_STEP_ID $EXITCODE; }", //mv newfile to file
-		"trap finish ABRT EXIT;\necho ;\n",
+		"trap finish ABRT EXIT;echo " + guid + " $?\n",
 	}
 
 	setupReader := bufio.NewReader(f)
-	if err := doRunSetupCommand(emitter, f, setupReader, setupCommands); err != nil {
+	if err := doRunSetupCommand(guid, emitter, f, setupReader, setupCommands); err != nil {
 		return err
 	}
 
@@ -333,7 +315,7 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		}
 
 		// Generate guid v4 for the step
-		guid := uuid.Must(uuid.NewRandom()).String()
+		guid = uuid.Must(uuid.NewRandom()).String()
 
 		runErr := make(chan error, 1)
 		eCode := make(chan int, 1)
