@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -2633,8 +2634,21 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 	}
 }
 
-func fakeHttpClient() *http.Client {
+type RequestCapture struct {
+	Method string
+	URL    *url.URL
+	Header http.Header
+	Body   string
+}
+
+func fakeHttpClient(capture *RequestCapture) *http.Client {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capture.Method = r.Method
+		capture.URL = r.URL
+		capture.Header = r.Header
+		bodyBytes, _ := ioutil.ReadAll(r.Body)
+		capture.Body = string(bodyBytes)
+
 		data := strings.Split(r.URL.String(), "&")
 		code, _ := strconv.Atoi(data[1])
 		body := data[1]
@@ -2690,10 +2704,20 @@ func TestMakePushgatewayURL(t *testing.T) {
 }
 
 func TestPushMetrics(t *testing.T) {
-	httpTest := fakeHttpClient()
+	var capture RequestCapture
+	httpTest := fakeHttpClient(&capture)
 	client.HTTPClient = httpTest
 	ts := time.Now().Unix() - 2000
+
 	os.Setenv("CONTAINER_IMAGE", "dummy_image")
+	os.Setenv("SD_PIPELINE_ID", "1")
+	os.Setenv("NODE_ID", "node1")
+	os.Setenv("SD_JOB_ID", "123")
+	os.Setenv("SD_JOB_NAME", "dummy_job")
+	os.Setenv("SCM_URL", "http://fake.scm")
+	os.Setenv("SD_BUILD_PREFIX", "dummy_prefix")
+	os.Setenv("CONTAINER_CPU_LIMIT", "1")
+	os.Setenv("CONTAINER_MEMORY_LIMIT", "2147483648")
 
 	// SD_PUSHGATEWAY_URL null
 	os.Setenv("SD_PUSHGATEWAY_URL", "")
@@ -2724,10 +2748,18 @@ func TestPushMetrics(t *testing.T) {
 	// 200 success
 	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
 	os.Setenv("SD_LAUNCHER_END_TS", strconv.FormatInt(ts, 10))
+	wantPattern := `sd_build_status{image_name="dummy_image",pipeline_id="1",node="node1",job_id="123",job_name="dummy_job",scm_url="http://fake.scm",status="success",prefix="dummy_prefix"} 1
+sd_build_run_time_secs{image_name="dummy_image",pipeline_id="1",node="node1",job_id="123",job_name="dummy_job",scm_url="http://fake.scm",status="success",prefix="dummy_prefix",cpu="1",ram="2147483648"} \d+
+sd_build_time_secs{image_name="dummy_image",pipeline_id="1",node="node1",job_id="123",job_name="dummy_job",scm_url="http://fake.scm",status="success",prefix="dummy_prefix"} \d+
+sd_build_queued_time_secs{image_name="dummy_image",pipeline_id="1",node="node1",job_id="123",job_name="dummy_job",scm_url="http://fake.scm",status="success",prefix="dummy_prefix"} 0
+sd_build_setup_time_secs{image_name="dummy_image",pipeline_id="1",node="node1",job_id="123",job_name="dummy_job",scm_url="http://fake.scm",status="success",prefix="dummy_prefix"} 0
+`
+	re, err := regexp.Compile(wantPattern)
 	err = pushMetrics("success", 1)
 	if err != nil {
 		t.Errorf("Push metrics expect to return [nil] but got [%v]", err)
 	}
+	assert.True(t, re.MatchString(capture.Body))
 
 	// 200 success, launcher end timestamp null / blank
 	os.Setenv("SD_PUSHGATEWAY_URL", "http://fake.pushgateway.url&200&0")
