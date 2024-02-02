@@ -127,6 +127,8 @@ func pushMetrics(status string, buildID int) error {
 		jobName := os.Getenv("SD_JOB_NAME")
 		scmURL := os.Getenv("SCM_URL")
 		sdBuildPrefix := os.Getenv("SD_BUILD_PREFIX")
+		cpu := os.Getenv("CONTAINER_CPU_LIMIT")
+		ram := os.Getenv("CONTAINER_MEMORY_LIMIT")
 		launcherStartTS, _ := strconv.ParseInt(os.Getenv("SD_LAUNCHER_START_TS"), 10, 64)
 		buildStartTS, _ := strconv.ParseInt(os.Getenv("SD_BUILD_START_TS"), 10, 64)
 		// build run end timestamp
@@ -148,7 +150,7 @@ func pushMetrics(status string, buildID int) error {
 
 		// data need to be specified in this format for pushgateway
 		data := `sd_build_status{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} 1
-sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
+sd_build_run_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `",cpu="` + cpu + `",ram="` + ram + `"} ` + strconv.FormatInt(buildRunTimeSecs, 10) + `
 sd_build_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildTimeSecs, 10) + `
 sd_build_queued_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildQueuedTimeSecs, 10) + `
 sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId + `",node="` + node + `",job_id="` + jobId + `",job_name="` + jobName + `",scm_url="` + scmURL + `",status="` + status + `",prefix="` + sdBuildPrefix + `"} ` + strconv.FormatInt(buildSetupTimeSecs, 10) + `
