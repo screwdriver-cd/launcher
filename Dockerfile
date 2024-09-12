@@ -37,7 +37,7 @@ RUN set -x \
    # bin link bash if not present
    && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi \
    # Download zstd
-   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz"
+   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.37/zstd-cli-linux.tar.gz"
 
 FROM base AS base-arm64
 RUN set -x \
@@ -49,7 +49,7 @@ RUN set -x \
    # Donwload pkgs needed in container
    && apk add --no-cache composer wget zip unzip git bash iptables sed docker jq curl kmod \
    # Download zstd
-   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux-aarch64.tar.gz" \
+   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.37/zstd-cli-linux-aarch64.tar.gz" \
    # Download sonar scanner cli any
    && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip" \
    && unzip -q sonarscanner-cli-any.zip \
@@ -151,11 +151,11 @@ RUN set -x \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
    && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
    # Install skope
-   && wget -q -O skopeo-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/skopeo-linux.tar.gz" \
+   && wget -q -O skopeo-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.37/skopeo-linux.tar.gz" \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && chmod +x skopeo \
    # Install zstd
-   && wget -q -O zstd-cli-macosx.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz" \
+   && wget -q -O zstd-cli-macosx.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.37/zstd-cli-macosx.tar.gz" \
    && tar -C . -ozxvf zstd-cli-linux.tar.gz \
    && mv zstd zstd-cli-linux \
    && tar -C . -ozxvf zstd-cli-macosx.tar.gz \
