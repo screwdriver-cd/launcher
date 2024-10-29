@@ -499,7 +499,10 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		}
 
 		metaLog = fmt.Sprintf(`Build(%v)`, parentBuildIDs[0])
-	} else if event.ParentEventID != 0 { // If has parent event, fetch meta from parent event
+	}
+
+	// Always merge parent event meta if it exists (Issue #3234)
+	if event.ParentEventID != 0 { // If has parent event, fetch meta from parent event
 		log.Printf("Fetching Parent Event %d", event.ParentEventID)
 		parentEvent, err := api.EventFromID(event.ParentEventID)
 		if err != nil {
