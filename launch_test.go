@@ -1324,6 +1324,9 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 		}
 		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
 	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID}), nil
+	}
 	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
 		return fmt.Errorf("Testing writing parent build meta")
 	}
@@ -1804,6 +1807,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"build_only":                            "build_value", // Remain
 			"build_and_event_and_inner_pipeline":    "build_value", // Remain
 			"build_and_event_and_external_pipeline": "build_value", // Remain
+			"build_and_event_and_parent_event":      "build_value", // Remain
 		},
 		"meta": map[string]interface{}{
 			"summary": map[string]string{ // This should be deleted
@@ -1887,6 +1891,38 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 				"event_only":      "event_value", // Remain
 				"external_parent": "event_value", // This should be deleted
 			},
+		},
+	}
+
+	parentEventMeta := map[string]interface{}{
+		"parent_event_only":                "parent_event_value", // Remain
+		"build_and_event_and_parent_event": "parent_event_value", // Remain
+		"parameters": map[string]string{
+			"parent_event_only":                "parent_event_value", // This should be deleted
+			"build_and_event_and_parent_event": "parent_event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"parent_event_only":                "parent_event_value",
+				"build_and_event_and_parent_event": "parent_event_value",
+			},
+			"parent_event_only":                "parent_event_value", // Remain
+			"build_and_event_and_parent_event": "parent_event_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                          "parent_event_value", // Overwrote by default value
+			"jobId":                            "parent_event_value", // Overwrote by default value
+			"eventId":                          "parent_event_value", // Overwrote by default value
+			"pipelineId":                       "parent_event_value", // Overwrote by default value
+			"sha":                              "parent_event_value", // Overwrote by default value
+			"jobName":                          "parent_event_value", // Overwrote by default value
+			"coverageKey":                      "parent_event_value", // Overwrote by default value
+			"parent_event_only":                "parent_event_value", // Remain
+			"build_and_event_and_parent_event": "parent_event_value", // Remain
+			"warning":                          "parent_event_value", // Removed from merged meta
+		},
+		"event": map[string]interface{}{
+			"creator": "parent_event_value", // Overwrote by default value
 		},
 	}
 
@@ -2001,6 +2037,11 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestParentEventID {
+			// parent event
+			return screwdriver.Event(FakeEvent{ID: TestParentEventID, Meta: parentEventMeta}), nil
+		}
+
 		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
@@ -2024,6 +2065,8 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 		"inner_pipeline_only": "inner_pipeline_value",
 		"build_and_event_and_inner_pipeline": "inner_pipeline_value",
 		"build_and_event_and_external_pipeline": "external_pipeline_value",
+		"build_and_event_and_parent_event": "parent_event_value",
+		"parent_event_only": "parent_event_value",
 		"build":{
 			"buildId": "%d",
 			"jobId": "%d",
@@ -2037,7 +2080,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"inner_pipeline_only": "inner_pipeline_value",
 			"external_pipeline_only": "external_pipeline_value",
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
-			"build_and_event_and_external_pipeline": "external_pipeline_value"
+			"build_and_event_and_external_pipeline": "external_pipeline_value",
+			"build_and_event_and_parent_event": "parent_event_value",
+			"parent_event_only": "parent_event_value"
 		},
 		"event": {
 			"creator": "%s"
@@ -2048,12 +2093,15 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"external_pipeline_only": "external_pipeline_value",
 			"inner_pipeline_only": "inner_pipeline_value",
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
-			"build_and_event_and_external_pipeline": "external_pipeline_value"
+			"build_and_event_and_external_pipeline": "external_pipeline_value",
+			"build_and_event_and_parent_event": "parent_event_value",
+			"parent_event_only": "parent_event_value"
 		},
 		"parameters": {
 			"build_only": "build_value",
 			"build_and_event_and_inner_pipeline": "build_value",
-			"build_and_event_and_external_pipeline": "build_value"
+			"build_and_event_and_external_pipeline": "build_value",
+			"build_and_event_and_parent_event": "build_value"
 		},
 		"sd": {
 			"build_only": "build_value",
@@ -2226,7 +2274,7 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 		"build_only": "build_value",
 		"event_only": "event_value",
 		"inner_pipeline_only": "inner_pipeline_value",
-		"build_and_event_and_inner_pipeline": "inner_pipeline_value",
+		"build_and_event_and_inner_pipeline": "event_value",
 		"build":{
 			"buildId": "%d",
 			"jobId": "%d",
@@ -2238,7 +2286,7 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"build_only": "build_value",
 			"event_only": "event_value",
 			"inner_pipeline_only": "inner_pipeline_value",
-			"build_and_event_and_inner_pipeline": "inner_pipeline_value"
+			"build_and_event_and_inner_pipeline": "event_value"
 		},
 		"event": {
 			"creator": "%s"
@@ -2247,7 +2295,7 @@ func TestMetaWhenTriggeredFromInnerPipelineByORLogicWithParentBuildMeta(t *testi
 			"build_only": "build_value",
 			"event_only": "event_value",
 			"inner_pipeline_only": "inner_pipeline_value",
-			"build_and_event_and_inner_pipeline": "inner_pipeline_value"
+			"build_and_event_and_inner_pipeline": "event_value"
 		},
 		"parameters": {
 			"build_only": "build_value",
@@ -2348,6 +2396,38 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		},
 	}
 
+	parentEventMeta := map[string]interface{}{
+		"parent_event_only":                "parent_event_value", // Remain
+		"build_and_event_and_parent_event": "parent_event_value", // Remain
+		"parameters": map[string]string{
+			"parent_event_only":                "parent_event_value", // This should be deleted
+			"build_and_event_and_parent_event": "parent_event_value", // Overwrote by build
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"parent_event_only":                "parent_event_value",
+				"build_and_event_and_parent_event": "parent_event_value",
+			},
+			"parent_event_only":                "parent_event_value", // Remain
+			"build_and_event_and_parent_event": "parent_event_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                          "parent_event_value", // Overwrote by default value
+			"jobId":                            "parent_event_value", // Overwrote by default value
+			"eventId":                          "parent_event_value", // Overwrote by default value
+			"pipelineId":                       "parent_event_value", // Overwrote by default value
+			"sha":                              "parent_event_value", // Overwrote by default value
+			"jobName":                          "parent_event_value", // Overwrote by default value
+			"coverageKey":                      "parent_event_value", // Overwrote by default value
+			"parent_event_only":                "parent_event_value", // Remain
+			"build_and_event_and_parent_event": "parent_event_value", // Remain
+			"warning":                          "parent_event_value", // Removed from merged meta
+		},
+		"event": map[string]interface{}{
+			"creator": "parent_event_value", // Overwrote by default value
+		},
+	}
+
 	externalParentBuildMeta := map[string]interface{}{
 		"external_pipeline_only":                "external_pipeline_value", // This should be deleted
 		"build_and_event_and_external_pipeline": "external_pipeline_value", // Overwrote by event
@@ -2407,6 +2487,11 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: InnerPipelineID, Name: "main"}), nil
 	}
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		if eventID == TestParentEventID {
+			// parent event
+			return screwdriver.Event(FakeEvent{ID: TestParentEventID, Meta: parentEventMeta}), nil
+		}
+
 		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
 	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
@@ -2427,6 +2512,8 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		"build_only": "build_value",
 		"event_only": "event_value",
 		"build_and_event_and_external_pipeline": "event_value",
+		"build_and_event_and_parent_event": "parent_event_value",
+		"parent_event_only": "parent_event_value",
 		"build":{
 			"buildId": "%d",
 			"jobId": "%d",
@@ -2437,7 +2524,9 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"coverageKey": "%s",
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"build_and_event_and_external_pipeline": "event_value"
+			"build_and_event_and_external_pipeline": "event_value",
+			"build_and_event_and_parent_event": "parent_event_value",
+			"parent_event_only": "parent_event_value"
 		},
 		"event": {
 			"creator": "%s"
@@ -2445,7 +2534,9 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		"meta": {
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"build_and_event_and_external_pipeline": "event_value"
+			"build_and_event_and_external_pipeline": "event_value",
+			"build_and_event_and_parent_event": "parent_event_value",
+			"parent_event_only": "parent_event_value"
 		},
 		"parameters": {
 			"build_only": "build_value",
@@ -2580,7 +2671,7 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
 		if eventID == TestParentEventID {
 			// parent event
-			return screwdriver.Event(FakeEvent{ID: TestEventID, Meta: parentEventMeta}), nil
+			return screwdriver.Event(FakeEvent{ID: TestParentEventID, Meta: parentEventMeta}), nil
 		}
 		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
 	}
