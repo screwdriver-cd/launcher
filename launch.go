@@ -622,7 +622,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		"PS1":                     "",
 		"SCREWDRIVER":             isCI,
 		"CI":                      isCI,
-		"GIT_PAGER":               "cat", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
+		"GIT_PAGER":               "cat",  // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-539677403
+		"GIT_ASKPASS":             "echo", // https://github.com/screwdriver-cd/screwdriver/issues/1583#issuecomment-2451234577
 		"CONTINUOUS_INTEGRATION":  isCI,
 		"SD_JOB_NAME":             oldJobName,
 		"SD_PIPELINE_NAME":        pipeline.ScmRepo.Name,
