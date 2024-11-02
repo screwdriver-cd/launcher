@@ -1849,8 +1849,10 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 
 	eventFromIDMeta := map[string]interface{}{
 		"event_only":                            "event_value", // Remain
+		"event_and_parent_event":                "event_value", // Remain
 		"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by inner pipeline
 		"build_and_event_and_external_pipeline": "event_value", // Overwrote by external pipeline
+		"build_and_event_and_parent_event":      "event_value", // Overwrote by inner pipeline
 		"parameters": map[string]string{
 			"event_only":                            "event_value", // This should be deleted
 			"build_and_event_and_inner_pipeline":    "event_value", // Overwrote by build
@@ -1896,7 +1898,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 
 	parentEventMeta := map[string]interface{}{
 		"parent_event_only":                "parent_event_value", // Remain
-		"build_and_event_and_parent_event": "parent_event_value", // Remain
+		"build_and_event_and_parent_event": "parent_event_value", // Overwrote by inner pipeline
 		"parameters": map[string]string{
 			"parent_event_only":                "parent_event_value", // This should be deleted
 			"build_and_event_and_parent_event": "parent_event_value", // Overwrote by build
@@ -1929,6 +1931,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 	innerParentBuildMeta := map[string]interface{}{
 		"inner_pipeline_only":                "inner_pipeline_value", // Remain
 		"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Remain
+		"build_and_event_and_parent_event":   "inner_pipeline_value", // Remain
 		"parameters": map[string]string{
 			"inner_pipeline_only":                "inner_pipeline_value", // This should be deleted
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value", // Overwrote by build
@@ -2065,8 +2068,9 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 		"inner_pipeline_only": "inner_pipeline_value",
 		"build_and_event_and_inner_pipeline": "inner_pipeline_value",
 		"build_and_event_and_external_pipeline": "external_pipeline_value",
-		"build_and_event_and_parent_event": "parent_event_value",
+		"build_and_event_and_parent_event": "inner_pipeline_value",
 		"parent_event_only": "parent_event_value",
+		"event_and_parent_event": "event_value",
 		"build":{
 			"buildId": "%d",
 			"jobId": "%d",
