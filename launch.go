@@ -474,9 +474,9 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		return err, "", ""
 	}
 
-	// Note: event and parent event meta are mutually exclusive
-	// the first build in the event for a restart case will use the parent event meta
-	// on launcher exit, the build meta will be merged int to the current event meta
+	// Note: Event and parent event meta are mutually exclusive.
+	// The first build in the event for a restart case will use the parent event meta.
+	// On launcher exit, the build meta will be merged into the current event meta.
 
 	// merge event meta if available
 	if len(event.Meta) > 0 {
