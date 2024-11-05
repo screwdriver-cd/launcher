@@ -489,12 +489,29 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
 	}
 
-	// Always merge event meta
+	// Note: event and parent event meta are mutually exclusive
+	// the first event in the build chain for a restart case will use the parent event meta
+	// on launcher exit, the meta will be updated to the current event meta
+
+	// merge event meta if available
 	if len(event.Meta) > 0 { // If has meta, marshal it
 		log.Printf("Fetching Event Meta JSON %v", event.ID)
 		if event.Meta != nil {
 			mergedMeta = deepMergeJSON(mergedMeta, event.Meta)
 		}
+	} else if event.ParentEventID != 0 { // otherwise, fetch from parent event
+		// If has parent event, fetch meta from parent event
+		log.Printf("Fetching Parent Event %d", event.ParentEventID)
+		parentEvent, err := api.EventFromID(event.ParentEventID)
+		if err != nil {
+			return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err), "", ""
+		}
+
+		if parentEvent.Meta != nil {
+			mergedMeta = deepMergeJSON(mergedMeta, parentEvent.Meta)
+		}
+
+		metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
 	}
 
 	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata (join case)
