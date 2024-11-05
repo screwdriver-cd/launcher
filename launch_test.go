@@ -2069,7 +2069,6 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 		"build_and_event_and_inner_pipeline": "inner_pipeline_value",
 		"build_and_event_and_external_pipeline": "external_pipeline_value",
 		"build_and_event_and_parent_event": "inner_pipeline_value",
-		"parent_event_only": "parent_event_value",
 		"event_and_parent_event": "event_value",
 		"build":{
 			"buildId": "%d",
@@ -2084,9 +2083,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"inner_pipeline_only": "inner_pipeline_value",
 			"external_pipeline_only": "external_pipeline_value",
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
-			"build_and_event_and_external_pipeline": "external_pipeline_value",
-			"build_and_event_and_parent_event": "parent_event_value",
-			"parent_event_only": "parent_event_value"
+			"build_and_event_and_external_pipeline": "external_pipeline_value"
 		},
 		"event": {
 			"creator": "%s"
@@ -2097,9 +2094,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 			"external_pipeline_only": "external_pipeline_value",
 			"inner_pipeline_only": "inner_pipeline_value",
 			"build_and_event_and_inner_pipeline": "inner_pipeline_value",
-			"build_and_event_and_external_pipeline": "external_pipeline_value",
-			"build_and_event_and_parent_event": "parent_event_value",
-			"parent_event_only": "parent_event_value"
+			"build_and_event_and_external_pipeline": "external_pipeline_value"
 		},
 		"parameters": {
 			"build_only": "build_value",
@@ -2516,8 +2511,6 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		"build_only": "build_value",
 		"event_only": "event_value",
 		"build_and_event_and_external_pipeline": "event_value",
-		"build_and_event_and_parent_event": "parent_event_value",
-		"parent_event_only": "parent_event_value",
 		"build":{
 			"buildId": "%d",
 			"jobId": "%d",
@@ -2528,9 +2521,7 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"coverageKey": "%s",
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"build_and_event_and_external_pipeline": "event_value",
-			"build_and_event_and_parent_event": "parent_event_value",
-			"parent_event_only": "parent_event_value"
+			"build_and_event_and_external_pipeline": "event_value"
 		},
 		"event": {
 			"creator": "%s"
@@ -2538,9 +2529,7 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		"meta": {
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"build_and_event_and_external_pipeline": "event_value",
-			"build_and_event_and_parent_event": "parent_event_value",
-			"parent_event_only": "parent_event_value"
+			"build_and_event_and_external_pipeline": "event_value"
 		},
 		"parameters": {
 			"build_only": "build_value",
@@ -2693,7 +2682,6 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 	want := fmt.Sprintf(`{
 		"build_only": "build_value",
 		"event_only": "event_value",
-		"parent_event_only": "parent_event_value",
 		"build_and_event_and_parent_event": "event_value",
 		"build":{
 			"buildId": "%d",
@@ -2705,7 +2693,6 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 			"coverageKey": "%s",
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"parent_event_only": "parent_event_value",
 			"build_and_event_and_parent_event": "event_value"
 		},
 		"event": {
@@ -2714,7 +2701,6 @@ func TestMetaWhenStartFromAnyJobWithParentEvent(t *testing.T) {
 		"meta":{
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"parent_event_only": "parent_event_value",
 			"build_and_event_and_parent_event": "event_value"
 		},
 		"parameters":{
