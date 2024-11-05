@@ -479,13 +479,12 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	// on launcher exit, the meta will be updated to the current event meta
 
 	// merge event meta if available
-	if len(event.Meta) > 0 { // If has meta, marshal it
+	if len(event.Meta) > 0 {
 		log.Printf("Fetching Event Meta JSON %v", event.ID)
 		if event.Meta != nil {
 			mergedMeta = deepMergeJSON(mergedMeta, event.Meta)
 		}
-	} else if event.ParentEventID != 0 { // otherwise, fetch from parent event
-		// If has parent event, fetch meta from parent event
+	} else if event.ParentEventID != 0 {
 		log.Printf("Fetching Parent Event %d", event.ParentEventID)
 		parentEvent, err := api.EventFromID(event.ParentEventID)
 		if err != nil {
