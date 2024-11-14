@@ -2389,7 +2389,7 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithMultiParentBuildMeta(t *tes
 
 	err, _, _ := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
 	want := fmt.Sprintf(`{
-	    "build_1":"first_build_value",
+		"build_1":"first_build_value",
 		"build_12":"second_build_value",
 		"build_123":"third_build_value",
 		"build_13":"third_build_value",
