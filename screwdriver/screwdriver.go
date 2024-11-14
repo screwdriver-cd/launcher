@@ -183,7 +183,7 @@ type Build struct {
 	Meta          map[string]interface{} `json:"meta"`
 	EventID       int                    `json:"eventId"`
 	Createtime    string                 `json:"createTime"`
-	Endtime       time.Time              `json:"entTime"`
+	Endtime       time.Time              `json:"endTime"`
 	Stats         struct {
 		QueueEntertime string `json:"queueEnterTime"`
 	} `json:"stats"`
