@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -293,53 +294,71 @@ func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]in
 	return nil
 }
 
-// SetExternalMeta checks if parent build is external and sets meta in external file accordingly
-func SetExternalMeta(api screwdriver.API, pipelineID, parentBuildID int, mergedMeta map[string]interface{}, metaSpace, metaLog string, join bool) (map[string]interface{}, error) {
+// SetParentBuildMeta checks if parent build is external and sets meta in external file accordingly
+func SetParentBuildMeta(api screwdriver.API, pipelineID int, parentBuildIds []int, mergedMeta map[string]interface{}, metaSpace, metaLog string) (map[string]interface{}, error) {
 	var resultMeta = mergedMeta
-	log.Printf("Fetching Parent Build %d", parentBuildID)
-	parentBuild, err := api.BuildFromID(parentBuildID)
-	if err != nil {
-		return resultMeta, fmt.Errorf("Fetching Parent Build ID %d: %v", parentBuildID, err)
+	var join = len(parentBuildIds) > 1
+
+	parentBuilds := []screwdriver.Build{}
+
+	for _, parentBuildId := range parentBuildIds {
+		log.Printf("Fetching Parent Build %d", parentBuildId)
+
+		parentBuild, err := api.BuildFromID(parentBuildId)
+
+		if err != nil {
+			return resultMeta, fmt.Errorf("Fetching Parent Build ID %d: %v", parentBuildId, err)
+		}
+
+		parentBuilds = append(parentBuilds, parentBuild)
 	}
 
-	log.Printf("Fetching Parent Job %d", parentBuild.JobID)
-	parentJob, err := api.JobFromID(parentBuild.JobID)
-	if err != nil {
-		return resultMeta, fmt.Errorf("Fetching Job ID %d: %v", parentBuild.JobID, err)
-	}
+	// Sort by Endtime ASC
+	// Last finished parent build is priority
+	sort.SliceStable(parentBuilds, func(i, j int) bool {
+		return parentBuilds[i].Endtime.Before(parentBuilds[j].Endtime)
+	})
 
-	if parentBuild.Meta != nil {
-		// Check if build is from external pipeline
-		if pipelineID != parentJob.PipelineID {
-			// Write to "sd@123:component.json", where sd@123:component is the triggering job
-			externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
-			writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
-			if join {
-				marshallValue, err := json.Marshal(parentBuild.Meta)
-				if err != nil {
-					return resultMeta, fmt.Errorf("Cloning meta of Parent Build ID %d: %v", parentBuildID, err)
+	for _, parentBuild := range parentBuilds {
+		log.Printf("Fetching Parent Job %d", parentBuild.JobID)
+		parentJob, err := api.JobFromID(parentBuild.JobID)
+		if err != nil {
+			return resultMeta, fmt.Errorf("Fetching Job ID %d: %v", parentBuild.JobID, err)
+		}
+
+		if parentBuild.Meta != nil {
+			// Check if build is from external pipeline
+			if pipelineID != parentJob.PipelineID {
+				// Write to "sd@123:component.json", where sd@123:component is the triggering job
+				externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
+				writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
+				if join {
+					marshallValue, err := json.Marshal(parentBuild.Meta)
+					if err != nil {
+						return resultMeta, fmt.Errorf("Cloning meta of Parent Build ID %d: %v", parentBuild.ID, err)
+					}
+					var externalParentBuildMeta map[string]interface{}
+					json.Unmarshal(marshallValue, &externalParentBuildMeta)
+
+					// Always exclude parameters from external meta
+					delete(externalParentBuildMeta, "parameters")
+
+					resultMeta = deepMergeJSON(resultMeta, externalParentBuildMeta)
 				}
-				var externalParentBuildMeta map[string]interface{}
-				json.Unmarshal(marshallValue, &externalParentBuildMeta)
 
-				// Always exclude parameters from external meta
-				delete(externalParentBuildMeta, "parameters")
-
-				resultMeta = deepMergeJSON(resultMeta, externalParentBuildMeta)
-			}
-
-			// delete local version of external meta
-			pIDString := strconv.Itoa(parentJob.PipelineID)
-			pjn := parentJob.Name
-			if sdMeta, ok := resultMeta["sd"]; ok {
-				if externalPipelineMeta, ok := sdMeta.(map[string]interface{})[pIDString]; ok {
-					if _, ok := externalPipelineMeta.(map[string]interface{})[pjn]; ok {
-						delete(externalPipelineMeta.(map[string]interface{}), pjn)
+				// delete local version of external meta
+				pIDString := strconv.Itoa(parentJob.PipelineID)
+				pjn := parentJob.Name
+				if sdMeta, ok := resultMeta["sd"]; ok {
+					if externalPipelineMeta, ok := sdMeta.(map[string]interface{})[pIDString]; ok {
+						if _, ok := externalPipelineMeta.(map[string]interface{})[pjn]; ok {
+							delete(externalPipelineMeta.(map[string]interface{}), pjn)
+						}
 					}
 				}
+			} else {
+				resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
 			}
-		} else {
-			resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
 		}
 	}
 
@@ -499,23 +518,16 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		}
 	}
 
-	if len(parentBuildIDs) > 1 { // If has multiple parent build IDs, merge their metadata (join case)
+	// If has parent build IDs, merge their metadata
+	if len(parentBuildIDs) > 0 {
 		// Get meta from all parent builds
-		for _, pbID := range parentBuildIDs {
-			mergedMeta, err = SetExternalMeta(api, pipeline.ID, pbID, mergedMeta, metaSpace, metaLog, true)
-			if err != nil {
-				return fmt.Errorf("Setting meta for Parent Build ID %d: %v", pbID, err), "", ""
-			}
+		mergedMeta, err = SetParentBuildMeta(api, pipeline.ID, parentBuildIDs, mergedMeta, metaSpace, metaLog)
+
+		if err != nil {
+			return fmt.Errorf("Setting meta for Parent Build ID %d: %v", parentBuildIDs, err), "", ""
 		}
 
 		metaLog = fmt.Sprintf(`Builds(%v)`, parentBuildIDs)
-	} else if len(parentBuildIDs) == 1 { // If has parent build, fetch from parent build
-		mergedMeta, err = SetExternalMeta(api, pipeline.ID, parentBuildIDs[0], mergedMeta, metaSpace, metaLog, false)
-		if err != nil {
-			return fmt.Errorf("Setting meta for Parent Build ID %d: %v", parentBuildIDs[0], err), "", ""
-		}
-
-		metaLog = fmt.Sprintf(`Build(%v)`, parentBuildIDs[0])
 	}
 
 	// Initialize pr comments (Issue #1858)
