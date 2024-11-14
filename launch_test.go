@@ -1332,7 +1332,7 @@ func TestFetchParentBuildMetaWriteError(t *testing.T) {
 	}
 
 	err, sourceDir, shellBin := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
-	expected := fmt.Sprintf(`Writing Parent Build(%d) Meta JSON: Testing writing parent build meta`, TestParentBuildID)
+	expected := fmt.Sprintf(`Writing Parent Builds([%d]) Meta JSON: Testing writing parent build meta`, TestParentBuildID)
 
 	if err.Error() != expected {
 		t.Errorf("Error is wrong, got '%v', expected '%v'", err, expected)
@@ -2131,6 +2131,315 @@ func TestMetaWhenTriggeredFromPipelinesByANDLogicWithParentBuildMeta(t *testing.
 
 	wantExternalMetaByte, _ := marshal(externalParentBuildMeta)
 	assert.JSONEq(t, string(wantExternalMetaByte), string(externalMeta))
+
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
+func TestMetaWhenTriggeredFromPipelinesByANDLogicWithMultiParentBuildMeta(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	var PipelineID = TestPipelineID
+	var FirstParentBuildID = 1111
+	var FirstParentJobID = 1112
+	var SecondParentBuildID = 2222
+	var SecondParentJobID = 2223
+	var ThirdParentBuildID = 3333
+	var ThirdParentJobID = 3334
+	ParentBuildIds := []float64{
+		float64(SecondParentBuildID),
+		float64(ThirdParentBuildID),
+		float64(FirstParentBuildID),
+	}
+
+	IDs = make([]interface{}, len(ParentBuildIds))
+	for i, id := range ParentBuildIds {
+		IDs[i] = id
+	}
+
+	buildFromIDMeta := map[string]interface{}{
+		"build_only":             "build_value", // Remain
+		"build_and_parent_build": "build_value", // Remain
+		"parameters": map[string]string{
+			"build_only":             "build_value", // Remain
+			"build_and_parent_build": "build_value", // Remain
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_only": "build_value",
+			},
+			"build_only":             "build_value", // Remain
+			"build_and_parent_build": "build_value", // Remain
+		},
+		"build": map[string]interface{}{
+			"buildId":                "build_value", // Overwrote by default value
+			"jobId":                  "build_value", // Overwrote by default value
+			"eventId":                "build_value", // Overwrote by default value
+			"pipelineId":             "build_value", // Overwrote by default value
+			"sha":                    "build_value", // Overwrote by default value
+			"jobName":                "build_value", // Overwrote by default value
+			"coverageKey":            "build_value", // Overwrote by default value
+			"build_only":             "build_value", // Remain
+			"build_and_parent_build": "build_value", // Remain
+		},
+		"event": map[string]interface{}{
+			"creator": "build_value", // Overwrote by default value
+		},
+	}
+
+	eventFromIDMeta := map[string]interface{}{
+		"event_only":             "event_value", // Remain
+		"event_and_parent_build": "event_value", // Overwrote by last parent build
+		"parameters": map[string]string{
+			"event_only":             "event_value", // This should be deleted
+			"event_and_parent_build": "event_value", // This souuld be deleted
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"event_only": "event_value",
+			},
+			"event_only":             "event_value", // Remain
+			"event_and_parent_build": "event_value", // Overwrote by last parent build
+		},
+	}
+
+	firstParentBuildMeta := map[string]interface{}{
+		"build_and_parent_build": "first_build_value", // Overwrote by build
+		"event_and_parent_build": "first_build_value",
+		"build_1":                "first_build_value",
+		"build_12":               "first_build_value",
+		"build_13":               "first_build_value",
+		"build_123":              "first_build_value",
+		"parameters": map[string]string{
+			"build_and_parent_build": "first_build_value", // Overwrote by build
+			"event_and_parent_build": "first_build_value",
+			"build_1":                "first_build_value",
+			"build_12":               "first_build_value",
+			"build_13":               "first_build_value",
+			"build_123":              "first_build_value",
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_1": "first_build_value",
+			},
+			"build_and_parent_build": "first_build_value", // Overwrote by build
+			"event_and_parent_build": "first_build_value",
+			"build_1":                "first_build_value",
+			"build_12":               "first_build_value",
+			"build_13":               "first_build_value",
+			"build_123":              "first_build_value",
+		},
+		"build": map[string]interface{}{
+			"buildId":                "first_build_value", // Overwrote by default value
+			"jobId":                  "first_build_value", // Overwrote by default value
+			"eventId":                "first_build_value", // Overwrote by default value
+			"pipelineId":             "first_build_value", // Overwrote by default value
+			"sha":                    "first_build_value", // Overwrote by default value
+			"jobName":                "first_build_value", // Overwrote by default value
+			"coverageKey":            "first_build_value", // Overwrote by default value
+			"build_and_parent_build": "first_build_value",
+			"build_1":                "first_build_value",
+			"build_12":               "first_build_value",
+			"build_13":               "first_build_value",
+			"build_123":              "first_build_value",
+		},
+		"event": map[string]interface{}{
+			"creator": "first_build_value", // Overwrote by default value
+		},
+	}
+
+	secondParentBuildMeta := map[string]interface{}{
+		"build_and_parent_build": "second_build_value", // Overwrote by build
+		"event_and_parent_build": "second_build_value",
+		"build_2":                "second_build_value",
+		"build_12":               "second_build_value",
+		"build_23":               "second_build_value",
+		"build_123":              "second_build_value",
+		"parameters": map[string]string{
+			"build_and_parent_build": "second_build_value",
+			"event_and_parent_build": "second_build_value",
+			"build_2":                "second_build_value",
+			"build_12":               "second_build_value",
+			"build_23":               "second_build_value",
+			"build_123":              "second_build_value",
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_2": "second_build_value",
+			},
+			"build_and_parent_build": "second_build_value", // Overwrote by build
+			"event_and_parent_build": "second_build_value",
+			"build_2":                "second_build_value",
+			"build_12":               "second_build_value",
+			"build_23":               "second_build_value",
+			"build_123":              "second_build_value",
+		},
+		"build": map[string]interface{}{
+			"buildId":                "second_build_value", // Overwrote by default value
+			"jobId":                  "second_build_value", // Overwrote by default value
+			"eventId":                "second_build_value", // Overwrote by default value
+			"pipelineId":             "second_build_value", // Overwrote by default value
+			"sha":                    "second_build_value", // Overwrote by default value
+			"jobName":                "second_build_value", // Overwrote by default value
+			"coverageKey":            "second_build_value", // Overwrote by default value
+			"build_and_parent_build": "second_build_value", // Overwrote by build
+			"build_2":                "second_build_value",
+			"build_12":               "second_build_value",
+			"build_23":               "second_build_value",
+			"build_123":              "second_build_value",
+		},
+		"event": map[string]interface{}{
+			"creator": "second_build_value", // Overwrote by default value
+		},
+	}
+
+	thirdParentBuildMeta := map[string]interface{}{
+		"build_and_parent_build": "third_build_value", // Overwrote by build
+		"event_and_parent_build": "third_build_value",
+		"build_3":                "third_build_value",
+		"build_13":               "third_build_value",
+		"build_23":               "third_build_value",
+		"build_123":              "third_build_value",
+		"parameters": map[string]string{
+			"build_and_parent_build": "third_build_value", // Overwrote by build
+			"event_and_parent_build": "third_build_value",
+			"build_3":                "third_build_value",
+			"build_13":               "third_build_value",
+			"build_23":               "third_build_value",
+			"build_123":              "third_build_value",
+		},
+		"meta": map[string]interface{}{
+			"summary": map[string]string{ // This should be deleted
+				"build_3": "third_build_value",
+			},
+			"build_and_parent_build": "third_build_value", // Overwrote by build
+			"event_and_parent_build": "third_build_value",
+			"build_3":                "third_build_value",
+			"build_13":               "third_build_value",
+			"build_23":               "third_build_value",
+			"build_123":              "third_build_value",
+		},
+		"build": map[string]interface{}{
+			"buildId":                "third_build_value", // Overwrote by default value
+			"jobId":                  "third_build_value", // Overwrote by default value
+			"eventId":                "third_build_value", // Overwrote by default value
+			"pipelineId":             "third_build_value", // Overwrote by default value
+			"sha":                    "third_build_value", // Overwrote by default value
+			"jobName":                "third_build_value", // Overwrote by default value
+			"coverageKey":            "third_build_value", // Overwrote by default value
+			"build_and_parent_build": "third_build_value", // Overwrote by build
+			"build_3":                "third_build_value",
+			"build_13":               "third_build_value",
+			"build_23":               "third_build_value",
+			"build_123":              "third_build_value",
+		},
+		"event": map[string]interface{}{
+			"creator": "third_build_value", // Overwrote by default value
+		},
+	}
+
+	oldMarshal := marshal
+	defer func() { marshal = oldMarshal }()
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		if buildID == FirstParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: FirstParentJobID, Meta: firstParentBuildMeta, Endtime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)}), nil
+		}
+		if buildID == SecondParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: SecondParentJobID, Meta: secondParentBuildMeta, Endtime: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)}), nil
+		}
+		if buildID == ThirdParentBuildID {
+			return screwdriver.Build(FakeBuild{ID: buildID, JobID: ThirdParentJobID, Meta: thirdParentBuildMeta, Endtime: time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)}), nil
+		}
+		// target build
+		return screwdriver.Build(FakeBuild{ID: TestBuildID, JobID: TestJobID, ParentBuildID: IDs, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		if jobID == FirstParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: PipelineID, Name: "first_job"}), nil
+		}
+		if jobID == SecondParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: PipelineID, Name: "second_job"}), nil
+		}
+		if jobID == ThirdParentJobID {
+			return screwdriver.Job(FakeJob{ID: jobID, PipelineID: PipelineID, Name: "third_job"}), nil
+		}
+		// target build
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: PipelineID, Name: "main"}), nil
+	}
+	api.eventFromID = func(eventID int) (screwdriver.Event, error) {
+		return screwdriver.Event(FakeEvent{ID: TestEventID, ParentEventID: TestParentEventID, Meta: eventFromIDMeta, Creator: TestEventCreator}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	assert.Equal(t, 3, len(ParentBuildIds))
+
+	err, _, _ := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+	    "build_1":"first_build_value",
+		"build_12":"second_build_value",
+		"build_123":"third_build_value",
+		"build_13":"third_build_value",
+		"build_2":"second_build_value",
+		"build_23":"third_build_value",
+		"build_3":"third_build_value",
+		"build_and_parent_build":"third_build_value",
+		"build_only":"build_value",
+		"event_and_parent_build":"third_build_value",
+		"event_only":"event_value",
+		"build": {
+			"build_1":"first_build_value",
+			"build_12":"second_build_value",
+			"build_123":"third_build_value",
+			"build_13":"third_build_value",
+			"build_2":"second_build_value",
+			"build_23":"third_build_value",
+			"build_3":"third_build_value",
+			"build_and_parent_build":"third_build_value",
+			"build_only":"build_value",
+			"buildId":"%d",
+			"jobId":"%d",
+			"pipelineId":"%d",
+			"coverageKey":"%s",
+			"eventId":"0",
+			"jobName":"main",
+			"sha":""
+		},
+		"event":{
+			"creator":"%s"
+		},
+		"meta":{
+			"build_1":"first_build_value",
+			"build_12":"second_build_value",
+			"build_123":"third_build_value",
+			"build_13":"third_build_value",
+			"build_2":"second_build_value",
+			"build_23":"third_build_value",
+			"build_3":"third_build_value",
+			"build_and_parent_build":"third_build_value",
+			"build_only":"build_value",
+			"event_and_parent_build":"third_build_value",
+			"event_only":"event_value"
+		},
+		"parameters":{
+			"build_and_parent_build":"build_value",
+			"build_only":"build_value"
+		}
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"])
+	assert.JSONEq(t, want, string(defaultMeta))
 
 	if err != nil {
 		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
