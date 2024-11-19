@@ -294,10 +294,10 @@ func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]in
 	return nil
 }
 
-// SetParentBuildMeta checks if parent build is external and sets meta in external file accordingly
-func SetParentBuildMeta(api screwdriver.API, pipelineID int, parentBuildIds []int, mergedMeta map[string]interface{}, metaSpace, metaLog string) (map[string]interface{}, error) {
+// setParentBuildsMeta checks if parent build is external and sets meta in external file accordingly
+func setParentBuildsMeta(api screwdriver.API, pipelineID int, parentBuildIds []int, mergedMeta map[string]interface{}, metaSpace, metaLog string) (map[string]interface{}, error) {
 	var resultMeta = mergedMeta
-	var join = len(parentBuildIds) > 1
+	var isJoin = len(parentBuildIds) > 1
 
 	parentBuilds := []screwdriver.Build{}
 
@@ -320,44 +320,57 @@ func SetParentBuildMeta(api screwdriver.API, pipelineID int, parentBuildIds []in
 	})
 
 	for _, parentBuild := range parentBuilds {
+		if parentBuild.Meta == nil {
+			continue
+		}
+
 		log.Printf("Fetching Parent Job %d", parentBuild.JobID)
 		parentJob, err := api.JobFromID(parentBuild.JobID)
 		if err != nil {
 			return resultMeta, fmt.Errorf("Fetching Job ID %d: %v", parentBuild.JobID, err)
 		}
 
-		if parentBuild.Meta != nil {
-			// Check if build is from external pipeline
-			if pipelineID != parentJob.PipelineID {
-				// Write to "sd@123:component.json", where sd@123:component is the triggering job
-				externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
-				writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
-				if join {
-					marshallValue, err := json.Marshal(parentBuild.Meta)
-					if err != nil {
-						return resultMeta, fmt.Errorf("Cloning meta of Parent Build ID %d: %v", parentBuild.ID, err)
-					}
-					var externalParentBuildMeta map[string]interface{}
-					json.Unmarshal(marshallValue, &externalParentBuildMeta)
+		// Check if build is from external pipeline
+		if pipelineID == parentJob.PipelineID {
+			resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
+		} else {
+			resultMeta, err = handleExternalPipelineMeta(parentBuild, parentJob, resultMeta, metaSpace, metaLog, isJoin)
 
-					// Always exclude parameters from external meta
-					delete(externalParentBuildMeta, "parameters")
+			if err != nil {
+				return resultMeta, fmt.Errorf("Mergeing meta of External Parent Build ID %d: %v", parentBuild.ID, err)
+			}
+		}
+	}
 
-					resultMeta = deepMergeJSON(resultMeta, externalParentBuildMeta)
-				}
+	return resultMeta, nil
+}
 
-				// delete local version of external meta
-				pIDString := strconv.Itoa(parentJob.PipelineID)
-				pjn := parentJob.Name
-				if sdMeta, ok := resultMeta["sd"]; ok {
-					if externalPipelineMeta, ok := sdMeta.(map[string]interface{})[pIDString]; ok {
-						if _, ok := externalPipelineMeta.(map[string]interface{})[pjn]; ok {
-							delete(externalPipelineMeta.(map[string]interface{}), pjn)
-						}
-					}
-				}
-			} else {
-				resultMeta = deepMergeJSON(resultMeta, parentBuild.Meta)
+func handleExternalPipelineMeta(parentBuild screwdriver.Build, parentJob screwdriver.Job, resultMeta map[string]interface{}, metaSpace, metaLog string, isJoin bool) (map[string]interface{}, error) {
+	// Write to "sd@123:component.json", where sd@123:component is the triggering job
+	externalMetaFile := "sd@" + strconv.Itoa(parentJob.PipelineID) + ":" + parentJob.Name + ".json"
+	writeMetafile(metaSpace, externalMetaFile, metaLog, parentBuild.Meta)
+
+	if isJoin {
+		marshallValue, err := json.Marshal(parentBuild.Meta)
+		if err != nil {
+			return resultMeta, fmt.Errorf("Cloning meta of Parent Build ID %d: %v", parentBuild.ID, err)
+		}
+		var externalParentBuildMeta map[string]interface{}
+		json.Unmarshal(marshallValue, &externalParentBuildMeta)
+
+		// Always exclude parameters from external meta
+		delete(externalParentBuildMeta, "parameters")
+
+		resultMeta = deepMergeJSON(resultMeta, externalParentBuildMeta)
+	}
+
+	// delete local version of external meta
+	pIDString := strconv.Itoa(parentJob.PipelineID)
+	pjn := parentJob.Name
+	if sdMeta, ok := resultMeta["sd"]; ok {
+		if externalPipelineMeta, ok := sdMeta.(map[string]interface{})[pIDString]; ok {
+			if _, ok := externalPipelineMeta.(map[string]interface{})[pjn]; ok {
+				delete(externalPipelineMeta.(map[string]interface{}), pjn)
 			}
 		}
 	}
@@ -521,7 +534,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	// If has parent build IDs, merge their metadata
 	if len(parentBuildIDs) > 0 {
 		// Get meta from all parent builds
-		mergedMeta, err = SetParentBuildMeta(api, pipeline.ID, parentBuildIDs, mergedMeta, metaSpace, metaLog)
+		mergedMeta, err = setParentBuildsMeta(api, pipeline.ID, parentBuildIDs, mergedMeta, metaSpace, metaLog)
 
 		if err != nil {
 			return fmt.Errorf("Setting meta for Parent Build ID %d: %v", parentBuildIDs, err), "", ""
