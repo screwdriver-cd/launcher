@@ -61,7 +61,7 @@ RUN set -x \
    # Download skopeo
    && wget -q -O skopeo-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/skopeo-linux-aarch64.tar.gz" \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
-   && mv skopeo.linux.aarch64 skopeo \
+   && mv skopeo.linux.arm64 skopeo \
    # Download sonar scanner cli any
    && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip" \
    && unzip -q sonarscanner-cli-any.zip \
