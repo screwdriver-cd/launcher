@@ -164,13 +164,13 @@ RUN set -x \
    && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
    # Install skopeo
    && chmod +x skopeo \
-   # Install zstd
-   && wget -q -O zstd-cli-macosx.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/zstd-cli-macosx.tar.gz" \
-   && tar -C . -ozxvf zstd-cli-linux.tar.gz \
+   # Install zstd linux
    && mv zstd zstd-cli-linux \
+   && chmod +x zstd-cli-linux \
+   # Install zstd for mac
+   && wget -q -O zstd-cli-macosx.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/zstd-cli-macosx.tar.gz" \
    && tar -C . -ozxvf zstd-cli-macosx.tar.gz \
    && mv zstd zstd-cli-macosx \
-   && chmod +x zstd-cli-linux \
    && chmod +x zstd-cli-macosx \
    # Cleanup Skopeo and Sonar scanner cli files
    && rm -rf /opt/sd/skopeo-linux.tar.gz /opt/sd/sonarscanner-cli-linux.zip /opt/sd/sonarscanner-cli-macosx.zip /opt/sd/sonar-scanner-*-linux /opt/sd/sonar-scanner-*-macosx \
