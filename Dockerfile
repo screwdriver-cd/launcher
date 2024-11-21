@@ -37,7 +37,13 @@ RUN set -x \
    # bin link bash if not present
    && if [[ -z $(command -v bash) ]]; then /hab/bin/hab pkg binlink core/bash bash ; fi \
    # Download zstd
-   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/zstd-cli-linux.tar.gz"
+   && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/zstd-cli-linux.tar.gz" \
+   && tar -C . -ozxvf zstd-cli-linux.tar.gz \
+   && mv zstd-linux-x86_64 zstd \
+   # Download skopeo
+   && wget -q -O skopeo-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/skopeo-linux.tar.gz" \
+   && tar -C . -ozxvf skopeo-linux.tar.gz \
+   && mv skopeo.linux.amd64 skopeo
 
 FROM base AS base-arm64
 RUN set -x \
@@ -50,6 +56,12 @@ RUN set -x \
    && apk add --no-cache composer wget zip unzip git bash iptables sed docker jq curl kmod \
    # Download zstd
    && wget -q -O zstd-cli-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/zstd-cli-linux-aarch64.tar.gz" \
+   && tar -C . -ozxvf zstd-cli-linux.tar.gz \
+   && mv zstd-linux-aarch64 zstd \
+   # Download skopeo
+   && wget -q -O skopeo-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/skopeo-linux-aarch64.tar.gz" \
+   && tar -C . -ozxvf skopeo-linux.tar.gz \
+   && mv skopeo.linux.aarch64 skopeo \
    # Download sonar scanner cli any
    && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip" \
    && unzip -q sonarscanner-cli-any.zip \
@@ -150,9 +162,7 @@ RUN set -x \
    && unzip -q sonarscanner-cli-macosx.zip \
    && mv sonar-scanner-*-linux sonarscanner-cli-linux \
    && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
-   # Install skope
-   && wget -q -O skopeo-linux.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/skopeo-linux.tar.gz" \
-   && tar -C . -ozxvf skopeo-linux.tar.gz \
+   # Install skopeo
    && chmod +x skopeo \
    # Install zstd
    && wget -q -O zstd-cli-macosx.tar.gz "https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.40/zstd-cli-macosx.tar.gz" \
