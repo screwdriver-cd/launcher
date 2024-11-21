@@ -295,13 +295,13 @@ func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]in
 }
 
 // setParentBuildsMeta checks if parent build is external and sets meta in external file accordingly
-func setParentBuildsMeta(api screwdriver.API, pipelineID int, parentBuildIds []int, mergedMeta map[string]interface{}, metaSpace, metaLog string) (map[string]interface{}, error) {
+func setParentBuildsMeta(api screwdriver.API, pipelineID int, parentBuildIDs []int, mergedMeta map[string]interface{}, metaSpace, metaLog string) (map[string]interface{}, error) {
 	var resultMeta = mergedMeta
-	var isJoin = len(parentBuildIds) > 1
+	var isJoin = len(parentBuildIDs) > 1
 
 	parentBuilds := []screwdriver.Build{}
 
-	for _, parentBuildId := range parentBuildIds {
+	for _, parentBuildId := range parentBuildIDs {
 		log.Printf("Fetching Parent Build %d", parentBuildId)
 
 		parentBuild, err := api.BuildFromID(parentBuildId)
@@ -337,7 +337,7 @@ func setParentBuildsMeta(api screwdriver.API, pipelineID int, parentBuildIds []i
 			resultMeta, err = handleExternalPipelineMeta(parentBuild, parentJob, resultMeta, metaSpace, metaLog, isJoin)
 
 			if err != nil {
-				return resultMeta, fmt.Errorf("Mergeing meta of External Parent Build ID %d: %v", parentBuild.ID, err)
+				return resultMeta, fmt.Errorf("Merging meta of External Parent Build ID %d: %v", parentBuild.ID, err)
 			}
 		}
 	}
