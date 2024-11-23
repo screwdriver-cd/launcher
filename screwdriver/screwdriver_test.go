@@ -140,6 +140,7 @@ func TestBuildFromID(t *testing.T) {
 				Commands:    testCmds,
 				Environment: testEnv,
 				Createtime:  "2020-04-28T20:34:01.907Z",
+				Endtime:     time.Date(2020, 4, 28, 20, 40, 0, 123, time.UTC),
 				Stats: struct {
 					QueueEntertime string `json:"queueEnterTime"`
 				}{
