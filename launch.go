@@ -297,7 +297,7 @@ func writeMetafile(metaSpace, metaFile, metaLog string, mergedMeta map[string]in
 // setParentBuildsMeta checks if parent build is external and sets meta in external file accordingly
 func setParentBuildsMeta(api screwdriver.API, pipelineID int, parentBuildIDs []int, mergedMeta map[string]interface{}, metaSpace, metaLog string) (map[string]interface{}, error) {
 	var resultMeta = mergedMeta
-	var isJoin = len(parentBuildIDs) > 1
+	var isJoin = len(parentBuildIDs) >= 1
 
 	parentBuilds := []screwdriver.Build{}
 
