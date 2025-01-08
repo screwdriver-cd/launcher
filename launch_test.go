@@ -2824,7 +2824,8 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 	want := fmt.Sprintf(`{
 		"build_only": "build_value",
 		"event_only": "event_value",
-		"build_and_event_and_external_pipeline": "event_value",
+		"build_and_event_and_external_pipeline": "external_pipeline_value",
+		"external_pipeline_only": "external_pipeline_value",
 		"build":{
 			"buildId": "%d",
 			"jobId": "%d",
@@ -2835,7 +2836,8 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"coverageKey": "%s",
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"build_and_event_and_external_pipeline": "event_value",
+			"external_pipeline_only": "external_pipeline_value",
+			"build_and_event_and_external_pipeline": "external_pipeline_value",
 			"build_and_event_and_parent_event": "parent_event_value",
 			"parent_event_only": "parent_event_value"
 		},
@@ -2845,10 +2847,11 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 		"meta": {
 			"build_only": "build_value",
 			"event_only": "event_value",
-			"build_and_event_and_external_pipeline": "event_value",
+			"build_and_event_and_external_pipeline": "external_pipeline_value",
 			"build_and_event_and_parent_event": "parent_event_value",
 			"event_only": "event_value",
-			"parent_event_only": "parent_event_value"
+			"parent_event_only": "parent_event_value",
+			"external_pipeline_only": "external_pipeline_value"
 		},
 		"parameters": {
 			"build_only": "build_value",
@@ -2859,15 +2862,15 @@ func TestMetaWhenTriggeredFromExternalPipelineByORLogicWithParentBuildMeta(t *te
 			"event_only": "event_value",
 			"%d":{
 				"build_only": "build_value",
-				"event_only": "event_value"
-			}
+				"event_only": "event_value",
+				"external_pipeline_only": "external_pipeline_value"
+			},
+			"external_pipeline_only": "external_pipeline_value"
 		},
 		"parent_event_only": "parent_event_value",
 		"build_and_event_and_parent_event": "parent_event_value"
 	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"], ExternalPipelineID)
-	if string(defaultMeta) != want {
-		// do nothing
-	}
+	assert.JSONEq(t, want, string(defaultMeta))
 
 	wantExternalMetaByte, _ := marshal(externalParentBuildMeta)
 	assert.JSONEq(t, string(wantExternalMetaByte), string(externalMeta))
