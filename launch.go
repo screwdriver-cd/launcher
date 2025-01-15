@@ -764,14 +764,13 @@ func launchAction(api screwdriver.API, buildID int, rootDir, emitterPath, metaSp
 
 	err, sourceDir, launchShellBin := launch(api, buildID, rootDir, emitterPath, metaSpace, storeURI, uiURI, shellBin, buildTimeout, buildToken, cacheStrategy, pipelineCacheDir, jobCacheDir, eventCacheDir, cacheCompress, cacheMd5Check, isLocal, cacheMaxSizeInMB, cacheMaxGoThreads)
 	if err != nil {
-		var errMsg string
-		errMsg = fmt.Sprintf("Error running launcher: %v", err)
-		if statusErr, ok := err.(executor.ErrStatus); ok {
-			errMsg = fmt.Sprintf("Error running launcher due to non-zero exit code: %v", statusErr)
+		if _, ok := err.(executor.ErrStatus); ok {
+			log.Printf("Failure due to non-zero exit code: %v\n", err)
+		} else {
+			log.Printf("Error running launcher: %v\n", err)
 		}
-		log.Println(errMsg)
 
-		prepareExit(screwdriver.Failure, buildID, api, metaSpace, errMsg)
+		prepareExit(screwdriver.Failure, buildID, api, metaSpace, "")
 		TerminateSleep(launchShellBin, sourceDir, true)
 		cleanExit()
 		return nil
