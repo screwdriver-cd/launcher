@@ -500,87 +500,93 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		mergedMeta = deepMergeJSON(mergedMeta, build.Meta)
 	}
 
-	// Create meta space
+		// Create meta space
 	err = createMetaSpace(metaSpace)
 	if err != nil {
 		return err, "", ""
 	}
 
-	// Always merge parent event meta if available
-	if event.ParentEventID != 0 {
-		log.Printf("Fetching Parent Event %d", event.ParentEventID)
-		parentEvent, err := api.EventFromID(event.ParentEventID)
-		if err != nil {
-			return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err), "", ""
+	if build.Meta == nil || buildID != build.Meta["buildId"] {
+		// Always merge parent event meta if available
+		if event.ParentEventID != 0 {
+			log.Printf("Fetching Parent Event %d", event.ParentEventID)
+			parentEvent, err := api.EventFromID(event.ParentEventID)
+			if err != nil {
+				return fmt.Errorf("Fetching Parent Event ID %d: %v", event.ParentEventID, err), "", ""
+			}
+
+			if parentEvent.Meta != nil {
+				mergedMeta = deepMergeJSON(mergedMeta, parentEvent.Meta)
+			}
+
+			metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
 		}
 
-		if parentEvent.Meta != nil {
-			mergedMeta = deepMergeJSON(mergedMeta, parentEvent.Meta)
+		// merge event meta if available
+		// the parent event's metadata should be overwritten if a conflict occurs
+		// meaning if the event has been updated with newer metadata from its associated builds.
+		if len(event.Meta) > 0 {
+			log.Printf("Fetching Event Meta JSON %v", event.ID)
+			if event.Meta != nil {
+				mergedMeta = deepMergeJSON(mergedMeta, event.Meta)
+			}
 		}
 
-		metaLog = fmt.Sprintf(`Event(%v)`, parentEvent.ID)
-	}
+		// If has parent build IDs, merge their metadata
+		if len(parentBuildIDs) > 0 {
+			// Get meta from all parent builds
+			mergedMeta, err = setParentBuildsMeta(api, pipeline.ID, parentBuildIDs, mergedMeta, metaSpace, metaLog)
 
-	// merge event meta if available
-	// the parent event's metadata should be overwritten if a conflict occurs
-	// meaning if the event has been updated with newer metadata from its associated builds.
-	if len(event.Meta) > 0 {
-		log.Printf("Fetching Event Meta JSON %v", event.ID)
-		if event.Meta != nil {
-			mergedMeta = deepMergeJSON(mergedMeta, event.Meta)
+			if err != nil {
+				return fmt.Errorf("Setting meta for Parent Build ID %d: %v", parentBuildIDs, err), "", ""
+			}
+
+			metaLog = fmt.Sprintf(`Builds(%v)`, parentBuildIDs)
+		}
+
+		// Initialize pr comments (Issue #1858)
+		if metadata, ok := mergedMeta["meta"]; ok {
+			delete(metadata.(map[string]interface{}), "summary")
+		}
+
+		// Set build parameter explicitly (Issue #2501)
+		if build.Meta["parameters"] != nil {
+			mergedMeta["parameters"] = build.Meta["parameters"]
+		}
+
+		buildMeta := map[string]interface{}{
+			"pipelineId": strconv.Itoa(job.PipelineID),
+			"eventId":    strconv.Itoa(build.EventID),
+			"jobId":      strconv.Itoa(job.ID),
+			"buildId":    strconv.Itoa(buildID),
+			"jobName":    job.Name,
+			"sha":        build.SHA,
+		}
+
+		mergedBuildMeta := buildMeta
+		if mergedMeta["build"] != nil {
+			mergedBuildMeta = deepMergeJSON(mergedMeta["build"].(map[string]interface{}), buildMeta)
+		}
+		delete(mergedBuildMeta, "warning")
+		mergedMeta["build"] = mergedBuildMeta
+
+		eventMeta := map[string]interface{}{
+			"creator": event.Creator["username"],
+		}
+
+		if mergedMeta["event"] != nil {
+			mergedMeta["event"] = deepMergeJSON(mergedMeta["event"].(map[string]interface{}), eventMeta)
+		} else {
+			mergedMeta["event"] = eventMeta
 		}
 	}
 
-	// If has parent build IDs, merge their metadata
-	if len(parentBuildIDs) > 0 {
-		// Get meta from all parent builds
-		mergedMeta, err = setParentBuildsMeta(api, pipeline.ID, parentBuildIDs, mergedMeta, metaSpace, metaLog)
-
-		if err != nil {
-			return fmt.Errorf("Setting meta for Parent Build ID %d: %v", parentBuildIDs, err), "", ""
-		}
-
-		metaLog = fmt.Sprintf(`Builds(%v)`, parentBuildIDs)
-	}
-
-	// Initialize pr comments (Issue #1858)
-	if metadata, ok := mergedMeta["meta"]; ok {
-		delete(metadata.(map[string]interface{}), "summary")
-	}
-
-	// Set build parameter explicitly (Issue #2501)
-	if build.Meta["parameters"] != nil {
-		mergedMeta["parameters"] = build.Meta["parameters"]
-	}
-
-	buildMeta := map[string]interface{}{
-		"pipelineId": strconv.Itoa(job.PipelineID),
-		"eventId":    strconv.Itoa(build.EventID),
-		"jobId":      strconv.Itoa(job.ID),
-		"buildId":    strconv.Itoa(buildID),
-		"jobName":    job.Name,
-		"sha":        build.SHA,
-	}
-
+	// Add coverageKey to mergedMeta["build"] if coverageErr is nil
 	if coverageErr == nil {
-		buildMeta["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
-	}
-
-	mergedBuildMeta := buildMeta
-	if mergedMeta["build"] != nil {
-		mergedBuildMeta = deepMergeJSON(mergedMeta["build"].(map[string]interface{}), buildMeta)
-	}
-	delete(mergedBuildMeta, "warning")
-	mergedMeta["build"] = mergedBuildMeta
-
-	eventMeta := map[string]interface{}{
-		"creator": event.Creator["username"],
-	}
-
-	if mergedMeta["event"] != nil {
-		mergedMeta["event"] = deepMergeJSON(mergedMeta["event"].(map[string]interface{}), eventMeta)
-	} else {
-		mergedMeta["event"] = eventMeta
+		if mergedMeta["build"] == nil {
+			mergedMeta["build"] = map[string]interface{}{}
+		}
+		mergedMeta["build"].(map[string]interface{})["coverageKey"] = coverageInfo.EnvVars["SD_SONAR_PROJECT_KEY"]
 	}
 
 	log.Println("Marshalling Merged Meta JSON")
