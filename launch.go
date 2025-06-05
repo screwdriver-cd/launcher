@@ -500,7 +500,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 		mergedMeta = deepMergeJSON(mergedMeta, build.Meta)
 	}
 
-		// Create meta space
+	// Create meta space
 	err = createMetaSpace(metaSpace)
 	if err != nil {
 		return err, "", ""
