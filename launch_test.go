@@ -1151,12 +1151,12 @@ func TestMetaWhenStartPipeline(t *testing.T) {
 	buildFromIDMeta := map[string]interface{}{
 		"meta1": "value1",
 		"build": map[string]interface{}{
-			"buildId":     TestBuildID,
-			"jobId":       TestJobID,
-			"eventId":     "0",
-			"pipelineId":  TestPipelineID,
-			"sha":         "",
-			"jobName":     "main",
+			"buildId":    TestBuildID,
+			"jobId":      TestJobID,
+			"eventId":    "0",
+			"pipelineId": TestPipelineID,
+			"sha":        "",
+			"jobName":    "main",
 		},
 		"event": map[string]interface{}{
 			"creator": TestEventCreator["username"],
@@ -1227,12 +1227,12 @@ func TestMetaWhenStartPipelineWithExternalBuild(t *testing.T) {
 	buildFromIDMeta := map[string]interface{}{
 		"meta1": "value1",
 		"build": map[string]interface{}{
-			"buildId":     TestBuildID,
-			"jobId":       TestJobID,
-			"eventId":     "0",
-			"pipelineId":  TestPipelineID,
-			"sha":         "",
-			"jobName":     "main",
+			"buildId":    TestBuildID,
+			"jobId":      TestJobID,
+			"eventId":    "0",
+			"pipelineId": TestPipelineID,
+			"sha":        "",
+			"jobName":    "main",
 		},
 		"event": map[string]interface{}{
 			"creator": TestEventCreator["username"],
