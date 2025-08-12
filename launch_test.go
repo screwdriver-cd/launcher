@@ -1447,6 +1447,81 @@ func TestMetaWhenStartPipelineWithReleaseTrigger(t *testing.T) {
 	}
 }
 
+func TestMetaWhenStartPipelineWithPRClosedTrigger(t *testing.T) {
+	initCoverageMeta()
+	oldWriteFile := writeFile
+	defer func() { writeFile = oldWriteFile }()
+	var defaultMeta []byte
+
+	buildFromIDMeta := map[string]interface{}{
+		"meta1": "value1",
+		"build": map[string]interface{}{
+			"buildId":    TestBuildID,
+			"jobId":      TestJobID,
+			"eventId":    "0",
+			"pipelineId": TestPipelineID,
+			"sha":        "",
+			"jobName":    "main",
+		},
+		"event": map[string]interface{}{
+			"creator": TestEventCreator["username"],
+		},
+		"sd": map[string]interface{}{
+			"pr": map[string]interface{}{
+				"merged": false,
+				"name":   "pull/48/merge",
+				"number": 123,
+			},
+		},
+	}
+
+	api := mockAPI(t, TestBuildID, TestJobID, 0, "RUNNING")
+	api.buildFromID = func(buildID int) (screwdriver.Build, error) {
+		return screwdriver.Build(FakeBuild{ID: buildID, JobID: TestJobID, Meta: buildFromIDMeta}), nil
+	}
+	api.jobFromID = func(jobID int) (screwdriver.Job, error) {
+		return screwdriver.Job(FakeJob{ID: jobID, PipelineID: TestPipelineID, Name: "main"}), nil
+	}
+	api.pipelineFromID = func(pipelineID int) (screwdriver.Pipeline, error) {
+		return screwdriver.Pipeline(FakePipeline{ID: pipelineID, ScmURI: TestScmURI, ScmRepo: TestScmRepo}), nil
+	}
+	writeFile = func(path string, data []byte, perm os.FileMode) (err error) {
+		if path == "./data/meta/meta.json" {
+			defaultMeta = data
+		}
+		return nil
+	}
+
+	err, _, _ := launch(screwdriver.API(api), TestBuildID, TestWorkspace, TestEmitter, TestMetaSpace, TestStoreURL, TestUIURL, TestShellBin, TestBuildTimeout, TestBuildToken, "", "", "", "", false, false, false, 0, 10000)
+	want := fmt.Sprintf(`{
+		"meta1": "value1",
+		"build": {
+			"buildId": %d,
+			"jobId": %d,
+			"eventId": "0",
+			"pipelineId": %d,
+			"sha": "",
+			"jobName": "main",
+			"coverageKey": "%s"
+		},
+		"event": {
+			"creator": "%s"
+		},
+        "sd": {
+            "pr": {
+                "merged": false,
+                "name": "pull/48/merge",
+                "number": 123
+            }
+        }
+	}`, TestBuildID, TestJobID, TestPipelineID, TestEnvVars["SD_SONAR_PROJECT_KEY"], TestEventCreator["username"])
+
+	assert.JSONEq(t, want, string(defaultMeta))
+	if err != nil {
+		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+	}
+}
+
 type RequestCapture struct {
 	Method string
 	URL    *url.URL

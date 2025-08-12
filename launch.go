@@ -432,8 +432,8 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	// Write external meta to file
 	if sdMeta, ok := mergedMeta["sd"].(map[string]interface{}); ok {
 		for pipelineID, pipelineData := range sdMeta {
-			// Retain the meta information for tag/release
-			if pipelineID == "tag" || pipelineID == "release" {
+			// Retain the metadata for non-integer values (e.g., tag, release, pr-closed)
+			if _, err := strconv.Atoi(pipelineID); err != nil {
 				continue
 			}
 			if jobDataMap, ok := pipelineData.(map[string]interface{}); ok {
