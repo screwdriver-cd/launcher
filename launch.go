@@ -433,7 +433,7 @@ func launch(api screwdriver.API, buildID int, rootDir, emitterPath, metaSpace, s
 	if sdMeta, ok := mergedMeta["sd"].(map[string]interface{}); ok {
 		for pipelineID, pipelineData := range sdMeta {
 			// Retain the meta information for tag/release
-			if pipelineID == "tag" || pipelineID == "release" {
+			if pipelineID == "tag" || pipelineID == "release" || pipelineID == "pr" {
 				continue
 			}
 			if jobDataMap, ok := pipelineData.(map[string]interface{}); ok {
