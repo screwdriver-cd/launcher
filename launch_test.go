@@ -1468,9 +1468,9 @@ func TestMetaWhenStartPipelineWithPRClosedTrigger(t *testing.T) {
 		},
 		"sd": map[string]interface{}{
 			"pr": map[string]interface{}{
-                "merged": false,
-                "name": "pull/48/merge",
-                "number": 123,
+				"merged": false,
+				"name":   "pull/48/merge",
+				"number": 123,
 			},
 		},
 	}
