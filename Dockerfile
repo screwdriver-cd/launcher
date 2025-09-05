@@ -63,7 +63,7 @@ RUN set -x \
    && tar -C . -ozxvf skopeo-linux.tar.gz \
    && mv skopeo.linux.arm64 skopeo \
    # Download sonar scanner cli any
-   && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip" \
+   && wget -O sonarscanner-cli-any.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.2.0.5079.zip" \
    && unzip -q sonarscanner-cli-any.zip \
    && mv sonar-scanner-* sonarscanner-cli-macosx-arm64 \
    # Cleanup
@@ -156,12 +156,15 @@ RUN set -x \
    && chmod +x /usr/local/bin/dumb-init \
    && cp /usr/local/bin/dumb-init /opt/sd/dumb-init \
    # Install Sonar scanner cli
-   && wget -O sonarscanner-cli-linux.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip" \
-   && wget -O sonarscanner-cli-macosx.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-macosx.zip" \
+   && export SONAR_ARCH=${TARGETARCH} \
+   && if [ "$SONAR_ARCH" = "amd64" ]; then export SONAR_ARCH=x64 ; fi \
+   && if [ "$SONAR_ARCH" = "arm64" ]; then export SONAR_ARCH=aarch64 ; fi \
+   && wget -O sonarscanner-cli-linux.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.2.0.5079-linux-${SONAR_ARCH}.zip" \
+   && wget -O sonarscanner-cli-macosx.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.2.0.5079-macosx-${SONAR_ARCH}.zip" \
    && unzip -q sonarscanner-cli-linux.zip \
    && unzip -q sonarscanner-cli-macosx.zip \
-   && mv sonar-scanner-*-linux sonarscanner-cli-linux \
-   && mv sonar-scanner-*-macosx sonarscanner-cli-macosx \
+   && mv sonar-scanner-*-linux-* sonarscanner-cli-linux \
+   && mv sonar-scanner-*-macosx-* sonarscanner-cli-macosx \
    # Install skopeo
    && chmod +x skopeo \
    # Install zstd linux
