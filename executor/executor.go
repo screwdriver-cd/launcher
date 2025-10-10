@@ -323,7 +323,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 		fReader := bufio.NewReader(f)
 
 		go func() {
+			startTime := time.Now()
 			runCode, rcErr := doRunCommand(guid, stepFilePath, emitter, f, fReader, cmd.Name)
+			elapsedMS := time.Since(startTime).Milliseconds()
+
+			log.Printf("Completed step: name=%s, exit_code=%d, elapsed_ms=%d", cmd.Name, runCode, elapsedMS)
 			// exit code & errors from doRunCommand
 			eCode <- runCode
 			runErr <- rcErr
@@ -373,7 +377,11 @@ func Run(path string, env []string, emitter screwdriver.Emitter, build screwdriv
 			return fmt.Errorf("Updating step start %q: %v", cmd.Name, err)
 		}
 
+		startTime := time.Now()
 		code, cmdErr = doRunTeardownCommand(cmd, emitter, shellBin, exportFile, sourceDir, stepExitCode)
+		elapsedMS := time.Since(startTime).Milliseconds()
+
+		log.Printf("Completed step: name=%s, exit_code=%d, elapsed_ms=%d", cmd.Name, code, elapsedMS)
 
 		if code != ExitOk {
 			stepExitCode = code
