@@ -167,7 +167,7 @@ sd_build_setup_time_secs{image_name="` + image + `",pipeline_id="` + pipelineId 
 		}
 		if res.StatusCode/100 != 2 {
 			msg := fmt.Sprintf("pushMetrics: failed to push metrics to [%v], buildId:[%v], response status code:[%v]", pushgatewayURL, buildID, res.StatusCode)
-			log.Printf(msg)
+			log.Printf("%s", msg)
 			return errors.New(msg)
 		}
 		log.Printf("pushMetrics: successfully pushed metrics for build:[%v]", buildID)

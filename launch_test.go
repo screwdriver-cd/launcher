@@ -1211,7 +1211,7 @@ func TestMetaWhenStartPipeline(t *testing.T) {
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
-		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+		t.Errorf("%s", fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
@@ -1291,7 +1291,7 @@ func TestMetaWhenStartPipelineWithExternalBuild(t *testing.T) {
 	assert.JSONEq(t, want, string(defaultMeta))
 	assert.JSONEq(t, externalWant, string(externalMeta))
 	if err != nil {
-		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+		t.Errorf("%s", fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
@@ -1362,7 +1362,7 @@ func TestMetaWhenStartPipelineWithTagTrigger(t *testing.T) {
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
-		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+		t.Errorf("%s", fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
@@ -1443,7 +1443,7 @@ func TestMetaWhenStartPipelineWithReleaseTrigger(t *testing.T) {
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
-		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+		t.Errorf("%s", fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
@@ -1518,7 +1518,7 @@ func TestMetaWhenStartPipelineWithPRClosedTrigger(t *testing.T) {
 
 	assert.JSONEq(t, want, string(defaultMeta))
 	if err != nil {
-		t.Errorf(fmt.Sprintf("err returned: %s", err.Error()))
+		t.Errorf("%s", fmt.Sprintf("err returned: %s", err.Error()))
 	}
 }
 
