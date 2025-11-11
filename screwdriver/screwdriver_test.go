@@ -156,7 +156,7 @@ func TestBuildFromID(t *testing.T) {
 			statusCode: 500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/builds/0): " +
 				"Get \"http://fakeurl/v4/builds/0\": " +
-				"GET http://fakeurl/v4/builds/0 giving up after 5 attempts "),
+				"GET http://fakeurl/v4/builds/0 giving up after 5 attempt(s) "),
 		},
 		{
 			build:      Build{},
@@ -214,7 +214,7 @@ func TestEventFromID(t *testing.T) {
 			statusCode: 500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/events/0): " +
 				"Get \"http://fakeurl/v4/events/0\": " +
-				"GET http://fakeurl/v4/events/0 giving up after 5 attempts "),
+				"GET http://fakeurl/v4/events/0 giving up after 5 attempt(s) "),
 		},
 		{
 			event:      Event{},
@@ -280,7 +280,7 @@ func TestGetCoverageInfo(t *testing.T) {
 			statusCode:   500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId=): " +
 				"Get \"http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId=\": " +
-				"GET http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId= giving up after 5 attempts "),
+				"GET http://fakeurl/v4/coverage/info?jobId=123&pipelineId=456&jobName=main&pipelineName=d2lam/mytest&scope=&prNum=&prParentJobId= giving up after 5 attempt(s) "),
 		},
 		{
 			pipelineName: "d2lam/mytest",
@@ -340,7 +340,7 @@ func TestJobFromID(t *testing.T) {
 			statusCode: 500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/jobs/0): " +
 				"Get \"http://fakeurl/v4/jobs/0\": " +
-				"GET http://fakeurl/v4/jobs/0 giving up after 5 attempts "),
+				"GET http://fakeurl/v4/jobs/0 giving up after 5 attempt(s) "),
 		},
 		{
 			job:        Job{},
@@ -406,7 +406,7 @@ func TestPipelineFromID(t *testing.T) {
 			statusCode: 500,
 			err: errors.New("WARNING: received error from GET(http://fakeurl/v4/pipelines/0): " +
 				"Get \"http://fakeurl/v4/pipelines/0\": " +
-				"GET http://fakeurl/v4/pipelines/0 giving up after 5 attempts "),
+				"GET http://fakeurl/v4/pipelines/0 giving up after 5 attempt(s) "),
 		},
 		{
 			pipeline:   Pipeline{},
@@ -463,7 +463,7 @@ func TestUpdateBuildStatus(t *testing.T) {
 		{Success, "", meta, 500, errors.New("Posting to Build Status: " +
 			"WARNING: received error from PUT(http://fakeurl/v4/builds/15): " +
 			"Put \"http://fakeurl/v4/builds/15\": " +
-			"PUT http://fakeurl/v4/builds/15 giving up after 5 attempts ")},
+			"PUT http://fakeurl/v4/builds/15 giving up after 5 attempt(s) ")},
 	}
 
 	for _, test := range tests {
