@@ -4,7 +4,7 @@ shared:
         GO111MODULE: on
 jobs:
     main:
-        image: golang:1.19
+        image: golang:1.25
         environment:
             SD_SONAR_OPTS: "-Dsonar.sources=./ -Dsonar.exclusions=**/*_test.go,**/vendor/** -Dsonar.tests=./ -Dsonar.test.inclusions=**/*_test.go -Dsonar.test.exclusions=**/vendor/** -Dsonar.go.coverage.reportPaths=${SD_ARTIFACTS_DIR}/coverage.out -Dsonar.go.tests.reportPaths=${SD_ARTIFACTS_DIR}/report.json"
         requires: [~commit, ~pr]
@@ -13,15 +13,14 @@ jobs:
             - install: go mod download
             - vet: go vet ./...
             - gofmt: (! gofmt -d . | grep '^')
-            # pin gotestsum version because v1.12.3 occurs error when install
-            - test-setup: go install gotest.tools/gotestsum@v1.12.2
+            - test-setup: go install gotest.tools/gotestsum@latest
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             # Ensure we can compile
             - build: go build -a -o /dev/null
             # Test cross-compiling as well
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
     publish:
-        image: golang:1.19
+        image: golang:1.25
         requires: main
         steps:
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
