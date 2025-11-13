@@ -14,7 +14,7 @@ jobs:
             - vet: go vet ./...
             - gofmt: (! gofmt -d . | grep '^')
             # pin gotestsum version because v1.12.3 occurs error when install
-            - test-setup: go install gotest.tools/gotestsum@v1.13.0
+            - test-setup: go install gotest.tools/gotestsum@latest
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             # Ensure we can compile
             - build: go build -a -o /dev/null
