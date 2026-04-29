@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS base
+FROM alpine:3.23 AS base
 LABEL MAINTAINER="Screwdriver Team <screwdriver.cd>"
 
 ARG TARGETOS TARGETARCH
