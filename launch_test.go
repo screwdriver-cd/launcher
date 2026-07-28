@@ -1063,23 +1063,24 @@ func TestEnvSecrets(t *testing.T) {
 func TestCreateEnvironment(t *testing.T) {
 	os.Setenv("OSENVWITHEQUALS", "foo=bar=")
 	base := map[string]string{
-		"SD_TOKEN":        "1234",
-		"FOO":             "bar",
-		"THINGWITHEQUALS": "abc=def",
-		"GETSOVERRIDDEN":  "goesaway",
+		"SD_TOKEN":          "1234",
+		"FOO":               "bar",
+		"THING_WITH_EQUALS": "abc=def",
+		"GETS_OVERRIDDEN":   "goesaway",
+		"NO_EXPAND_ENV":     "foo$1$FOO$BAR",
 	}
 
 	secrets := screwdriver.Secrets{
 		{Name: "secret1", Value: "secret1value"},
-		{Name: "GETSOVERRIDDEN", Value: "override"},
-		{Name: "MYSECRETPATH", Value: "secretpath"},
-		{Name: "WITHDOLLAR", Value: "$FOO"},
+		{Name: "GETS_OVERRIDDEN", Value: "override"},
+		{Name: "MY_SECRET_PATH", Value: "secretpath"},
+		{Name: "WITH_DOLLAR", Value: "$FOO"},
 	}
 
 	var buildEnv []map[string]string
 	buildEnv = append(buildEnv, map[string]string{"GOPATH": "/go/path"})
-	buildEnv = append(buildEnv, map[string]string{"EXPANDENV": "${GOPATH}/expand"})
-	buildEnv = append(buildEnv, map[string]string{"EXPANDSECRET": "$MYSECRETPATH/home"})
+	buildEnv = append(buildEnv, map[string]string{"EXPAND_ENV": "${GOPATH}/expand"})
+	buildEnv = append(buildEnv, map[string]string{"EXPAND_SECRET": "$MY_SECRET_PATH/home"})
 	buildEnv = append(buildEnv, map[string]string{"SD_CACHE_STRATEGY": "disk"})
 	buildEnv = append(buildEnv, map[string]string{"SD_PIPELINE_CACHE_DIR": "/opt/sd/cache/pipeline"})
 	buildEnv = append(buildEnv, map[string]string{"SD_JOB_CACHE_DIR": "/opt/sd/cache/job"})
@@ -1103,14 +1104,15 @@ func TestCreateEnvironment(t *testing.T) {
 	for _, want := range []string{
 		"SD_TOKEN=1234",
 		"FOO=bar",
-		"THINGWITHEQUALS=abc=def",
+		"THING_WITH_EQUALS=abc=def",
 		"secret1=secret1value",
-		"GETSOVERRIDDEN=override",
+		"GETS_OVERRIDDEN=override",
+		"NO_EXPAND_ENV=foo$1$FOO$BAR",
 		"OSENVWITHEQUALS=foo=bar=",
 		"GOPATH=/go/path",
-		"EXPANDENV=/go/path/expand",
-		"EXPANDSECRET=secretpath/home",
-		"WITHDOLLAR=$FOO",
+		"EXPAND_ENV=/go/path/expand",
+		"EXPAND_SECRET=secretpath/home",
+		"WITH_DOLLAR=$FOO",
 		"SD_PIPELINE_CACHE_DIR=/opt/sd/cache/pipeline",
 		"SD_JOB_CACHE_DIR=/opt/sd/cache/job",
 		"SD_EVENT_CACHE_DIR=/opt/sd/cache/event",
@@ -1120,7 +1122,7 @@ func TestCreateEnvironment(t *testing.T) {
 		}
 	}
 
-	if foundEnv["GETSOVERRIDDEN=goesaway"] {
+	if foundEnv["GETS_OVERRIDDEN=goesaway"] {
 		t.Errorf("Failed to override the base environment with a secret")
 	}
 }

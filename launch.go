@@ -582,14 +582,17 @@ func createEnvironment(base map[string]string, secrets screwdriver.Secrets, buil
 	var userShellBin string
 
 	// Add the default environment values
+	// Default environment values should not be expanded
 	for k, v := range base {
-		os.Setenv(k, os.ExpandEnv(v))
+		os.Setenv(k, v)
 	}
 
 	for _, s := range secrets {
 		os.Setenv(s.Name, s.Value)
 	}
 
+	// Build environment values needs to be expanded
+	// e.g. TEST_RESULT_DIR=$SD_ARTIFACTS_DIR/test
 	for _, env := range build.Environment {
 		for k, v := range env {
 			os.Setenv(k, os.ExpandEnv(v))
