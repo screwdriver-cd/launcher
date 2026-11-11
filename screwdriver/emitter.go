@@ -44,7 +44,16 @@ func (e *emitter) StartCmd(cmd CommandDef) {
 }
 
 // Returns a single line (without the ending \n) from the input buffered reader
-// Pulled from https://stackoverflow.com/a/12206365
+//
+// Adapted from Malcolm's answer to "go readline -> string":
+// https://stackoverflow.com/a/12206365
+// Author: Malcolm (https://stackoverflow.com/users/362021/malcolm)
+//
+// This function, including modifications, is licensed under CC BY-SA 3.0:
+// https://creativecommons.org/licenses/by-sa/3.0/
+//
+// Changes: renamed the function and adjusted variable declarations,
+// formatting, and explanatory comments.
 func readln(r *bufio.Reader) (string, error) {
 	var (
 		isPrefix = true
